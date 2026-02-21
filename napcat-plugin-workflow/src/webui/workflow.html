@@ -1,0 +1,2149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>可视化工作流</title>
+  <style>
+    /* SVG Icon System */
+    .icon {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      vertical-align: -.125em;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .icon-lg {
+      width: 1.2em;
+      height: 1.2em;
+    }
+
+    :root {
+      --bg-primary: rgba(255, 255, 255, 0.4);
+      --bg-secondary: rgba(255, 255, 255, 0.6);
+      --bg-card: rgba(255, 255, 255, 0.5);
+      --bg-item: rgba(0, 0, 0, 0.03);
+      --text-primary: #1a1a1a;
+      --text-secondary: #666;
+      --text-muted: #999;
+      --border-color: rgba(0, 0, 0, 0.08);
+      --accent-color: #5865F2;
+      --accent-light: rgba(88, 101, 242, 0.1);
+      --success-color: #17c964;
+      --warning-color: #f5a623;
+      --danger-color: #f31260;
+      --canvas-dot: #e2e8f0;
+    }
+
+    html.dark {
+      --bg-primary: #1e1f22;
+      --bg-secondary: #1a1b1e;
+      --bg-card: #202124;
+      --bg-item: #2a2b2e;
+      --text-primary: #f5f5f5;
+      --text-secondary: #a1a1a1;
+      --text-muted: #666;
+      --border-color: #333538;
+      --accent-light: rgba(88, 101, 242, 0.2);
+      --canvas-dot: #374151;
+      background-color: #18191C;
+      color-scheme: dark;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: transparent;
+      min-height: 100vh;
+      padding: 12px;
+      color: var(--text-primary);
+    }
+
+    .header {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-icon {
+      width: 42px;
+      height: 42px;
+      background: var(--accent-light);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: var(--accent-color);
+    }
+
+    .header-title h4 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .header-title p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 8px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-item);
+      color: var(--text-primary);
+    }
+
+    .btn:hover {
+      background: var(--accent-light);
+      border-color: var(--accent-color);
+    }
+
+    .btn-primary {
+      background: var(--accent-color);
+      color: white;
+      border-color: var(--accent-color);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn-success {
+      background: var(--success-color);
+      color: white;
+      border-color: var(--success-color);
+    }
+
+    .btn-danger {
+      background: var(--danger-color);
+      color: white;
+      border-color: var(--danger-color);
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 11px;
+    }
+
+    .main-layout {
+      display: flex;
+      gap: 12px;
+      height: calc(100vh - 110px);
+      min-height: 500px;
+    }
+
+    .sidebar {
+      width: 240px;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sidebar-section {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .sidebar-section:last-child {
+      border-bottom: none;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .sidebar-title {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .node-item {
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      background: var(--bg-item);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.2s;
+      font-size: 12px;
+    }
+
+    .node-item:hover {
+      border-color: var(--accent-color);
+      background: var(--accent-light);
+    }
+
+    .node-item .icon {
+      font-size: 14px;
+      width: 20px;
+      text-align: center;
+    }
+
+    .node-item.trigger .icon {
+      color: var(--success-color);
+    }
+
+    .node-item.condition .icon {
+      color: var(--warning-color);
+    }
+
+    .node-item.action .icon {
+      color: var(--accent-color);
+    }
+
+    .wf-item {
+      padding: 10px 12px;
+      background: var(--bg-item);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .wf-item:hover {
+      border-color: var(--accent-color);
+    }
+
+    .wf-item.active {
+      border-color: var(--accent-color);
+      background: var(--accent-light);
+      border-left: 3px solid var(--accent-color);
+    }
+
+    .wf-item .wf-name {
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+
+    .wf-item .wf-trigger {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .wf-item .wf-actions {
+      margin-top: 6px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .wf-badge {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+    }
+
+    .wf-badge.on {
+      background: rgba(23, 201, 100, 0.15);
+      color: var(--success-color);
+    }
+
+    .wf-badge.off {
+      background: rgba(243, 18, 96, 0.15);
+      color: var(--danger-color);
+    }
+
+    .canvas-container {
+      flex: 1;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .canvas-inner {
+      width: 4000px;
+      height: 3000px;
+      position: relative;
+      background-image: radial-gradient(circle, var(--canvas-dot) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .wf-node {
+      position: absolute;
+      min-width: 160px;
+      background: var(--bg-card);
+      backdrop-filter: blur(8px);
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      cursor: move;
+      z-index: 10;
+    }
+
+    .wf-node.selected {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+
+    .wf-node.trigger {
+      border-color: var(--success-color);
+    }
+
+    .wf-node.condition {
+      border-color: var(--warning-color);
+    }
+
+    .wf-node.action {
+      border-color: var(--accent-color);
+    }
+
+    .wf-node.storage,
+    .wf-node.global_storage {
+      border-color: var(--danger-color);
+    }
+
+    .wf-node.delay {
+      border-color: var(--text-muted);
+    }
+
+    .node-header {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .node-body {
+      padding: 8px 10px;
+      font-size: 10px;
+      color: var(--text-secondary);
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .node-port {
+      width: 16px;
+      height: 16px;
+      background: var(--bg-card);
+      border: 3px solid var(--text-muted);
+      border-radius: 50%;
+      position: absolute;
+      cursor: pointer;
+      z-index: 100;
+      transition: all 0.15s;
+    }
+
+    .node-port.input {
+      top: 50%;
+      left: -8px;
+      transform: translateY(-50%);
+    }
+
+    .node-port.output {
+      top: 50%;
+      right: -8px;
+      transform: translateY(-50%);
+    }
+
+    .node-port.output-1 {
+      top: 35%;
+      right: -8px;
+      transform: translateY(-50%);
+    }
+
+    .node-port.output-2 {
+      top: 65%;
+      right: -8px;
+      transform: translateY(-50%);
+      border-color: var(--danger-color);
+    }
+
+    .node-port:hover {
+      background: var(--accent-color);
+      border-color: var(--accent-color);
+      transform: translateY(-50%) scale(1.3);
+    }
+
+    .node-port.waiting {
+      background: var(--success-color);
+      border-color: var(--success-color);
+      animation: pulse 0.8s infinite;
+      transform: translateY(-50%) scale(1.2);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .btn-del-node {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--danger-color);
+      color: #fff;
+      border: none;
+      font-size: 10px;
+      cursor: pointer;
+      display: none;
+      z-index: 30;
+    }
+
+    .wf-node:hover .btn-del-node {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .connection-line {
+      stroke: var(--text-muted);
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #ffffff;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-box.lg {
+      max-width: 700px;
+    }
+
+    html.dark .modal-box {
+      background: #1f1f1f;
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h5 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+      background: var(--bg-item);
+      color: var(--text-primary);
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+
+    select.form-control {
+      cursor: pointer;
+    }
+
+    textarea.form-control {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .table th,
+    .table td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .table th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.success {
+      background: rgba(23, 201, 100, 0.9);
+      color: white;
+    }
+
+    .toast.error {
+      background: rgba(243, 18, 96, 0.9);
+      color: white;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .ai-input-wrap {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .ai-input-wrap input {
+      flex: 1;
+    }
+
+    .canvas-placeholder {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-card);
+      backdrop-filter: blur(8px);
+    }
+
+    .canvas-placeholder.hidden {
+      display: none;
+    }
+
+    .canvas-placeholder-icon {
+      font-size: 48px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      opacity: 0.6;
+      width: 48px;
+      height: 48px;
+    }
+
+    .canvas-placeholder-text {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .canvas-placeholder-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- SVG Symbol Definitions -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="i-diagram-3" viewBox="0 0 16 16">
+      <path fill-rule="evenodd"
+        d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5v-1zM8.5 5a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1zM0 11.5A1.5 1.5 0 0 1 1.5 10h1A1.5 1.5 0 0 1 4 11.5v1A1.5 1.5 0 0 1 2.5 14h-1A1.5 1.5 0 0 1 0 12.5v-1zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1zm4.5.5A1.5 1.5 0 0 1 7.5 10h1a1.5 1.5 0 0 1 1.5 1.5v1A1.5 1.5 0 0 1 8.5 14h-1A1.5 1.5 0 0 1 6 12.5v-1zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1zm4.5.5a1.5 1.5 0 0 1 1.5-1.5h1a1.5 1.5 0 0 1 1.5 1.5v1a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5v-1zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1z" />
+    </symbol>
+    <symbol id="i-pencil" viewBox="0 0 16 16">
+      <path
+        d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
+    </symbol>
+    <symbol id="i-stars" viewBox="0 0 16 16">
+      <path
+        d="M7.657 6.247c.11-.33.576-.33.686 0l.645 1.937a2.89 2.89 0 0 0 1.829 1.828l1.936.645c.33.11.33.576 0 .686l-1.937.645a2.89 2.89 0 0 0-1.828 1.829l-.645 1.936a.361.361 0 0 1-.686 0l-.645-1.937a2.89 2.89 0 0 0-1.828-1.828l-1.937-.645a.361.361 0 0 1 0-.686l1.937-.645a2.89 2.89 0 0 0 1.828-1.829l.645-1.936zM3.794 1.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.5.845 1.018 1.018l1.162.387a.217.217 0 0 1 0 .412l-1.162.387A1.734 1.734 0 0 0 4.593 5.53l-.387 1.162a.217.217 0 0 1-.412 0L3.407 5.53a1.734 1.734 0 0 0-1.018-1.018l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387A1.734 1.734 0 0 0 3.407 2.31l.387-1.162zM10.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732L9.1 2.137a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L10.863.1z" />
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 16 16">
+      <path d="M8 3.5a.5.5 0 0 0-1 0V8a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 7.71V3.5z" />
+      <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z" />
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 16 16">
+      <path
+        d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z" />
+      <path
+        d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z" />
+    </symbol>
+    <symbol id="i-upload" viewBox="0 0 16 16">
+      <path
+        d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z" />
+      <path
+        d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z" />
+    </symbol>
+    <symbol id="i-plus-lg" viewBox="0 0 16 16">
+      <path fill-rule="evenodd"
+        d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z" />
+    </symbol>
+    <symbol id="i-check-lg" viewBox="0 0 16 16">
+      <path
+        d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z" />
+    </symbol>
+    <symbol id="i-lightning" viewBox="0 0 16 16">
+      <path
+        d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z" />
+    </symbol>
+    <symbol id="i-signpost-split" viewBox="0 0 16 16">
+      <path
+        d="M7 7V1.414a1 1 0 0 1 2 0V2h5a1 1 0 0 1 .8.4l.975 1.3a.5.5 0 0 1 0 .6L14.8 5.6a1 1 0 0 1-.8.4H9v10H7v-5H2a1 1 0 0 1-.8-.4L.225 9.3a.5.5 0 0 1 0-.6L1.2 7.4A1 1 0 0 1 2 7h5zm1 3V8H2l-.75 1L2 10h6zm0-5h6l.75-1L14 3H8v2z" />
+    </symbol>
+    <symbol id="i-play-circle" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+      <path
+        d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z" />
+    </symbol>
+    <symbol id="i-database" viewBox="0 0 16 16">
+      <path
+        d="M4.318 2.687C5.234 2.271 6.536 2 8 2s2.766.27 3.682.687C12.644 3.125 13 3.627 13 4c0 .374-.356.875-1.318 1.313C10.766 5.729 9.464 6 8 6s-2.766-.27-3.682-.687C3.356 4.875 3 4.373 3 4c0-.374.356-.875 1.318-1.313zM13 5.698V7c0 .374-.356.875-1.318 1.313C10.766 8.729 9.464 9 8 9s-2.766-.27-3.682-.687C3.356 7.875 3 7.373 3 7V5.698c.271.202.58.378.904.525C4.978 6.711 6.427 7 8 7s3.022-.289 4.096-.777A4.92 4.92 0 0 0 13 5.698zM14 4c0-1.007-.875-1.755-1.904-2.223C11.022 1.289 9.573 1 8 1s-3.022.289-4.096.777C2.875 2.245 2 2.993 2 4v9c0 1.007.875 1.755 1.904 2.223C4.978 15.71 6.427 16 8 16s3.022-.289 4.096-.777C13.125 14.755 14 14.007 14 13V4zm-1 4.698V10c0 .374-.356.875-1.318 1.313C10.766 11.729 9.464 12 8 12s-2.766-.27-3.682-.687C3.356 10.875 3 10.373 3 10V8.698c.271.202.58.378.904.525C4.978 9.71 6.427 10 8 10s3.022-.289 4.096-.777A4.92 4.92 0 0 0 13 8.698zm0 3V13c0 .374-.356.875-1.318 1.313C10.766 14.729 9.464 15 8 15s-2.766-.27-3.682-.687C3.356 13.875 3 13.373 3 13v-1.302c.271.202.58.378.904.525C4.978 12.71 6.427 13 8 13s3.022-.289 4.096-.777c.324-.147.633-.323.904-.525z" />
+    </symbol>
+    <symbol id="i-globe" viewBox="0 0 16 16">
+      <path
+        d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.674a6.958 6.958 0 0 0-.656 2.5h2.49zM4.847 5a12.5 12.5 0 0 0-.338 2.5H7.5V5H4.847zM8.5 5v2.5h2.99a12.495 12.495 0 0 0-.337-2.5H8.5zM4.51 8.5a12.5 12.5 0 0 0 .337 2.5H7.5V8.5H4.51zm3.99 0V11h2.653c.187-.765.306-1.608.338-2.5H8.5zM5.145 12c.138.386.295.744.468 1.068.552 1.035 1.218 1.65 1.887 1.855V12H5.145zm.182 2.472a6.696 6.696 0 0 1-.597-.933A9.268 9.268 0 0 1 4.09 12H2.255a7.024 7.024 0 0 0 3.072 2.472zM3.82 11a13.652 13.652 0 0 1-.312-2.5h-2.49c.062.89.291 1.733.656 2.5H3.82zm6.853 3.472A7.024 7.024 0 0 0 13.745 12H11.91a9.27 9.27 0 0 1-.64 1.539 6.688 6.688 0 0 1-.597.933zM8.5 12v2.923c.67-.204 1.335-.82 1.887-1.855.173-.324.33-.682.468-1.068H8.5zm3.68-1h2.146c.365-.767.594-1.61.656-2.5h-2.49a13.65 13.65 0 0 1-.312 2.5zm2.802-3.5a6.959 6.959 0 0 0-.656-2.5H12.18c.174.782.282 1.623.312 2.5h2.49zM11.27 2.461c.247.464.462.98.64 1.539h1.835a7.024 7.024 0 0 0-3.072-2.472c.218.284.418.598.597.933zM10.855 4a7.966 7.966 0 0 0-.468-1.068C9.835 1.897 9.17 1.282 8.5 1.077V4h2.355z" />
+    </symbol>
+    <symbol id="i-trophy" viewBox="0 0 16 16">
+      <path
+        d="M2.5.5A.5.5 0 0 1 3 0h10a.5.5 0 0 1 .5.5c0 .538-.012 1.05-.034 1.536a3 3 0 1 1-1.133 5.89c-.79 1.865-1.878 2.777-2.833 3.011v2.173l1.425.356c.194.048.377.135.537.255L13.3 15.1a.5.5 0 0 1-.3.9H3a.5.5 0 0 1-.3-.9l1.838-1.379c.16-.12.343-.207.537-.255L6.5 13.11v-2.173c-.955-.234-2.043-1.146-2.833-3.012a3 3 0 1 1-1.132-5.89A33.076 33.076 0 0 1 2.5.5zm.099 2.54a2 2 0 0 0 .72 3.935c-.333-1.398-.588-2.885-.72-3.935zM13.902 3.04c-.133 1.05-.388 2.537-.72 3.934a2 2 0 0 0 .72-3.934z" />
+    </symbol>
+    <symbol id="i-braces" viewBox="0 0 16 16">
+      <path
+        d="M2.114 8.063V7.9c1.005-.102 1.497-.615 1.497-1.6V4.503c0-1.094.39-1.538 1.354-1.538h.273V2h-.376C3.25 2 2.49 2.759 2.49 4.352v1.524c0 1.094-.376 1.456-1.49 1.456v1.299c1.114 0 1.49.362 1.49 1.456v1.524C2.49 13.241 3.25 14 4.862 14h.376v-.964h-.273c-.964 0-1.354-.444-1.354-1.538V9.663c0-.984-.492-1.497-1.497-1.6zM13.886 7.9v.163c-1.005.103-1.497.616-1.497 1.6v1.798c0 1.094-.39 1.538-1.354 1.538h-.273V14h.376c1.613 0 2.372-.759 2.372-2.352v-1.524c0-1.094.376-1.456 1.49-1.456V7.369c-1.114 0-1.49-.362-1.49-1.456V4.389C13.51 2.759 12.75 2 11.138 2h-.376v.964h.273c.964 0 1.354.444 1.354 1.538V6.3c0 .984.492 1.497 1.497 1.6z" />
+    </symbol>
+    <symbol id="i-shuffle" viewBox="0 0 16 16">
+      <path fill-rule="evenodd"
+        d="M0 3.5A.5.5 0 0 1 .5 3H1c2.202 0 3.827 1.24 4.874 2.418.49.552.865 1.102 1.126 1.532.26-.43.636-.98 1.126-1.532C9.173 4.24 10.798 3 13 3v1c-1.798 0-3.173 1.01-4.126 2.082A9.624 9.624 0 0 0 7.556 8a9.624 9.624 0 0 0 1.317 1.918C9.828 10.99 11.204 12 13 12v1c-2.202 0-3.827-1.24-4.874-2.418A10.595 10.595 0 0 1 7 9.05c-.26.43-.636.98-1.126 1.532C4.827 11.76 3.202 13 1 13H.5a.5.5 0 0 1 0-1H1c1.798 0 3.173-1.01 4.126-2.082A9.624 9.624 0 0 0 6.444 8a9.624 9.624 0 0 0-1.317-1.918C4.172 5.01 2.796 4 1 4H.5a.5.5 0 0 1-.5-.5z" />
+      <path
+        d="M13 5.466V1.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192zm0 9v-3.932a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192z" />
+    </symbol>
+    <symbol id="i-chat-quote" viewBox="0 0 16 16">
+      <path
+        d="M2.678 11.894a1 1 0 0 1 .287.801 10.97 10.97 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8.06 8.06 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894zm-.493 3.905a21.682 21.682 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a9.68 9.68 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9.06 9.06 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105z" />
+      <path
+        d="M7.066 6.76A1.665 1.665 0 0 0 4 7.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 0 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 7.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 0 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z" />
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 16 16">
+      <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
+    </symbol>
+    <symbol id="i-question-circle" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+      <path
+        d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z" />
+    </symbol>
+    <symbol id="i-shield-lock" viewBox="0 0 16 16">
+      <path
+        d="M5.338 1.59a61.44 61.44 0 0 0-2.837.856.481.481 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 0 0 .101.025.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.775 11.775 0 0 1-2.517 2.453 7.159 7.159 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7.158 7.158 0 0 1-1.048-.625 11.777 11.777 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 62.456 62.456 0 0 1 5.072.56z" />
+      <path
+        d="M9.5 6.5a1.5 1.5 0 0 1-1 1.415l.385 1.99a.5.5 0 0 1-.491.595h-.788a.5.5 0 0 1-.49-.595l.384-1.99a1.5 1.5 0 1 1 2-1.415z" />
+    </symbol>
+    <symbol id="i-info-circle" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+      <path
+        d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
+    </symbol>
+    <symbol id="i-at" viewBox="0 0 16 16">
+      <path
+        d="M13.106 7.222c0-2.967-2.249-5.032-5.482-5.032-3.35 0-5.646 2.318-5.646 5.702 0 3.493 2.235 5.708 5.762 5.708.862 0 1.689-.123 2.304-.335v-.862c-.43.199-1.354.328-2.29.328-2.926 0-4.813-1.88-4.813-4.798 0-2.844 1.921-4.881 4.594-4.881 2.735 0 4.608 1.688 4.608 4.156 0 1.682-.554 2.769-1.416 2.769-.492 0-.772-.28-.772-.76V5.206H8.923v.834h-.11c-.266-.595-.881-.964-1.6-.964-1.4 0-2.378 1.162-2.378 2.823 0 1.737.957 2.906 2.379 2.906.8 0 1.415-.39 1.709-1.087h.11c.081.67.703 1.148 1.503 1.148 1.572 0 2.57-1.415 2.57-3.643zm-7.177.704c0-1.197.54-1.907 1.456-1.907.93 0 1.524.738 1.524 1.907S8.308 9.84 7.371 9.84c-.895 0-1.442-.725-1.442-1.914z" />
+    </symbol>
+    <symbol id="i-person" viewBox="0 0 16 16">
+      <path
+        d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4Zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10Z" />
+    </symbol>
+    <symbol id="i-calendar" viewBox="0 0 16 16">
+      <path
+        d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
+    </symbol>
+    <symbol id="i-chat-dots" viewBox="0 0 16 16">
+      <path d="M5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+      <path
+        d="m2.165 15.803.02-.004c1.83-.363 2.948-.842 3.468-1.105A9.06 9.06 0 0 0 8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6a10.437 10.437 0 0 1-.524 2.318l-.003.011a10.722 10.722 0 0 1-.244.637c-.079.186.074.394.273.362a21.673 21.673 0 0 0 .693-.125zm.8-3.108a1 1 0 0 0-.287-.801C1.618 10.83 1 9.468 1 8c0-3.192 3.004-6 7-6s7 2.808 7 6c0 3.193-3.004 6-7 6a8.06 8.06 0 0 1-2.088-.272 1 1 0 0 0-.711.074c-.387.196-1.24.57-2.634.893a10.97 10.97 0 0 0 .398-2z" />
+    </symbol>
+    <symbol id="i-check-circle" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+      <path
+        d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z" />
+    </symbol>
+    <symbol id="i-exclamation-circle" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+      <path
+        d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z" />
+    </symbol>
+    <symbol id="i-hourglass-split" viewBox="0 0 16 16">
+      <path
+        d="M2.5 15a.5.5 0 1 1 0-1h1v-1a4.5 4.5 0 0 1 2.557-4.06c.29-.139.443-.377.443-.59v-.7c0-.213-.154-.451-.443-.59A4.5 4.5 0 0 1 3.5 3V2h-1a.5.5 0 0 1 0-1h11a.5.5 0 0 1 0 1h-1v1a4.5 4.5 0 0 1-2.557 4.06c-.29.139-.443.377-.443.59v.7c0 .213.154.451.443.59A4.5 4.5 0 0 1 12.5 13v1h1a.5.5 0 0 1 0 1h-11zm2-13v1c0 .537.12 1.045.337 1.5h6.326c.216-.455.337-.963.337-1.5V2h-7zm3 6.35c0 .701-.478 1.236-1.011 1.492A3.5 3.5 0 0 0 4.5 13s.866-1.299 3-1.48V8.35zm1 0v3.17c2.134.181 3 1.48 3 1.48a3.5 3.5 0 0 0-1.989-3.158C8.978 9.586 8.5 9.052 8.5 8.351z" />
+    </symbol>
+    <symbol id="i-clipboard" viewBox="0 0 16 16">
+      <path
+        d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z" />
+      <path
+        d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z" />
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 16 16">
+      <path
+        d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z" />
+    </symbol>
+  </svg>
+
+  <!-- 头部 -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-icon"><svg class="icon">
+          <use href="#i-diagram-3" />
+        </svg></div>
+      <div class="header-title">
+        <h4>可视化工作流</h4>
+        <p>拖拽节点创建自动化流程</p>
+      </div>
+    </div>
+    <div class="header-center" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px">
+      <svg class="icon" style="color:var(--text-muted)">
+        <use href="#i-pencil" />
+      </svg>
+      <input type="text" id="workflowNameInput" class="form-control"
+        style="max-width:200px;text-align:center;font-weight:600" placeholder="工作流名称" onchange="updateWorkflowName()">
+    </div>
+    <div class="header-actions">
+      <button class="btn" onclick="showAiGenerate()"><svg class="icon">
+          <use href="#i-stars" />
+        </svg> AI生成</button>
+      <button class="btn" onclick="showScheduledTasks()"><svg class="icon">
+          <use href="#i-clock" />
+        </svg> 定时任务</button>
+      <button class="btn" onclick="exportAllWorkflows()" title="导出全部工作流"><svg class="icon">
+          <use href="#i-download" />
+        </svg> 导出</button>
+      <button class="btn" onclick="importWorkflows()" title="导入工作流"><svg class="icon">
+          <use href="#i-upload" />
+        </svg> 导入</button>
+      <button class="btn" onclick="newWorkflow()"><svg class="icon">
+          <use href="#i-plus-lg" />
+        </svg> 新建</button>
+      <button class="btn btn-primary" onclick="saveWorkflow()"><svg class="icon">
+          <use href="#i-check-lg" />
+        </svg> 保存</button>
+    </div>
+  </div>
+
+  <!-- 主布局 -->
+  <div class="main-layout">
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">节点类型</div>
+        <div class="node-item trigger" draggable="true" data-type="trigger"><svg class="icon">
+            <use href="#i-lightning" />
+          </svg> 触发器</div>
+        <div class="node-item condition" draggable="true" data-type="condition"><svg class="icon">
+            <use href="#i-signpost-split" />
+          </svg> 条件</div>
+        <div class="node-item action" draggable="true" data-type="action"><svg class="icon">
+            <use href="#i-play-circle" />
+          </svg> 动作</div>
+        <div class="node-item" draggable="true" data-type="storage"><svg class="icon">
+            <use href="#i-database" />
+          </svg> 用户存储</div>
+        <div class="node-item" draggable="true" data-type="global_storage"><svg class="icon">
+            <use href="#i-globe" />
+          </svg> 全局存储</div>
+        <div class="node-item" draggable="true" data-type="leaderboard"><svg class="icon">
+            <use href="#i-trophy" />
+          </svg> 排行榜</div>
+        <div class="node-item" draggable="true" data-type="delay"><svg class="icon">
+            <use href="#i-clock" />
+          </svg> 延时</div>
+        <div class="node-item" draggable="true" data-type="set_var"><svg class="icon">
+            <use href="#i-braces" />
+          </svg> 设置变量</div>
+        <div class="node-item" draggable="true" data-type="list_random"><svg class="icon">
+            <use href="#i-shuffle" />
+          </svg> 随机抽取</div>
+        <div class="node-item" draggable="true" data-type="comment"><svg class="icon">
+            <use href="#i-chat-quote" />
+          </svg> 注释</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">工作流列表</div>
+        <div id="workflowList"></div>
+      </div>
+      <div
+        style="padding:10px 12px;border-top:1px solid var(--border-color);text-align:center;font-size:10px;color:var(--text-muted);flex-shrink:0">
+        <div style="margin-bottom:6px">by 冷曦</div>
+        <div style="display:flex;justify-content:center;gap:10px">
+          <a href="https://github.com/lengxi-root/napcat-plugin-lengxi" target="_blank"
+            style="color:var(--accent-color);text-decoration:none;display:inline-flex;align-items:center;gap:3px">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" />
+            </svg>
+            GitHub
+          </a>
+          <a href="https://qm.qq.com/q/oB5hdOZcuQ" target="_blank"
+            style="color:var(--accent-color);text-decoration:none;display:inline-flex;align-items:center;gap:3px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            交流群
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 画布 -->
+    <div class="canvas-container" id="canvasContainer">
+      <div class="canvas-placeholder" id="canvasPlaceholder">
+        <svg class="icon canvas-placeholder-icon">
+          <use href="#i-diagram-3" />
+        </svg>
+        <div class="canvas-placeholder-text">请点击「新建」来激活画板</div>
+        <div class="canvas-placeholder-hint">或从左侧工作流列表中选择一个已有工作流</div>
+      </div>
+      <div class="canvas-inner" id="canvasInner">
+        <svg id="connectionsSvg"
+          style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;"></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点编辑模态框 -->
+  <div class="modal-overlay" id="nodeModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h5 id="nodeModalTitle">编辑节点</h5>
+        <button class="modal-close" onclick="closeModal('nodeModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="nodeModalBody"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('nodeModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveNodeEdit()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 定时任务模态框 -->
+  <div class="modal-overlay" id="scheduledModal">
+    <div class="modal-box lg">
+      <div class="modal-header">
+        <h5><svg class="icon">
+            <use href="#i-clock" />
+          </svg> 定时任务管理</h5>
+        <button class="modal-close" onclick="closeModal('scheduledModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <button class="btn btn-sm btn-primary" onclick="showAddTaskForm()" style="margin-bottom:12px"><svg class="icon">
+            <use href="#i-plus" />
+          </svg> 添加任务</button>
+        <div id="addTaskForm"
+          style="display:none;background:var(--bg-item);padding:12px;border-radius:8px;margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="form-group"><label class="form-label">任务ID</label><input type="text" class="form-control"
+                id="taskId" placeholder="唯一标识"></div>
+            <div class="form-group"><label class="form-label">绑定工作流</label><select class="form-control"
+                id="taskWorkflowId"></select></div>
+            <div class="form-group"><label class="form-label">任务类型</label><select class="form-control" id="taskType"
+                onchange="updateTaskTypeFields()">
+                <option value="daily">每日定时</option>
+                <option value="interval">间隔执行</option>
+              </select></div>
+            <div class="form-group" id="dailyTimeGroup"><label class="form-label">执行时间</label><input type="time"
+                class="form-control" id="taskDailyTime" value="08:00"></div>
+            <div class="form-group" id="intervalGroup" style="display:none"><label
+                class="form-label">间隔(秒)</label><input type="number" class="form-control" id="taskInterval" value="3600"
+                min="60"></div>
+            <div class="form-group"><label class="form-label">目标类型</label><select class="form-control"
+                id="taskTargetType">
+                <option value="group">群聊</option>
+                <option value="private">私聊</option>
+              </select></div>
+            <div class="form-group"><label class="form-label">目标ID</label><input type="text" class="form-control"
+                id="taskTargetId" placeholder="群号或QQ号"></div>
+            <div class="form-group"><label class="form-label">虚拟触发者</label><input type="text" class="form-control"
+                id="taskTriggerUserId" placeholder="用于条件判断的QQ号（可选）"></div>
+            <div class="form-group"><label class="form-label">备注</label><input type="text" class="form-control"
+                id="taskDesc" placeholder="可选"></div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn btn-sm btn-success" onclick="addScheduledTask()">添加</button>
+            <button class="btn btn-sm" onclick="hideAddTaskForm()">取消</button>
+          </div>
+        </div>
+        <div id="scheduledTaskList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认对话框模态框 -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box" style="max-width:350px">
+      <div class="modal-header">
+        <h5 id="confirmModalTitle"><svg class="icon">
+            <use href="#i-question-circle" />
+          </svg> 确认操作</h5>
+        <button class="modal-close" onclick="closeConfirmModal(false)">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmModalMessage" style="font-size:13px">确定执行此操作？</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeConfirmModal(false)">取消</button>
+        <button class="btn btn-danger" onclick="closeConfirmModal(true)">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主人验证模态框 -->
+  <div class="modal-overlay" id="masterAuthModal">
+    <div class="modal-box" style="max-width:350px">
+      <div class="modal-header">
+        <h5><svg class="icon">
+            <use href="#i-shield-lock" />
+          </svg> 权限验证</h5>
+        <button class="modal-close" onclick="closeModal('masterAuthModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">此功能需要主人权限，请输入验证密码</p>
+        <div class="form-group">
+          <label class="form-label">主人密码</label>
+          <input type="password" class="form-control" id="masterPassword" placeholder="请输入主人密码">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('masterAuthModal')">取消</button>
+        <button class="btn btn-primary" onclick="verifyMasterPassword()">验证</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI生成模态框 -->
+  <div class="modal-overlay" id="aiModal">
+    <div class="modal-box lg">
+      <div class="modal-header">
+        <h5><svg class="icon">
+            <use href="#i-stars" />
+          </svg> AI 生成工作流</h5>
+        <button class="modal-close" onclick="closeModal('aiModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">描述你想要的工作流功能</label>
+          <textarea class="form-control" id="aiDescription" rows="4"
+            placeholder="例如：当用户发送「签到」时，判断今天是否已签到，未签到则随机获得5-10积分，已签到则提示明天再来"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">AI模型</label>
+          <select class="form-control" id="aiModel">
+            <optgroup label="主接口 (type=1)">
+              <option value="auto" selected>🔄 自动切换 (推荐)</option>
+              <option value="gpt-5">GPT-5</option>
+              <option value="gpt-5.1">GPT-5.1</option>
+              <option value="gpt-5-mini">GPT-5 Mini</option>
+              <option value="gpt-5-nano">GPT-5 Nano</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="gpt-4">GPT-4</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+              <option value="claude-3-5-haiku">Claude 3.5 Haiku</option>
+              <option value="deepseek-chat">DeepSeek Chat</option>
+              <option value="deepseek-reasoner">DeepSeek Reasoner</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+            </optgroup>
+          </select>
+        </div>
+        <div id="aiResult"
+          style="display:none;margin-top:12px;padding:12px;background:var(--bg-item);border-radius:8px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('aiModal')">取消</button>
+        <button class="btn btn-primary" id="aiGenerateBtn" onclick="generateWorkflowByAi()"><svg class="icon">
+            <use href="#i-stars" />
+          </svg> 生成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 回复变量帮助弹窗 -->
+  <div class="modal-overlay" id="replyHelpModal">
+    <div class="modal-box lg" style="display:flex;flex-direction:column;max-height:85vh">
+      <div class="modal-header" style="flex-shrink:0">
+        <h5><svg class="icon">
+            <use href="#i-info-circle" />
+          </svg> 回复内容支持的变量</h5>
+        <button class="modal-close" onclick="closeModal('replyHelpModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="flex:1;overflow-y:auto;min-height:0">
+        <div style="font-size:12px">
+          <div style="margin-bottom:16px">
+            <div style="font-weight:600;color:var(--accent-color);margin-bottom:8px;font-size:13px"><svg class="icon">
+                <use href="#i-at" />
+              </svg> 艾特功能</div>
+            <table class="table">
+              <tr>
+                <td style="width:180px"><code>{at_user}</code></td>
+                <td>艾特发送消息的用户</td>
+              </tr>
+              <tr>
+                <td><code>[CQ:at,qq=123456]</code></td>
+                <td>艾特指定QQ号的用户（替换123456为QQ号）</td>
+              </tr>
+              <tr>
+                <td><code>[CQ:at,qq=all]</code></td>
+                <td>艾特全体成员（需要管理员权限）</td>
+              </tr>
+              <tr>
+                <td><code>[CQ:at,qq={user_id}]</code></td>
+                <td>艾特发送者（等同于 {at_user}）</td>
+              </tr>
+            </table>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-weight:600;color:var(--success-color);margin-bottom:8px;font-size:13px"><svg class="icon">
+                <use href="#i-person" />
+              </svg> 用户与群信息</div>
+            <table class="table">
+              <tr>
+                <td style="width:180px"><code>{user_id}</code></td>
+                <td>发送者的QQ号</td>
+              </tr>
+              <tr>
+                <td><code>{group_id}</code></td>
+                <td>当前群号（私聊为空）</td>
+              </tr>
+              <tr>
+                <td><code>{message_id}</code></td>
+                <td>消息ID（用于撤回等操作）</td>
+              </tr>
+              <tr>
+                <td><code>{content}</code></td>
+                <td>用户发送的消息内容</td>
+              </tr>
+              <tr>
+                <td><code>{message}</code></td>
+                <td>同 {content}</td>
+              </tr>
+            </table>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-weight:600;color:var(--warning-color);margin-bottom:8px;font-size:13px"><svg class="icon">
+                <use href="#i-calendar" />
+              </svg> 日期与时间</div>
+            <table class="table">
+              <tr>
+                <td style="width:180px"><code>{today}</code> / <code>{date}</code></td>
+                <td>当前日期 (YYYY-MM-DD)</td>
+              </tr>
+              <tr>
+                <td><code>{time}</code></td>
+                <td>当前时间 (HH:MM:SS)</td>
+              </tr>
+              <tr>
+                <td><code>{datetime}</code></td>
+                <td>日期时间 (YYYY-MM-DD HH:MM:SS)</td>
+              </tr>
+              <tr>
+                <td><code>{timestamp}</code></td>
+                <td>Unix时间戳（秒）</td>
+              </tr>
+              <tr>
+                <td><code>{year}</code></td>
+                <td>年份</td>
+              </tr>
+              <tr>
+                <td><code>{month}</code></td>
+                <td>月份 (1-12)</td>
+              </tr>
+              <tr>
+                <td><code>{day}</code></td>
+                <td>日期 (1-31)</td>
+              </tr>
+              <tr>
+                <td><code>{hour}</code></td>
+                <td>小时 (0-23)</td>
+              </tr>
+              <tr>
+                <td><code>{minute}</code></td>
+                <td>分钟 (0-59)</td>
+              </tr>
+              <tr>
+                <td><code>{weekday}</code></td>
+                <td>星期几 (0=周日, 1-6)</td>
+              </tr>
+              <tr>
+                <td><code>{weekday_cn}</code></td>
+                <td>星期几中文 (周日~周六)</td>
+              </tr>
+            </table>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-weight:600;color:var(--danger-color);margin-bottom:8px;font-size:13px"><svg class="icon">
+                <use href="#i-shuffle" />
+              </svg> 随机数</div>
+            <table class="table">
+              <tr>
+                <td style="width:180px"><code>{random}</code> / <code>{random100}</code></td>
+                <td>1-100 随机整数</td>
+              </tr>
+              <tr>
+                <td><code>{random10}</code></td>
+                <td>1-10 随机整数</td>
+              </tr>
+              <tr>
+                <td><code>{random6}</code></td>
+                <td>1-6 随机整数（骰子）</td>
+              </tr>
+            </table>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-weight:600;color:var(--text-secondary);margin-bottom:8px;font-size:13px"><svg class="icon">
+                <use href="#i-braces" />
+              </svg> 正则匹配与存储</div>
+            <table class="table">
+              <tr>
+                <td style="width:180px"><code>{$1}</code> <code>{$2}</code> ...</td>
+                <td>正则匹配的捕获组（触发器为正则时可用）</td>
+              </tr>
+              <tr>
+                <td><code>{storage.键名}</code></td>
+                <td>读取用户存储的值，如 {storage.score}</td>
+              </tr>
+              <tr>
+                <td><code>{自定义变量}</code></td>
+                <td>引用之前设置的变量（set_var 或运算结果）</td>
+              </tr>
+              <tr>
+                <td><code>{math_result}</code></td>
+                <td>数学运算的结果</td>
+              </tr>
+              <tr>
+                <td><code>{string_result}</code></td>
+                <td>字符串操作的结果</td>
+              </tr>
+              <tr>
+                <td><code>{leaderboard}</code></td>
+                <td>排行榜文本（使用排行榜节点后）</td>
+              </tr>
+              <tr>
+                <td><code>{my_rank}</code></td>
+                <td>我的排名（使用排行榜节点后）</td>
+              </tr>
+            </table>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-weight:600;color:#9b59b6;margin-bottom:8px;font-size:13px"><svg class="icon">
+                <use href="#i-chat-dots" />
+              </svg> 特殊消息格式 (CQ码)</div>
+            <table class="table">
+              <tr>
+                <td style="width:180px"><code>[CQ:face,id=178]</code></td>
+                <td>发送QQ表情（178为表情ID）</td>
+              </tr>
+              <tr>
+                <td><code>[CQ:image,file=URL]</code></td>
+                <td>发送图片</td>
+              </tr>
+              <tr>
+                <td><code>[CQ:record,file=URL]</code></td>
+                <td>发送语音</td>
+              </tr>
+              <tr>
+                <td><code>[CQ:reply,id=xxx]</code></td>
+                <td>引用回复指定消息</td>
+              </tr>
+            </table>
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="font-weight:600;color:#16a085;margin-bottom:8px;font-size:13px"><svg class="icon">
+                <use href="#i-shuffle" />
+              </svg> 多条随机回复</div>
+            <div style="background:var(--bg-item);padding:10px;border-radius:6px;font-size:11px">
+              使用 <code>|||</code> 分隔多条回复，系统会随机选择一条发送：<br>
+              <code style="color:var(--accent-color)">早上好！|||今天也要元气满满哦|||美好的一天开始了</code>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="flex-shrink:0">
+        <button class="btn btn-primary" onclick="closeModal('replyHelpModal')">知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // SVG icon helper - replaces bootstrap-icons font
+    function svgIcon (name, extraClass) {
+      return `<svg class="icon${extraClass ? ' ' + extraClass : ''}"><use href="#i-${name}"/></svg>`;
+    }
+
+    // Dark Mode Logic
+    function updateTheme () {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (isDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    }
+    updateTheme();
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme);
+
+    const API_BASE = window.location.pathname.replace('/page/', '/api/').replace(/\/[^\/]*$/, '');
+    // 构建 AI 请求 - 统一通过后端代理（密钥和接口选择由后端处理）
+    function buildAiRequest (model, messages) {
+      return {
+        url: API_BASE + '/ai_chat',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages })
+      };
+    }
+
+    let ALL_MODELS = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.1', 'gpt-4o', 'gpt-4o-mini', 'gpt-4', 'gpt-4-turbo', 'claude-3-5-sonnet', 'claude-3-5-haiku', 'deepseek-chat', 'deepseek-reasoner', 'gemini-2.5-flash', 'gemini-2.5-pro'];
+    const getApiType = (model) => model === 'auto' ? 100 : 1;
+
+    function validateModel (model) {
+      if (model === 'auto' || ALL_MODELS.includes(model)) return model;
+      showToast(`模型 "${model}" 已不可用，已切换为自动切换模式`, 'warning');
+      return 'auto';
+    }
+
+    async function refreshModelList () {
+      try {
+        const res = await fetch(API_BASE + '/ai_models', { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.models?.length) { ALL_MODELS = data.models; updateModelSelect(); return true; }
+        }
+      } catch { }
+      return false;
+    }
+
+    function updateModelSelect () {
+      const select = document.getElementById('aiModel');
+      if (!select) return;
+      const currentValue = select.value;
+      const optgroup = select.querySelector('optgroup');
+      if (optgroup) {
+        optgroup.innerHTML = '<option value="auto" selected>🔄 自动切换 (推荐)</option>' + ALL_MODELS.map(m => `<option value="${m}">${m}</option>`).join('');
+        select.value = validateModel(currentValue);
+      }
+    }
+    refreshModelList();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const webuiToken = urlParams.get('webui_token')?.replace(/^"|"$/g, '') || '';
+
+    async function authFetch (url, options = {}) {
+      const headers = { ...options.headers };
+      if (webuiToken) headers['Authorization'] = `Bearer ${webuiToken}`;
+      if (options.body && typeof options.body === 'string') headers['Content-Type'] = 'application/json';
+      return fetch(url, { ...options, headers });
+    }
+
+    let requireMaster = false;
+    let masterPassword = '';
+    let masterOnlyTriggers = ['regex', 'any', 'scheduled', 'timer'];
+    let pendingMasterAction = null;
+
+    async function loadConfig () {
+      try {
+        const res = await authFetch(API_BASE + '/config');
+        const data = await res.json();
+        if (data.success) { requireMaster = data.require_master; masterOnlyTriggers = data.master_only_triggers || masterOnlyTriggers; }
+      } catch (e) { }
+    }
+
+    function needsMasterAuth (triggerType) { return requireMaster && masterOnlyTriggers.includes(triggerType) && !masterPassword; }
+
+    function showMasterAuth (callback) {
+      pendingMasterAction = callback;
+      document.getElementById('masterPassword').value = '';
+      openModal('masterAuthModal');
+    }
+
+    async function verifyMasterPassword () {
+      const pwd = document.getElementById('masterPassword').value;
+      try {
+        const res = await authFetch(API_BASE + '/verify_master', { method: 'POST', body: JSON.stringify({ password: pwd }) });
+        const data = await res.json();
+        if (data.success) { masterPassword = pwd; closeModal('masterAuthModal'); showToast('验证成功'); if (pendingMasterAction) { pendingMasterAction(); pendingMasterAction = null; } }
+        else { showToast(data.error || '密码错误', 'error'); }
+      } catch (e) { showToast('验证失败', 'error'); }
+    }
+
+    async function masterAuthFetch (url, options = {}) {
+      let body = {};
+      if (options.body) { try { body = JSON.parse(options.body); } catch { body = {}; } }
+      body.master_password = masterPassword;
+      return authFetch(url, { ...options, body: JSON.stringify(body) });
+    }
+
+    const WORKFLOW_SYSTEM_PROMPT = `你是QQ机器人工作流生成器。根据用户需求生成完整的工作流JSON。
+
+## 节点类型
+1. trigger - 触发器(必须有一个) data:{trigger_type:"exact/startswith/contains/regex/scheduled",trigger_content:"触发词"}
+2. condition - 条件判断(2输出:满足output-1,不满足output-2) 见下方条件类型
+3. action - 动作节点 见下方动作类型
+4. storage - 用户存储 data:{storage_type:"get/set/incr/decr/delete",storage_key:"键",storage_value:"值",default_value:"默认",result_var:"变量"}
+5. global_storage - 全局存储(同storage)
+6. leaderboard - 排行榜 data:{leaderboard_type:"top/my_rank/count",leaderboard_key:"score",limit:10,ascending:"false"}
+7. delay - 延时 data:{seconds:3}
+8. set_var - 设置变量 data:{var_name:"名",var_value:"值"}
+9. list_random - 随机抽取 data:{list_items:"a|b|c",weights:"50|30|20",result_var:"result",index_var:"index"}
+
+## 条件类型(condition节点的data必须包含condition_type)
+- contains: 内容包含 {condition_type:"contains",condition_value:"要包含的文字"}
+- equals: 内容等于 {condition_type:"equals",condition_value:"要等于的文字"}
+- regex: 正则匹配 {condition_type:"regex",condition_value:"正则表达式"}
+- random: 随机概率 {condition_type:"random",condition_value:"50"}
+- user_id: 用户ID {condition_type:"user_id",condition_value:"12345678"}
+- group_id: 群ID {condition_type:"group_id",condition_value:"12345678"}
+- var_equals: 变量等于 {condition_type:"var_equals",var_name:"变量名",condition_value:"期望值"}
+- var_gt: 变量大于 {condition_type:"var_gt",var_name:"变量名",condition_value:"数值"}
+- var_lt: 变量小于 {condition_type:"var_lt",var_name:"变量名",condition_value:"数值"}
+- data_equals: 存储等于 {condition_type:"data_equals",condition_value:"score=100"}
+- data_gt: 存储大于 {condition_type:"data_gt",condition_value:"score>50"}
+- data_lt: 存储小于 {condition_type:"data_lt",condition_value:"score<100"}
+- data_is_today: 今日已操作 {condition_type:"data_is_today",condition_value:"sign_date"}
+- cooldown: 冷却时间 {condition_type:"cooldown",condition_value:"last_use,60"}
+- time_range: 时间范围 {condition_type:"time_range",condition_value:"9-18"}
+- weekday_in: 星期几 {condition_type:"weekday_in",condition_value:"周一|周二|周三"}
+- global_equals: 全局存储等于 {condition_type:"global_equals",condition_value:"status=open"}
+- global_gt: 全局存储大于 {condition_type:"global_gt",condition_value:"count>10"}
+- expression: JS表达式 {condition_type:"expression",condition_value:"{score} > 50 && {level} >= 2"}
+
+## 动作类型(action节点的data必须包含action_type)
+- reply_text: 回复文字 {action_type:"reply_text",action_value:"内容，用|||分隔多条随机"}
+- reply_image: 发图片 {action_type:"reply_image",action_value:"图片URL",image_text:"说明"}
+- reply_voice: 发语音 {action_type:"reply_voice",action_value:"语音URL"}
+- reply_video: 发视频 {action_type:"reply_video",action_value:"视频URL"}
+- reply_at: @回复 {action_type:"reply_at",action_value:"内容"}
+- reply_face: 表情 {action_type:"reply_face",action_value:"表情ID"}
+- reply_poke: 戳一戳 {action_type:"reply_poke",action_value:"目标QQ"}
+- reply_forward: 合并转发 {action_type:"reply_forward",action_value:"消息1|||消息2|||消息3"}
+- reply_json: JSON卡片 {action_type:"reply_json",action_value:"JSON字符串"}
+- reply_file: 发文件 {action_type:"reply_file",action_value:"文件URL",file_name:"文件名"}
+- reply_music: 音乐分享 {action_type:"reply_music",music_type:"qq/163/custom",action_value:"歌曲ID"}
+- custom_api: 调用API {action_type:"custom_api",api_url:"URL",api_method:"GET/POST",api_headers:"请求头JSON",api_body:"请求体",response_type:"json/text",result_var:"api_result",api_reply:"回复模板用{api_json.字段}"}
+- math: 数学运算 {action_type:"math",math_type:"add/sub/mul/div/mod/random",operand1:"数值1",operand2:"数值2",result_var:"math_result"}
+- string_op: 字符串 {action_type:"string_op",string_type:"concat/replace/split/substr/length/upper/lower",input1:"字符串1",input2:"字符串2",result_var:"string_result"}
+- group_sign: 群签到 {action_type:"group_sign"}
+- group_ban: 群禁言 {action_type:"group_ban",target_user:"{user_id}",ban_duration:"600"}
+- group_kick: 群踢人 {action_type:"group_kick",target_user:"{user_id}",reject_add:"false"}
+- group_whole_ban: 全员禁言 {action_type:"group_whole_ban",enable_ban:"true/false"}
+- group_set_card: 设置群名片 {action_type:"group_set_card",target_user:"{user_id}",card_value:"新名片"}
+- group_notice: 发群公告 {action_type:"group_notice",action_value:"公告内容"}
+- recall_msg: 撤回消息 {action_type:"recall_msg",message_id:"{message_id}"}
+- call_api: 调用NapCatAPI {action_type:"call_api",api_action:"send_group_sign",api_params:'{"group_id":"{group_id}"}',result_var:"result"}
+
+## 变量: {user_id} {group_id} {content} {$1} {$2} {today} {time} {timestamp} {random} {storage.键} {global.键} {math_result} {api_result} {api_json.字段}
+
+## 连接: from_output普通节点用"output_1", condition满足用"output-1", 不满足用"output-2"
+
+## 输出格式(只返回JSON):
+{"name":"名称","nodes":[{"id":"node_1","type":"trigger","x":100,"y":150,"data":{...}},...],"connections":[{"from_node":"node_1","from_output":"output_1","to_node":"node_2"},...]}
+
+## 示例:签到系统
+{"name":"每日签到","nodes":[{"id":"node_1","type":"trigger","x":100,"y":150,"data":{"trigger_type":"exact","trigger_content":"签到"}},{"id":"node_2","type":"condition","x":280,"y":150,"data":{"condition_type":"data_is_today","condition_value":"sign_date"}},{"id":"node_3","type":"action","x":460,"y":50,"data":{"action_type":"reply_text","action_value":"今日已签到，明天再来~"}},{"id":"node_4","type":"action","x":460,"y":250,"data":{"action_type":"math","math_type":"random","operand1":"5","operand2":"10","result_var":"score"}},{"id":"node_5","type":"storage","x":640,"y":250,"data":{"storage_type":"incr","storage_key":"total_score","storage_value":"{score}"}},{"id":"node_6","type":"storage","x":820,"y":250,"data":{"storage_type":"set","storage_key":"sign_date","storage_value":"{today}"}},{"id":"node_7","type":"action","x":1000,"y":250,"data":{"action_type":"reply_text","action_value":"签到成功！+{score}分，总分{storage.total_score}"}}],"connections":[{"from_node":"node_1","from_output":"output_1","to_node":"node_2"},{"from_node":"node_2","from_output":"output-1","to_node":"node_3"},{"from_node":"node_2","from_output":"output-2","to_node":"node_4"},{"from_node":"node_4","from_output":"output_1","to_node":"node_5"},{"from_node":"node_5","from_output":"output_1","to_node":"node_6"},{"from_node":"node_6","from_output":"output_1","to_node":"node_7"}]}`;
+
+    // 节点配置 - icon names for svgIcon()
+    const NODE_CONFIGS = {
+      trigger: { title: '触发器', icon: 'lightning', color: 'success', inputs: 0, outputs: 1, isDynamic: true },
+      condition: { title: '条件', icon: 'signpost-split', color: 'warning', inputs: 1, outputs: 2, isDynamic: true },
+      action: { title: '动作', icon: 'play-circle', color: 'primary', inputs: 1, outputs: 1, isDynamic: true },
+      storage: { title: '用户存储', icon: 'database', color: 'danger', inputs: 1, outputs: 1, fields: [{ name: 'storage_type', label: '操作', type: 'select', options: [{ value: 'get', label: '读取' }, { value: 'set', label: '写入' }, { value: 'incr', label: '增加' }, { value: 'decr', label: '减少' }, { value: 'delete', label: '删除' }] }, { name: 'storage_key', label: '键名', type: 'text' }, { name: 'storage_value', label: '值', type: 'text' }, { name: 'default_value', label: '默认值', type: 'text' }, { name: 'result_var', label: '结果变量', type: 'text' }] },
+      global_storage: { title: '全局存储', icon: 'globe', color: 'primary', inputs: 1, outputs: 1, fields: [{ name: 'storage_type', label: '操作', type: 'select', options: [{ value: 'get', label: '读取' }, { value: 'set', label: '写入' }, { value: 'incr', label: '增加' }, { value: 'decr', label: '减少' }] }, { name: 'storage_key', label: '键名', type: 'text' }, { name: 'storage_value', label: '值', type: 'text' }, { name: 'default_value', label: '默认值', type: 'text' }, { name: 'result_var', label: '结果变量', type: 'text' }] },
+      leaderboard: { title: '排行榜', icon: 'trophy', color: 'warning', inputs: 1, outputs: 1, fields: [{ name: 'leaderboard_type', label: '操作', type: 'select', options: [{ value: 'top', label: '获取排行榜' }, { value: 'my_rank', label: '我的排名' }, { value: 'count', label: '统计人数' }] }, { name: 'leaderboard_key', label: '排行键名', type: 'text' }, { name: 'limit', label: 'TOP数量', type: 'number' }, { name: 'ascending', label: '排序', type: 'select', options: [{ value: 'false', label: '降序' }, { value: 'true', label: '升序' }] }] },
+      delay: { title: '延时', icon: 'clock', color: 'secondary', inputs: 1, outputs: 1, fields: [{ name: 'seconds', label: '秒数', type: 'number' }] },
+      set_var: { title: '设置变量', icon: 'braces', color: 'info', inputs: 1, outputs: 1, fields: [{ name: 'var_name', label: '变量名', type: 'text' }, { name: 'var_value', label: '变量值', type: 'text' }] },
+      list_random: { title: '随机抽取', icon: 'shuffle', color: 'info', inputs: 1, outputs: 1, fields: [{ name: 'list_items', label: '选项(|分隔)', type: 'textarea' }, { name: 'weights', label: '权重', type: 'text' }, { name: 'result_var', label: '结果变量', type: 'text' }] },
+      comment: { title: '注释', icon: 'chat-quote', color: 'secondary', inputs: 0, outputs: 0, fields: [{ name: 'comment_text', label: '备注', type: 'textarea' }] }
+    };
+
+    const TRIGGER_TYPES = {
+      exact: { label: '完全匹配', fields: [{ name: 'trigger_content', label: '触发词', type: 'text', placeholder: '消息内容完全等于此文字才触发' }] },
+      startswith: { label: '前缀匹配', fields: [{ name: 'trigger_content', label: '触发前缀', type: 'text', placeholder: '消息以此文字开头才触发' }] },
+      contains: { label: '包含匹配', fields: [{ name: 'trigger_content', label: '触发关键词', type: 'text', placeholder: '消息包含此文字才触发' }] },
+      regex: { label: '正则匹配', fields: [{ name: 'trigger_content', label: '正则表达式', type: 'text', placeholder: '如 ^签到(.*)$ 可用{$1}获取捕获组' }] },
+      scheduled: { label: '定时触发', fields: [{ name: '_hint', label: '说明', type: 'hint', text: '定时触发不响应用户消息，需在「定时任务」中配置执行时间。此工作流仅供定时任务调用。' }] }
+    };
+
+    const CONDITION_TYPES = {
+      contains: { label: '内容包含', fields: [{ name: 'condition_value', label: '包含的文字', type: 'text', placeholder: '检查消息是否包含此文字' }] },
+      equals: { label: '内容等于', fields: [{ name: 'condition_value', label: '等于的文字', type: 'text', placeholder: '消息内容完全等于此文字' }] },
+      regex: { label: '正则匹配', fields: [{ name: 'condition_value', label: '正则表达式', type: 'text', placeholder: '如 ^hello.*world' }] },
+      random: { label: '随机概率', fields: [{ name: 'condition_value', label: '概率(%)', type: 'number', placeholder: '0-100，如 50 表示50%概率' }] },
+      user_id: { label: '用户ID', fields: [{ name: 'condition_value', label: '用户ID', type: 'text', placeholder: '指定用户ID才通过' }] },
+      group_id: { label: '群ID', fields: [{ name: 'condition_value', label: '群ID', type: 'text', placeholder: '指定群ID才通过' }] },
+      var_equals: { label: '变量等于', fields: [{ name: 'var_name', label: '变量名', type: 'text', placeholder: '要检查的变量名' }, { name: 'condition_value', label: '等于的值', type: 'text', placeholder: '变量应等于的值' }] },
+      var_gt: { label: '变量大于', fields: [{ name: 'var_name', label: '变量名', type: 'text', placeholder: '要检查的变量名' }, { name: 'condition_value', label: '大于的值', type: 'number', placeholder: '变量应大于的数值' }] },
+      var_lt: { label: '变量小于', fields: [{ name: 'var_name', label: '变量名', type: 'text', placeholder: '要检查的变量名' }, { name: 'condition_value', label: '小于的值', type: 'number', placeholder: '变量应小于的数值' }] },
+      data_equals: { label: '存储等于', fields: [{ name: 'condition_value', label: '键名=值', type: 'text', placeholder: '如 score=100，检查用户存储' }] },
+      data_gt: { label: '存储大于', fields: [{ name: 'condition_value', label: '键名>值', type: 'text', placeholder: '如 score>50，检查用户存储' }] },
+      data_lt: { label: '存储小于', fields: [{ name: 'condition_value', label: '键名<值', type: 'text', placeholder: '如 score<100，检查用户存储' }] },
+      data_is_today: { label: '今日已操作', fields: [{ name: 'condition_value', label: '存储键名', type: 'text', placeholder: '存储日期的键名，如 last_sign' }] },
+      cooldown: { label: '冷却时间', fields: [{ name: 'condition_value', label: '键名,秒数', type: 'text', placeholder: '如 last_use,60 表示60秒冷却' }] },
+      time_range: { label: '时间范围', fields: [{ name: 'condition_value', label: '开始-结束(小时)', type: 'text', placeholder: '如 9-18 表示9点到18点' }] },
+      weekday_in: { label: '星期几', fields: [{ name: 'condition_value', label: '星期', type: 'text', placeholder: '如 周一|周二|周三 或 1|2|3' }] },
+      global_equals: { label: '全局存储等于', fields: [{ name: 'condition_value', label: '键名=值', type: 'text', placeholder: '如 status=open' }] },
+      global_gt: { label: '全局存储大于', fields: [{ name: 'condition_value', label: '键名>值', type: 'text', placeholder: '如 count>10' }] },
+      expression: { label: '表达式', fields: [{ name: 'condition_value', label: 'JS表达式', type: 'textarea', placeholder: '如 {score} > 50 && {level} >= 2' }] }
+    };
+
+    const ACTION_TYPES = {
+      reply_text: { label: '回复文字', fields: [{ name: 'action_value', label: '回复内容', type: 'textarea', placeholder: '支持变量 {user_id} {$1}，用|||分隔多条随机回复', hasHelp: true }] },
+      reply_image: { label: '发送图片', fields: [{ name: 'action_value', label: '图片URL', type: 'text', placeholder: 'http://... 或 base64://...' }, { name: 'image_text', label: '图片说明', type: 'text', placeholder: '可选' }] },
+      reply_voice: { label: '发送语音', fields: [{ name: 'action_value', label: '语音URL', type: 'text', placeholder: 'http://... 或 base64://...' }] },
+      reply_video: { label: '发送视频', fields: [{ name: 'action_value', label: '视频URL', type: 'text', placeholder: 'http://... 或 base64://...' }] },
+      reply_at: { label: '@回复', fields: [{ name: 'action_value', label: '回复内容', type: 'textarea', placeholder: '@用户后的消息内容' }] },
+      reply_face: { label: '发送表情', fields: [{ name: 'action_value', label: '表情ID', type: 'number', placeholder: 'QQ表情ID' }] },
+      reply_poke: { label: '戳一戳', fields: [{ name: 'action_value', label: '目标用户', type: 'text', placeholder: '留空则戳发送者' }] },
+      reply_forward: { label: '合并转发', fields: [{ name: 'action_value', label: '消息列表', type: 'textarea', placeholder: '用|||分隔多条消息' }] },
+      reply_json: { label: 'JSON卡片', fields: [{ name: 'action_value', label: 'JSON内容', type: 'textarea', placeholder: '卡片JSON数据' }] },
+      reply_file: { label: '发送文件', fields: [{ name: 'action_value', label: '文件URL', type: 'text', placeholder: '文件地址' }, { name: 'file_name', label: '文件名', type: 'text', placeholder: '可选' }] },
+      reply_music: { label: '音乐分享', fields: [{ name: 'music_type', label: '平台', type: 'select', options: [{ value: 'qq', label: 'QQ音乐' }, { value: '163', label: '网易云' }, { value: 'custom', label: '自定义' }] }, { name: 'action_value', label: '音乐ID', type: 'text', placeholder: '歌曲ID' }] },
+      custom_api: { label: '调用外部API', fields: [{ name: 'api_url', label: 'API地址', type: 'text', placeholder: 'https://api.example.com/...' }, { name: 'api_method', label: '请求方式', type: 'select', options: [{ value: 'GET', label: 'GET' }, { value: 'POST', label: 'POST' }] }, { name: 'api_headers', label: '请求头', type: 'textarea', placeholder: 'JSON格式或key:value每行一个' }, { name: 'api_body', label: '请求体', type: 'textarea', placeholder: 'POST请求的body' }, { name: 'response_type', label: '响应类型', type: 'select', options: [{ value: 'json', label: 'JSON' }, { value: 'text', label: '文本' }] }, { name: 'result_var', label: '结果变量', type: 'text', placeholder: 'api_result' }, { name: 'api_reply', label: '自动回复', type: 'textarea', placeholder: '可用{api_result}或{api_json.field}' }] },
+      math: { label: '数学运算', fields: [{ name: 'math_type', label: '运算类型', type: 'select', options: [{ value: 'add', label: '加法' }, { value: 'sub', label: '减法' }, { value: 'mul', label: '乘法' }, { value: 'div', label: '除法' }, { value: 'mod', label: '取余' }, { value: 'random', label: '随机数' }] }, { name: 'operand1', label: '操作数1', type: 'text', placeholder: '数字或变量' }, { name: 'operand2', label: '操作数2', type: 'text', placeholder: '数字或变量' }, { name: 'result_var', label: '结果变量', type: 'text', placeholder: 'math_result' }] },
+      string_op: { label: '字符串操作', fields: [{ name: 'string_type', label: '操作类型', type: 'select', options: [{ value: 'concat', label: '拼接' }, { value: 'replace', label: '替换' }, { value: 'split', label: '分割' }, { value: 'substr', label: '截取' }, { value: 'length', label: '长度' }, { value: 'upper', label: '大写' }, { value: 'lower', label: '小写' }] }, { name: 'input1', label: '输入1', type: 'text' }, { name: 'input2', label: '输入2', type: 'text' }, { name: 'result_var', label: '结果变量', type: 'text', placeholder: 'string_result' }] },
+      group_sign: { label: '群签到', fields: [{ name: '_hint', label: '说明', type: 'hint', text: '自动为当前群执行签到，无需额外参数' }] },
+      group_ban: { label: '群禁言', fields: [{ name: 'target_user', label: '目标用户', type: 'text', placeholder: '留空则为发送者 {user_id}' }, { name: 'ban_duration', label: '禁言时长(秒)', type: 'number', placeholder: '0=解除禁言，默认600' }] },
+      group_kick: { label: '群踢人', fields: [{ name: 'target_user', label: '目标用户', type: 'text', placeholder: '留空则为发送者 {user_id}' }, { name: 'reject_add', label: '拒绝再次加群', type: 'select', options: [{ value: 'false', label: '否' }, { value: 'true', label: '是' }] }] },
+      group_whole_ban: { label: '全员禁言', fields: [{ name: 'enable_ban', label: '开关', type: 'select', options: [{ value: 'true', label: '开启禁言' }, { value: 'false', label: '关闭禁言' }] }] },
+      group_set_card: { label: '设置群名片', fields: [{ name: 'target_user', label: '目标用户', type: 'text', placeholder: '留空则为发送者 {user_id}' }, { name: 'card_value', label: '群名片', type: 'text', placeholder: '新的群名片' }] },
+      group_notice: { label: '发群公告', fields: [{ name: 'action_value', label: '公告内容', type: 'textarea', placeholder: '公告文本' }] },
+      recall_msg: { label: '撤回消息', fields: [{ name: 'message_id', label: '消息ID', type: 'text', placeholder: '留空撤回触发消息 {message_id}' }] },
+      call_api: { label: '调用NapCat API', fields: [{ name: 'api_action', label: 'API名称', type: 'text', placeholder: '如 send_group_sign' }, { name: 'api_params', label: '参数(JSON)', type: 'textarea', placeholder: '{"group_id":"{group_id}"}' }, { name: 'result_var', label: '结果变量', type: 'text', placeholder: '可选' }] }
+    };
+
+    let currentWorkflow = null;
+    let workflows = [];
+    let selectedNode = null;
+    let editingNode = null;
+    let connectingFrom = null;
+    let nodeIdCounter = 1;
+
+    function showToast (msg, type = 'success') {
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.innerHTML = `${svgIcon(type === 'success' ? 'check-circle' : 'exclamation-circle')} ${msg}`;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3000);
+    }
+
+    function openModal (id) { document.getElementById(id).classList.add('show'); }
+    function closeModal (id) { document.getElementById(id).classList.remove('show'); }
+    function showReplyHelp () { openModal('replyHelpModal'); }
+
+    document.addEventListener('DOMContentLoaded', () => { loadConfig(); initCanvas(); loadWorkflows(); });
+
+    function initCanvas () {
+      const canvas = document.getElementById('canvasInner');
+      document.querySelectorAll('.node-item').forEach(item => {
+        item.addEventListener('dragstart', e => e.dataTransfer.setData('nodeType', item.dataset.type));
+      });
+      canvas.addEventListener('dragover', e => e.preventDefault());
+      canvas.addEventListener('drop', e => {
+        e.preventDefault();
+        const type = e.dataTransfer.getData('nodeType');
+        if (type && NODE_CONFIGS[type]) {
+          const rect = canvas.getBoundingClientRect();
+          const container = document.getElementById('canvasContainer');
+          createNode(type, e.clientX - rect.left + container.scrollLeft, e.clientY - rect.top + container.scrollTop);
+        }
+      });
+      canvas.addEventListener('click', e => { if (e.target === canvas) { if (selectedNode) { selectedNode.classList.remove('selected'); selectedNode = null; } } });
+    }
+
+    function createNode (type, x, y, data = {}, id = null) {
+      const cfg = NODE_CONFIGS[type];
+      if (!cfg) return null;
+      const node = document.createElement('div');
+      node.className = `wf-node ${type}`;
+      node.id = id || `node_${nodeIdCounter++}`;
+      node.style.left = x + 'px';
+      node.style.top = y + 'px';
+      node.dataset.type = type;
+      node.dataset.data = JSON.stringify(data);
+
+      let preview = '';
+      if (type === 'trigger') preview = data.trigger_content || '(未设置)';
+      else if (type === 'condition') preview = data.condition_value || '(未设置)';
+      else if (type === 'action') preview = data.action_value?.substring(0, 20) || data.action_type || '(未设置)';
+      else if (type === 'comment') preview = data.comment_text?.substring(0, 20) || '...';
+
+      node.innerHTML = `
+    <button class="btn-del-node" onclick="deleteNode('${node.id}')">&times;</button>
+    <div class="node-header">${svgIcon(cfg.icon)} ${cfg.title}</div>
+    <div class="node-body">${preview}</div>
+    ${cfg.inputs > 0 ? '<div class="node-port input"></div>' : ''}
+    ${cfg.outputs === 1 ? '<div class="node-port output"></div>' : ''}
+    ${cfg.outputs === 2 ? '<div class="node-port output output-1"></div><div class="node-port output output-2"></div>' : ''}
+  `;
+
+      let isDragging = false, startX, startY, nodeStartX, nodeStartY;
+      node.addEventListener('mousedown', e => {
+        if (e.target.classList.contains('node-port') || e.target.classList.contains('btn-del-node')) return;
+        isDragging = true;
+        startX = e.clientX; startY = e.clientY;
+        nodeStartX = parseInt(node.style.left); nodeStartY = parseInt(node.style.top);
+        if (selectedNode) selectedNode.classList.remove('selected');
+        selectedNode = node;
+        node.classList.add('selected');
+      });
+      document.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        node.style.left = (nodeStartX + e.clientX - startX) + 'px';
+        node.style.top = (nodeStartY + e.clientY - startY) + 'px';
+        renderConnections();
+      });
+      document.addEventListener('mouseup', () => { isDragging = false; });
+      node.addEventListener('dblclick', () => editNode(node));
+
+      node.querySelectorAll('.node-port.output, .node-port.output-1, .node-port.output-2').forEach(port => {
+        port.addEventListener('click', e => {
+          e.stopPropagation(); e.preventDefault();
+          if (connectingFrom) { document.querySelectorAll('.node-port.waiting').forEach(p => p.classList.remove('waiting')); connectingFrom = null; }
+          else { connectingFrom = { nodeId: node.id, output: port.classList.contains('output-1') ? 'output-1' : port.classList.contains('output-2') ? 'output-2' : 'output_1' }; port.classList.add('waiting'); showToast('点击目标节点的输入端口完成连接'); }
+        });
+      });
+
+      const inputPort = node.querySelector('.node-port.input');
+      if (inputPort) {
+        inputPort.addEventListener('click', e => {
+          e.stopPropagation(); e.preventDefault();
+          if (connectingFrom && connectingFrom.nodeId !== node.id) { addConnection(connectingFrom.nodeId, connectingFrom.output, node.id); document.querySelectorAll('.node-port.waiting').forEach(p => p.classList.remove('waiting')); connectingFrom = null; showToast('连接成功'); }
+          else if (!connectingFrom) { showToast('请先点击输出端口'); }
+        });
+      }
+
+      document.getElementById('canvasInner').appendChild(node);
+      return node;
+    }
+
+    function deleteNode (nodeId) {
+      const node = document.getElementById(nodeId);
+      if (node) {
+        node.remove();
+        connections = connections.filter(c => c.from_node !== nodeId && c.to_node !== nodeId);
+        if (currentWorkflow) {
+          currentWorkflow.nodes = currentWorkflow.nodes.filter(n => n.id !== nodeId);
+          currentWorkflow.connections = currentWorkflow.connections.filter(c => c.from_node !== nodeId && c.to_node !== nodeId);
+        }
+        renderConnections();
+      }
+    }
+
+    function editNode (node) {
+      editingNode = node;
+      const type = node.dataset.type;
+      const cfg = NODE_CONFIGS[type];
+      const data = JSON.parse(node.dataset.data || '{}');
+      document.getElementById('nodeModalTitle').textContent = `编辑 ${cfg.title}`;
+      if (type === 'action') renderActionEditor(data);
+      else if (type === 'condition') renderConditionEditor(data);
+      else if (type === 'trigger') renderTriggerEditor(data);
+      else {
+        let html = '';
+        (cfg.fields || []).forEach(f => { html += renderField(f, data[f.name]); });
+        html += `<div class="ai-input-wrap"><input type="text" class="form-control" id="aiNodeDesc" placeholder="用AI描述这个节点..."><button class="btn btn-sm" onclick="aiGenerateNode('${type}')">${svgIcon('stars')}</button></div>`;
+        document.getElementById('nodeModalBody').innerHTML = html;
+      }
+      openModal('nodeModal');
+    }
+
+    function renderField (f, val) {
+      val = val !== undefined ? val : (f.default || '');
+      const helpBtn = f.hasHelp ? `<button type="button" class="btn btn-sm" onclick="showReplyHelp()" style="margin-left:8px;padding:2px 8px;font-size:10px" title="查看支持的变量">${svgIcon('question-circle')} 变量说明</button>` : '';
+      if (f.type === 'hint') return `<div class="form-group" style="background:var(--accent-light);padding:10px;border-radius:6px;font-size:11px;color:var(--text-secondary)">${svgIcon('info-circle')} ${f.text}</div>`;
+      else if (f.type === 'select') return `<div class="form-group"><label class="form-label">${f.label}${helpBtn}</label><select class="form-control" data-field="${f.name}">${f.options.map(o => `<option value="${o.value}" ${val == o.value ? 'selected' : ''}>${o.label}</option>`).join('')}</select></div>`;
+      else if (f.type === 'textarea') return `<div class="form-group"><label class="form-label" style="display:flex;align-items:center;justify-content:space-between">${f.label}${helpBtn}</label><textarea class="form-control" data-field="${f.name}" placeholder="${f.placeholder || ''}">${val}</textarea></div>`;
+      else return `<div class="form-group"><label class="form-label">${f.label}${helpBtn}</label><input type="${f.type || 'text'}" class="form-control" data-field="${f.name}" value="${val}" placeholder="${f.placeholder || ''}"></div>`;
+    }
+
+    function renderTriggerEditor (data) {
+      const currentType = data.trigger_type || 'exact';
+      let html = `<div class="form-group"><label class="form-label">触发类型</label><select class="form-control" data-field="trigger_type" onchange="onTriggerTypeChange(this.value)">`;
+      Object.entries(TRIGGER_TYPES).forEach(([k, v]) => { html += `<option value="${k}" ${currentType === k ? 'selected' : ''}>${v.label}</option>`; });
+      html += `</select></div><div id="triggerFieldsContainer"></div>`;
+      html += `<div class="ai-input-wrap"><input type="text" class="form-control" id="aiNodeDesc" placeholder="用AI描述这个触发器..."><button class="btn btn-sm" onclick="aiGenerateNode('trigger')">${svgIcon('stars')}</button></div>`;
+      document.getElementById('nodeModalBody').innerHTML = html;
+      renderTriggerFields(currentType, data);
+    }
+
+    function onTriggerTypeChange (triggerType) {
+      const data = {};
+      document.querySelectorAll('#nodeModalBody [data-field]').forEach(el => { data[el.dataset.field] = el.value; });
+      data.trigger_type = triggerType;
+      renderTriggerFields(triggerType, data);
+    }
+
+    function renderTriggerFields (triggerType, data) {
+      const cfg = TRIGGER_TYPES[triggerType];
+      if (!cfg) return;
+      let html = '';
+      (cfg.fields || []).forEach(f => { html += renderField(f, data[f.name]); });
+      document.getElementById('triggerFieldsContainer').innerHTML = html;
+    }
+
+    function renderConditionEditor (data) {
+      const currentType = data.condition_type || 'contains';
+      let html = `<div class="form-group"><label class="form-label">条件类型</label><select class="form-control" data-field="condition_type" onchange="onConditionTypeChange(this.value)">`;
+      Object.entries(CONDITION_TYPES).forEach(([k, v]) => { html += `<option value="${k}" ${currentType === k ? 'selected' : ''}>${v.label}</option>`; });
+      html += `</select></div><div id="conditionFieldsContainer"></div>`;
+      html += `<div style="margin-top:10px;padding:10px;background:var(--accent-light);border-radius:6px;font-size:11px">${svgIcon('info-circle')} 条件成立走<span style="color:var(--success-color)">绿色输出</span>，不成立走<span style="color:var(--danger-color)">红色输出</span></div>`;
+      html += `<div class="ai-input-wrap"><input type="text" class="form-control" id="aiNodeDesc" placeholder="用AI描述这个条件..."><button class="btn btn-sm" onclick="aiGenerateNode('condition')">${svgIcon('stars')}</button></div>`;
+      document.getElementById('nodeModalBody').innerHTML = html;
+      renderConditionFields(currentType, data);
+    }
+
+    function onConditionTypeChange (conditionType) {
+      const data = {};
+      document.querySelectorAll('#nodeModalBody [data-field]').forEach(el => { data[el.dataset.field] = el.value; });
+      data.condition_type = conditionType;
+      renderConditionFields(conditionType, data);
+    }
+
+    function renderConditionFields (conditionType, data) {
+      const cfg = CONDITION_TYPES[conditionType];
+      if (!cfg) return;
+      let html = '';
+      (cfg.fields || []).forEach(f => { html += renderField(f, data[f.name]); });
+      document.getElementById('conditionFieldsContainer').innerHTML = html;
+    }
+
+    function renderActionEditor (data) {
+      const currentType = data.action_type || 'reply_text';
+      let html = `<div class="form-group"><label class="form-label">动作类型</label><select class="form-control" data-field="action_type" onchange="onActionTypeChange(this.value)">`;
+      Object.entries(ACTION_TYPES).forEach(([k, v]) => { html += `<option value="${k}" ${currentType === k ? 'selected' : ''}>${v.label}</option>`; });
+      html += `</select></div><div id="actionFieldsContainer"></div>`;
+      html += `<div class="ai-input-wrap"><input type="text" class="form-control" id="aiNodeDesc" placeholder="用AI描述这个动作..."><button class="btn btn-sm" onclick="aiGenerateNode('action')">${svgIcon('stars')}</button></div>`;
+      document.getElementById('nodeModalBody').innerHTML = html;
+      renderActionFields(currentType, data);
+    }
+
+    function onActionTypeChange (actionType) {
+      const data = {};
+      document.querySelectorAll('#nodeModalBody [data-field]').forEach(el => { data[el.dataset.field] = el.value; });
+      data.action_type = actionType;
+      renderActionFields(actionType, data);
+    }
+
+    function renderActionFields (actionType, data) {
+      const cfg = ACTION_TYPES[actionType];
+      if (!cfg) return;
+      let html = '';
+      (cfg.fields || []).forEach(f => { html += renderField(f, data[f.name]); });
+      document.getElementById('actionFieldsContainer').innerHTML = html;
+    }
+
+    function saveNodeEdit () {
+      if (!editingNode) return;
+      const data = {};
+      document.querySelectorAll('#nodeModalBody [data-field]').forEach(el => { if (el.value !== '') data[el.dataset.field] = el.value; });
+      editingNode.dataset.data = JSON.stringify(data);
+      const type = editingNode.dataset.type;
+      let preview = '';
+      if (type === 'trigger') preview = data.trigger_content || '(未设置)';
+      else if (type === 'condition') { const condCfg = CONDITION_TYPES[data.condition_type]; preview = condCfg?.label || data.condition_type || '(未设置)'; if (data.condition_value) preview += ': ' + data.condition_value.substring(0, 12); }
+      else if (type === 'action') { const actionCfg = ACTION_TYPES[data.action_type]; preview = actionCfg?.label || data.action_type || '(未设置)'; if (data.action_value) preview += ': ' + data.action_value.substring(0, 15); }
+      else if (type === 'comment') preview = data.comment_text?.substring(0, 20) || '...';
+      else preview = Object.values(data)[0]?.toString().substring(0, 20) || '...';
+      editingNode.querySelector('.node-body').textContent = preview;
+      closeModal('nodeModal');
+      editingNode = null;
+    }
+
+    async function aiGenerateNode (type) {
+      const desc = document.getElementById('aiNodeDesc').value.trim();
+      if (!desc) { showToast('请输入描述', 'error'); return; }
+      const cfg = NODE_CONFIGS[type];
+      let fields = '';
+      if (type === 'action') { const actionType = document.querySelector('[data-field="action_type"]')?.value || 'reply_text'; const actionCfg = ACTION_TYPES[actionType]; fields = 'action_type, ' + (actionCfg?.fields?.map(f => f.name).join(', ') || ''); }
+      else if (type === 'condition') { const conditionType = document.querySelector('[data-field="condition_type"]')?.value || 'contains'; const condCfg = CONDITION_TYPES[conditionType]; fields = 'condition_type, ' + (condCfg?.fields?.map(f => f.name).join(', ') || ''); }
+      else { fields = cfg?.fields?.map(f => f.name).join(', ') || ''; }
+      const prompt = `生成${cfg?.title || type}节点的JSON配置。可用字段: ${fields}。需求: ${desc}。只返回JSON对象，如 {"trigger_type":"exact","trigger_content":"签到"}`;
+      try {
+        const req = buildAiRequest('gpt-5', [{ role: 'user', content: prompt }]);
+        const res = await fetch(req.url, { method: 'POST', headers: req.headers, body: req.body });
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        const match = content.match(/\{[\s\S]*\}/);
+        if (match) { const nodeData = JSON.parse(match[0]); Object.entries(nodeData).forEach(([k, v]) => { const el = document.querySelector(`#nodeModalBody [data-field="${k}"]`); if (el) el.value = v; }); showToast('AI已填充', 'success'); }
+        else { showToast('解析失败', 'error'); }
+      } catch (e) { showToast('请求失败', 'error'); }
+    }
+
+    let confirmCallback = null;
+    function showConfirm (message, callback) { document.getElementById('confirmModalMessage').textContent = message; confirmCallback = callback; openModal('confirmModal'); }
+    function closeConfirmModal (confirmed) { closeModal('confirmModal'); if (confirmCallback) { confirmCallback(confirmed); confirmCallback = null; } }
+
+    let connections = [];
+    function connectionExists (fromNode, fromOutput, toNode) { return connections.some(c => c.from_node === fromNode && c.from_output === fromOutput && c.to_node === toNode); }
+    function removeConnection (fromNode, fromOutput, toNode) { connections = connections.filter(c => !(c.from_node === fromNode && c.from_output === fromOutput && c.to_node === toNode)); if (currentWorkflow) { currentWorkflow.connections = currentWorkflow.connections.filter(c => !(c.from_node === fromNode && c.from_output === fromOutput && c.to_node === toNode)); } renderConnections(); }
+
+    function addConnection (fromNode, fromOutput, toNode) {
+      if (connectionExists(fromNode, fromOutput, toNode)) { removeConnection(fromNode, fromOutput, toNode); showToast('已取消连接'); return; }
+      const conn = { from_node: fromNode, from_output: fromOutput, to_node: toNode };
+      connections.push(conn);
+      if (currentWorkflow) { if (!currentWorkflow.connections) currentWorkflow.connections = []; currentWorkflow.connections.push(conn); }
+      renderConnections();
+    }
+
+    function renderConnections () {
+      const svg = document.getElementById('connectionsSvg');
+      svg.innerHTML = '';
+      const allConnections = currentWorkflow ? currentWorkflow.connections : connections;
+      allConnections.forEach(c => {
+        const fromEl = document.getElementById(c.from_node);
+        const toEl = document.getElementById(c.to_node);
+        if (!fromEl || !toEl) return;
+        let fromPort;
+        if (c.from_output === 'output-1') fromPort = fromEl.querySelector('.output-1');
+        else if (c.from_output === 'output-2') fromPort = fromEl.querySelector('.output-2');
+        else fromPort = fromEl.querySelector('.node-port.output');
+        const toPort = toEl.querySelector('.node-port.input');
+        if (!fromPort || !toPort) return;
+        const fromRect = fromPort.getBoundingClientRect();
+        const toRect = toPort.getBoundingClientRect();
+        const canvas = document.getElementById('canvasInner').getBoundingClientRect();
+        const x1 = fromRect.left + fromRect.width / 2 - canvas.left;
+        const y1 = fromRect.top + fromRect.height / 2 - canvas.top;
+        const x2 = toRect.left + toRect.width / 2 - canvas.left;
+        const y2 = toRect.top + toRect.height / 2 - canvas.top;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const cx = (x1 + x2) / 2;
+        path.setAttribute('d', `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`);
+        path.setAttribute('class', 'connection-line');
+        svg.appendChild(path);
+      });
+    }
+
+    async function loadWorkflows () {
+      try { const res = await authFetch(API_BASE + '/list'); const data = await res.json(); workflows = data.workflows || []; renderWorkflowList(); } catch (e) { }
+    }
+
+    function renderWorkflowList () {
+      const container = document.getElementById('workflowList');
+      if (!workflows.length) { container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:11px;padding:20px">暂无工作流</div>'; return; }
+      container.innerHTML = workflows.map(w => `
+    <div class="wf-item ${currentWorkflow?.id === w.id ? 'active' : ''}" onclick="loadWorkflow('${w.id}')">
+      <div class="wf-name">${w.name || '未命名'}</div>
+      <div class="wf-trigger">${w.trigger_type || ''}: ${w.trigger_content || ''}</div>
+      <div class="wf-actions">
+        <span class="wf-badge ${w.enabled ? 'on' : 'off'}" onclick="event.stopPropagation();toggleWorkflow('${w.id}')">${w.enabled ? '启用' : '禁用'}</span>
+        <button class="btn btn-sm" onclick="event.stopPropagation();exportWorkflow('${w.id}')" style="padding:2px 6px;font-size:9px" title="导出">${svgIcon('download')}</button>
+        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteWorkflow('${w.id}')" style="padding:2px 6px;font-size:9px">删除</button>
+      </div>
+    </div>
+  `).join('');
+    }
+
+    function loadWorkflow (id) {
+      const w = workflows.find(x => x.id === id);
+      if (!w) return;
+      currentWorkflow = JSON.parse(JSON.stringify(w));
+      document.getElementById('workflowNameInput').value = w.name || '';
+      document.querySelectorAll('.wf-node').forEach(n => n.remove());
+      connections = currentWorkflow.connections ? [...currentWorkflow.connections] : [];
+      document.getElementById('canvasPlaceholder').classList.add('hidden');
+      if (w.nodes) {
+        w.nodes.forEach(n => createNode(n.type, n.x || 100, n.y || 100, n.data || {}, n.id));
+        nodeIdCounter = Math.max(...w.nodes.map(n => parseInt(n.id?.replace('node_', '') || 0))) + 1;
+      }
+      renderConnections();
+      renderWorkflowList();
+    }
+
+    function newWorkflow () {
+      currentWorkflow = { id: '', name: '新工作流', enabled: true, nodes: [], connections: [] };
+      document.getElementById('workflowNameInput').value = '新工作流';
+      document.querySelectorAll('.wf-node').forEach(n => n.remove());
+      connections = [];
+      document.getElementById('connectionsSvg').innerHTML = '';
+      document.getElementById('canvasPlaceholder').classList.add('hidden');
+      renderWorkflowList();
+    }
+
+    function updateWorkflowName () { if (!currentWorkflow) return; currentWorkflow.name = document.getElementById('workflowNameInput').value || '未命名'; }
+
+    async function saveWorkflow () {
+      if (!currentWorkflow) { showToast('请先创建工作流', 'error'); return; }
+      const nodes = [];
+      let trigger = null;
+      document.querySelectorAll('.wf-node').forEach(node => {
+        const n = { id: node.id, type: node.dataset.type, x: parseInt(node.style.left), y: parseInt(node.style.top), data: JSON.parse(node.dataset.data || '{}') };
+        nodes.push(n);
+        if (n.type === 'trigger') trigger = n;
+      });
+      if (!trigger) { showToast('需要至少一个触发器', 'error'); return; }
+      currentWorkflow.nodes = nodes;
+      currentWorkflow.connections = connections;
+      currentWorkflow.trigger_type = trigger.data.trigger_type || 'exact';
+      currentWorkflow.trigger_content = trigger.data.trigger_content || '';
+      currentWorkflow.name = document.getElementById('workflowNameInput').value || '未命名工作流';
+      if (needsMasterAuth(currentWorkflow.trigger_type)) { showMasterAuth(saveWorkflow); return; }
+      try {
+        const res = await masterAuthFetch(API_BASE + '/save', { method: 'POST', body: JSON.stringify(currentWorkflow) });
+        const data = await res.json();
+        if (data.need_auth) { masterPassword = ''; showMasterAuth(saveWorkflow); return; }
+        if (data.success) { showToast('保存成功'); if (data.data?.id) currentWorkflow.id = data.data.id; loadWorkflows(); }
+        else { showToast(data.error || '保存失败', 'error'); }
+      } catch (e) { showToast('保存失败', 'error'); }
+    }
+
+    async function toggleWorkflow (id) { try { await authFetch(API_BASE + '/toggle', { method: 'POST', body: JSON.stringify({ id }) }); loadWorkflows(); } catch (e) { showToast('操作失败', 'error'); } }
+
+    async function deleteWorkflow (id) {
+      showConfirm('确定删除此工作流？', async (confirmed) => {
+        if (!confirmed) return;
+        try {
+          await authFetch(API_BASE + '/delete', { method: 'POST', body: JSON.stringify({ id }) });
+          if (currentWorkflow?.id === id) { currentWorkflow = null; document.querySelectorAll('.wf-node').forEach(n => n.remove()); connections = []; document.getElementById('connectionsSvg').innerHTML = ''; }
+          loadWorkflows();
+          showToast('已删除');
+        } catch (e) { showToast('删除失败', 'error'); }
+      });
+    }
+
+    function showAiGenerate () { openModal('aiModal'); }
+
+    async function generateWorkflowByAi () {
+      const desc = document.getElementById('aiDescription').value.trim();
+      const model = document.getElementById('aiModel').value;
+      if (!desc) { showToast('请输入描述', 'error'); return; }
+      const btn = document.getElementById('aiGenerateBtn');
+      btn.disabled = true;
+      btn.innerHTML = `${svgIcon('hourglass-split')} 生成中...`;
+      document.getElementById('aiResult').style.display = 'none';
+      try {
+        const req = buildAiRequest(model, [{ role: 'system', content: WORKFLOW_SYSTEM_PROMPT }, { role: 'user', content: desc }]);
+        const res = await fetch(req.url, { method: 'POST', headers: req.headers, body: req.body });
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        const match = content.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            const workflow = JSON.parse(match[0]);
+            document.getElementById('aiResult').style.display = 'block';
+            document.getElementById('aiResult').innerHTML = `<div style="color:var(--success-color);margin-bottom:8px">${svgIcon('check-circle')} 生成成功！节点数: ${workflow.nodes?.length || Object.keys(workflow.nodes || {}).length}</div><button class="btn btn-sm btn-success" onclick="applyAiWorkflow()">应用到画布</button>`;
+            window._aiWorkflow = workflow;
+          } catch (parseErr) {
+            document.getElementById('aiResult').style.display = 'block';
+            document.getElementById('aiResult').innerHTML = `<div style="color:var(--danger-color)">${svgIcon('exclamation-circle')} JSON解析失败: ${parseErr.message}</div><pre style="margin-top:8px;padding:8px;background:#f5f5f5;border-radius:4px;font-size:12px;max-height:200px;overflow:auto;white-space:pre-wrap">${match[0].substring(0, 500)}</pre>`;
+          }
+        } else {
+          document.getElementById('aiResult').style.display = 'block';
+          document.getElementById('aiResult').innerHTML = `<div style="color:var(--danger-color)">${svgIcon('exclamation-circle')} 未找到有效JSON</div><pre style="margin-top:8px;padding:8px;background:#f5f5f5;border-radius:4px;font-size:12px;max-height:200px;overflow:auto;white-space:pre-wrap">${content || '(空)'}</pre>`;
+        }
+      } catch (e) {
+        document.getElementById('aiResult').style.display = 'block';
+        document.getElementById('aiResult').innerHTML = `<div style="color:var(--danger-color)">${svgIcon('exclamation-circle')} 请求失败: ${e.message || e}</div>`;
+      }
+      btn.disabled = false;
+      btn.innerHTML = `${svgIcon('stars')} 生成`;
+    }
+
+    function applyAiWorkflow () {
+      if (!window._aiWorkflow) return;
+      const w = window._aiWorkflow;
+      newWorkflow();
+      currentWorkflow.name = w.name || 'AI生成的工作流';
+      const nodes = Array.isArray(w.nodes) ? w.nodes : Object.values(w.nodes || {});
+      let maxId = 0;
+      nodes.forEach((n, i) => {
+        const id = n.id || `node_${i + 1}`;
+        const numId = parseInt(id.replace('node_', '')) || 0;
+        if (numId > maxId) maxId = numId;
+        createNode(n.type, n.x || 100 + i * 180, n.y || 150, n.data || {}, id);
+      });
+      nodeIdCounter = maxId + 1;
+      if (w.connections) { connections = w.connections; currentWorkflow.connections = w.connections; renderConnections(); }
+      closeModal('aiModal');
+      showToast('已应用AI生成的工作流');
+    }
+
+    // 定时任务
+    function showScheduledTasks () { loadScheduledTasks(); openModal('scheduledModal'); }
+    async function loadScheduledTasks () { try { const res = await authFetch(API_BASE + '/scheduled/list'); const data = await res.json(); renderScheduledTasks(data.tasks || []); loadWorkflowsForSelect(); } catch (e) { } }
+    function renderScheduledTasks (tasks) {
+      const container = document.getElementById('scheduledTaskList');
+      if (!tasks.length) { container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12px">暂无定时任务</div>'; return; }
+      container.innerHTML = `<table class="table"><thead><tr><th>ID</th><th>工作流</th><th>执行时间</th><th>目标</th><th>状态</th><th>操作</th></tr></thead><tbody>${tasks.map(t => {
+        const schedule = t.task_type === 'daily' ? `每天 ${t.daily_time}` : `每 ${t.interval_seconds}秒`;
+        return `<tr><td>${t.id}</td><td>${t.workflow_id}</td><td>${schedule}</td><td>${t.target_type}:${t.target_id}</td><td><span class="wf-badge ${t.enabled ? 'on' : 'off'}">${t.enabled ? '启用' : '禁用'}</span></td><td><button class="btn btn-sm" onclick="toggleTask('${t.id}')">切换</button> <button class="btn btn-sm" onclick="runTaskNow('${t.id}')">执行</button> <button class="btn btn-sm btn-danger" onclick="deleteTask('${t.id}')">删除</button></td></tr>`;
+      }).join('')}</tbody></table>`;
+    }
+    function loadWorkflowsForSelect () { const sel = document.getElementById('taskWorkflowId'); sel.innerHTML = workflows.map(w => `<option value="${w.id}">${w.name}</option>`).join(''); }
+    function showAddTaskForm () { document.getElementById('addTaskForm').style.display = 'block'; }
+    function hideAddTaskForm () { document.getElementById('addTaskForm').style.display = 'none'; }
+    function updateTaskTypeFields () { const type = document.getElementById('taskType').value; document.getElementById('dailyTimeGroup').style.display = type === 'daily' ? 'block' : 'none'; document.getElementById('intervalGroup').style.display = type === 'interval' ? 'block' : 'none'; }
+    async function addScheduledTask () {
+      if (requireMaster && !masterPassword) { showMasterAuth(addScheduledTask); return; }
+      const task = { id: document.getElementById('taskId').value, workflow_id: document.getElementById('taskWorkflowId').value, task_type: document.getElementById('taskType').value, daily_time: document.getElementById('taskDailyTime').value, interval_seconds: parseInt(document.getElementById('taskInterval').value) || 3600, target_type: document.getElementById('taskTargetType').value, target_id: document.getElementById('taskTargetId').value, trigger_user_id: document.getElementById('taskTriggerUserId').value || undefined, enabled: true, description: document.getElementById('taskDesc').value };
+      if (!task.id || !task.target_id) { showToast('请填写完整', 'error'); return; }
+      try { const res = await masterAuthFetch(API_BASE + '/scheduled/add', { method: 'POST', body: JSON.stringify(task) }); const data = await res.json(); if (data.need_auth) { masterPassword = ''; showMasterAuth(addScheduledTask); return; } if (data.success) { showToast('已添加'); hideAddTaskForm(); loadScheduledTasks(); } else showToast(data.error || '添加失败', 'error'); } catch (e) { showToast('请求失败', 'error'); }
+    }
+    async function toggleTask (id) { if (requireMaster && !masterPassword) { showMasterAuth(() => toggleTask(id)); return; } const res = await masterAuthFetch(API_BASE + '/scheduled/toggle', { method: 'POST', body: JSON.stringify({ id }) }); const data = await res.json(); if (data.need_auth) { masterPassword = ''; showMasterAuth(() => toggleTask(id)); return; } loadScheduledTasks(); }
+    async function runTaskNow (id) { if (requireMaster && !masterPassword) { showMasterAuth(() => runTaskNow(id)); return; } const res = await masterAuthFetch(API_BASE + '/scheduled/run', { method: 'POST', body: JSON.stringify({ id }) }); const data = await res.json(); if (data.need_auth) { masterPassword = ''; showMasterAuth(() => runTaskNow(id)); return; } showToast(data.success ? '已执行' : (data.error || '执行失败'), data.success ? 'success' : 'error'); }
+    async function deleteTask (id) {
+      showConfirm('确定删除此定时任务？', async (confirmed) => {
+        if (!confirmed) return;
+        if (requireMaster && !masterPassword) { showMasterAuth(() => deleteTask(id)); return; }
+        const res = await masterAuthFetch(API_BASE + '/scheduled/delete', { method: 'POST', body: JSON.stringify({ id }) });
+        const data = await res.json();
+        if (data.need_auth) { masterPassword = ''; showMasterAuth(() => deleteTask(id)); return; }
+        loadScheduledTasks(); showToast('已删除');
+      });
+    }
+
+    // 导出/导入
+    function showExportModal (title, content) {
+      let modal = document.getElementById('exportModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'exportModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+          <div class="modal-box lg">
+            <div class="modal-header">
+              <h5 id="exportModalTitle">${svgIcon('download')} 导出</h5>
+              <button class="modal-close" onclick="closeModal('exportModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+              <textarea id="exportModalContent" class="form-control" style="height:350px;font-family:monospace;font-size:11px" readonly></textarea>
+            </div>
+            <div class="modal-footer">
+              <button class="btn" onclick="closeModal('exportModal')">关闭</button>
+              <button class="btn btn-primary" onclick="copyExport()">${svgIcon('clipboard')} 复制</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+      document.getElementById('exportModalTitle').innerHTML = `${svgIcon('download')} ${title}`;
+      document.getElementById('exportModalContent').value = content;
+      modal.classList.add('show');
+    }
+
+    async function copyExport () {
+      const content = document.getElementById('exportModalContent').value;
+      try { await navigator.clipboard.writeText(content); showToast('已复制到剪贴板', 'success'); }
+      catch { document.getElementById('exportModalContent').select(); document.execCommand('copy'); showToast('已复制', 'success'); }
+    }
+
+    function exportWorkflow (id) {
+      const w = workflows.find(x => x.id === id);
+      if (!w) { showToast('工作流不存在', 'error'); return; }
+      showExportModal(`导出: ${w.name || w.id}`, JSON.stringify(w, null, 2));
+    }
+
+    function exportAllWorkflows () {
+      if (!workflows.length) { showToast('暂无工作流', 'error'); return; }
+      const data = { workflows, exportTime: new Date().toISOString(), version: '1.0' };
+      showExportModal(`导出全部 (${workflows.length}个)`, JSON.stringify(data, null, 2));
+    }
+
+    function importWorkflows () {
+      let modal = document.getElementById('importModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'importModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+          <div class="modal-box lg">
+            <div class="modal-header">
+              <h5>${svgIcon('upload')} 导入工作流</h5>
+              <button class="modal-close" onclick="closeModal('importModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+              <p style="color:var(--text-secondary);font-size:12px;margin-bottom:8px">粘贴 JSON 内容（支持单个或批量导入）</p>
+              <textarea id="importModalContent" class="form-control" style="height:350px;font-family:monospace;font-size:11px" placeholder='{"id":"...","name":"...","nodes":[...]}'></textarea>
+            </div>
+            <div class="modal-footer">
+              <button class="btn" onclick="closeModal('importModal')">取消</button>
+              <button class="btn btn-primary" onclick="doImport()">${svgIcon('check')} 导入</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+      document.getElementById('importModalContent').value = '';
+      modal.classList.add('show');
+    }
+
+    async function doImport () {
+      const text = document.getElementById('importModalContent').value.trim();
+      if (!text) { showToast('请输入 JSON 内容', 'error'); return; }
+      try {
+        const content = JSON.parse(text);
+        if (content.workflows && Array.isArray(content.workflows)) await importMultipleWorkflows(content.workflows);
+        else if (content.id || content.nodes) await importSingleWorkflow(content);
+        else { showToast('无效的工作流格式', 'error'); return; }
+        closeModal('importModal');
+      } catch (err) { showToast('JSON 解析失败: ' + err.message, 'error'); }
+    }
+
+    async function importSingleWorkflow (workflow) {
+      if (needsMasterAuth(workflow.trigger_type)) { showMasterAuth(() => importSingleWorkflow(workflow)); return; }
+      workflow.id = '';
+      workflow.name = (workflow.name || '导入的工作流') + '_导入';
+      try {
+        const res = await masterAuthFetch(API_BASE + '/save', { method: 'POST', body: JSON.stringify(workflow) });
+        const data = await res.json();
+        if (data.need_auth) { masterPassword = ''; showMasterAuth(() => importSingleWorkflow(workflow)); return; }
+        if (data.success) { showToast('导入成功'); loadWorkflows(); }
+        else { showToast(data.error || '导入失败', 'error'); }
+      } catch (e) { showToast('导入失败', 'error'); }
+    }
+
+    async function importMultipleWorkflows (workflowList) {
+      let success = 0, failed = 0;
+      for (const w of workflowList) {
+        if (needsMasterAuth(w.trigger_type) && !masterPassword) { showMasterAuth(() => importMultipleWorkflows(workflowList)); return; }
+        w.id = '';
+        w.name = (w.name || '工作流') + '_导入';
+        try {
+          const res = await masterAuthFetch(API_BASE + '/save', { method: 'POST', body: JSON.stringify(w) });
+          const data = await res.json();
+          if (data.need_auth) { masterPassword = ''; showMasterAuth(() => importMultipleWorkflows(workflowList)); return; }
+          if (data.success) success++; else failed++;
+        } catch (e) { failed++; }
+      }
+      showToast(`导入完成: 成功 ${success} 个, 失败 ${failed} 个`);
+      loadWorkflows();
+    }
+  </script>
+</body>
+
+</html>

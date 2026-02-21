@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate" />
+  <title>消息拦截 · 配置面板</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { colors: { p: '#60A5FA', pd: '#3B82F6', pl: '#93C5FD', bg: '#F0F7FF', bgd: '#0B1120', card: 'rgba(255,255,255,.85)', cardd: 'rgba(15,23,42,.75)', side: '#F8FBFF', sided: '#111827' } } } }</script>
+  <style>
+    :root {
+      --ease: cubic-bezier(.4, 0, .2, 1)
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, .75);
+      backdrop-filter: blur(16px);
+      border-radius: 14px;
+      border: 1px solid rgba(96, 165, 250, .12);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 4px 14px rgba(96, 165, 250, .06);
+      transition: all .25s var(--ease)
+    }
+
+    .dark .glass {
+      background: rgba(15, 23, 42, .7);
+      border-color: rgba(96, 165, 250, .08);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .2), 0 4px 14px rgba(0, 0, 0, .15)
+    }
+
+    .sb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      color: #64748b;
+      cursor: pointer;
+      margin-bottom: 2px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all .2s var(--ease);
+      user-select: none
+    }
+
+    .dark .sb {
+      color: #94a3b8
+    }
+
+    .sb:hover {
+      background: rgba(96, 165, 250, .08);
+      color: #3B82F6
+    }
+
+    .sb.active {
+      background: linear-gradient(135deg, #60A5FA, #3B82F6);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(59, 130, 246, .35)
+    }
+
+    .dark .sb.active {
+      box-shadow: 0 2px 10px rgba(59, 130, 246, .25)
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 16px;
+      border-radius: 9px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      gap: 6px;
+      font-size: 13px;
+      transition: all .2s var(--ease);
+      user-select: none
+    }
+
+    .btn:active {
+      transform: scale(.96)
+    }
+
+    .btn-p {
+      background: linear-gradient(135deg, #60A5FA, #3B82F6);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, .25)
+    }
+
+    .btn-p:hover {
+      box-shadow: 0 4px 14px rgba(59, 130, 246, .35);
+      filter: brightness(1.05)
+    }
+
+    .btn-s {
+      background: rgba(96, 165, 250, .1);
+      color: #3B82F6;
+      border: 1px solid rgba(96, 165, 250, .2)
+    }
+
+    .dark .btn-s {
+      background: rgba(96, 165, 250, .1);
+      color: #93C5FD;
+      border-color: rgba(96, 165, 250, .15)
+    }
+
+    .btn-s:hover {
+      background: rgba(96, 165, 250, .18);
+      border-color: rgba(96, 165, 250, .3)
+    }
+
+    .btn-d {
+      background: rgba(239, 68, 68, .08);
+      color: #EF4444;
+      border: 1px solid rgba(239, 68, 68, .15)
+    }
+
+    .btn-d:hover {
+      background: rgba(239, 68, 68, .15)
+    }
+
+    .ipt {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 9px;
+      border: 1px solid rgba(96, 165, 250, .18);
+      background: rgba(255, 255, 255, .9);
+      font-size: 13px;
+      transition: all .2s;
+      color: #1e293b
+    }
+
+    .dark .ipt {
+      background: rgba(15, 23, 42, .6);
+      border-color: rgba(96, 165, 250, .12);
+      color: #e2e8f0
+    }
+
+    .ipt:focus {
+      outline: none;
+      border-color: #60A5FA;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, .15)
+    }
+
+    .ipt::placeholder {
+      color: #94a3b8
+    }
+
+    .dark .ipt::placeholder {
+      color: #475569
+    }
+
+    .tgl {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      background: #cbd5e1;
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background .25s;
+      flex-shrink: 0
+    }
+
+    .dark .tgl {
+      background: #334155
+    }
+
+    .tgl.on {
+      background: linear-gradient(135deg, #60A5FA, #3B82F6)
+    }
+
+    .tgl::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .25s var(--ease);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .12)
+    }
+
+    .tgl.on::after {
+      transform: translateX(18px)
+    }
+
+    .pg {
+      display: none;
+      animation: fi .3s var(--ease)
+    }
+
+    .pg.active {
+      display: block
+    }
+
+    @keyframes fi {
+      from {
+        opacity: 0;
+        transform: translateY(6px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .sec-t {
+      font-size: 12px;
+      font-weight: 600;
+      color: #3B82F6;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 10px
+    }
+
+    .dark .sec-t {
+      color: #60A5FA
+    }
+
+    .stat {
+      text-align: center;
+      padding: 14px 8px;
+      border-radius: 12px;
+      transition: all .2s var(--ease)
+    }
+
+    .stat:hover {
+      transform: translateY(-1px)
+    }
+
+    .scr::-webkit-scrollbar {
+      width: 5px
+    }
+
+    .scr::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    .scr::-webkit-scrollbar-thumb {
+      background: rgba(96, 165, 250, .25);
+      border-radius: 3px
+    }
+
+    .toast-c {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .toast {
+      padding: 10px 16px;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, .1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: si .3s ease;
+      font-size: 13px;
+      border: 1px solid rgba(96, 165, 250, .1)
+    }
+
+    .dark .toast {
+      background: #1e293b;
+      border-color: rgba(96, 165, 250, .08)
+    }
+
+    @keyframes si {
+      from {
+        opacity: 0;
+        transform: translateX(80px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0)
+      }
+    }
+
+    .lfb {
+      padding: 5px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(96, 165, 250, .15);
+      background: transparent;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .2s var(--ease);
+      color: #64748b;
+      font-weight: 500
+    }
+
+    .dark .lfb {
+      border-color: rgba(96, 165, 250, .1);
+      color: #94a3b8
+    }
+
+    .lfb.active {
+      background: linear-gradient(135deg, #60A5FA, #3B82F6);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, .2)
+    }
+
+    .lfb:hover:not(.active) {
+      border-color: #60A5FA;
+      color: #3B82F6;
+      background: rgba(96, 165, 250, .05)
+    }
+
+    .log-c {
+      background: #0c1222;
+      border-radius: 10px;
+      padding: 12px;
+      max-height: 480px;
+      overflow-y: auto;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      border: 1px solid rgba(96, 165, 250, .06)
+    }
+
+    .log-e {
+      padding: 1px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .03);
+      white-space: pre-wrap;
+      word-break: break-all
+    }
+
+    .log-e .lt {
+      color: #475569
+    }
+
+    .log-e.log-info .ll {
+      color: #60a5fa
+    }
+
+    .log-e.log-debug .ll {
+      color: #a78bfa
+    }
+
+    .log-e .lm {
+      color: #e2e8f0
+    }
+
+    .pi {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border: 1px solid rgba(96, 165, 250, .1);
+      border-radius: 12px;
+      margin-bottom: 8px;
+      transition: all .2s;
+      background: rgba(255, 255, 255, .5)
+    }
+
+    .dark .pi {
+      background: rgba(15, 23, 42, .4);
+      border-color: rgba(96, 165, 250, .08)
+    }
+
+    .pi:hover {
+      border-color: rgba(96, 165, 250, .25);
+      background: rgba(96, 165, 250, .04)
+    }
+
+    .pi .name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500
+    }
+
+    .pi .si {
+      width: 180px;
+      padding: 5px 8px;
+      font-size: 11px;
+      border: 1px solid rgba(96, 165, 250, .15);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, .8);
+      color: #334155
+    }
+
+    .dark .pi .si {
+      background: rgba(15, 23, 42, .5);
+      border-color: rgba(96, 165, 250, .1);
+      color: #94a3b8
+    }
+
+    .pi .si:focus {
+      outline: none;
+      border-color: #60A5FA;
+      color: #1e293b
+    }
+
+    .dark .pi .si:focus {
+      color: #e2e8f0
+    }
+
+    .pi .si::placeholder {
+      color: #94a3b8
+    }
+
+    .dark .pi .si::placeholder {
+      color: #475569
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .5px
+    }
+
+    .badge.on {
+      background: rgba(34, 197, 94, .1);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, .2)
+    }
+
+    .badge.off {
+      background: rgba(107, 114, 128, .1);
+      color: #6b7280;
+      border: 1px solid rgba(107, 114, 128, .15)
+    }
+
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #94a3b8;
+      font-size: 13px
+    }
+
+    .dark .empty {
+      color: #475569
+    }
+  </style>
+</head>
+
+<body class="bg-[#F0F7FF] dark:bg-[#0B1120] text-gray-800 dark:text-gray-200 transition-colors duration-300">
+  <div id="tc" class="toast-c"></div>
+  <div class="flex h-screen overflow-hidden">
+    <!-- sidebar -->
+    <aside
+      class="w-[200px] flex-shrink-0 bg-[#F8FBFF] dark:bg-[#111827] border-r border-blue-100/60 dark:border-blue-900/20 flex flex-col z-10 transition-colors duration-300">
+      <div class="p-4 flex items-center gap-3">
+        <div
+          class="w-9 h-9 flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl text-white shadow-md shadow-blue-500/20">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9" />
+            <path
+              d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-bold text-sm leading-tight">消息拦截</h1>
+          <p class="text-[10px] text-slate-400 font-medium">MsgHook v1.2.0</p>
+        </div>
+      </div>
+      <nav class="flex-1 px-2.5 py-1 overflow-y-auto scr">
+        <div class="sb active" onclick="go('dashboard',this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+          仪表盘
+        </div>
+        <div class="sb" onclick="go('rules',this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          拦截规则
+        </div>
+        <div class="sb" onclick="go('qqbot',this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          QQBot 桥接
+        </div>
+        <div class="sb" onclick="go('logs',this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path
+              d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
+          </svg>
+          调试日志
+        </div>
+      </nav>
+      <div class="px-3 py-2.5 border-t border-blue-100/40 dark:border-blue-900/15 flex flex-col items-center gap-1.5">
+        <a href="https://github.com/lengxi-root/napcat-plugin-lengxi" target="_blank"
+          class="flex items-center gap-1 text-[10px] text-slate-400 hover:text-p transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+            <path
+              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" />
+          </svg>
+          GitHub
+        </a>
+        <a href="https://qm.qq.com/q/oB5hdOZcuQ" target="_blank"
+          class="flex items-center gap-1 text-[10px] text-slate-400 hover:text-p transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          交流群
+        </a>
+        <div class="text-[10px] text-slate-400">by 冷曦</div>
+      </div>
+    </aside>
+    <!-- main -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header
+        class="sticky top-0 z-20 flex justify-end items-center px-5 py-2.5 bg-[#F0F7FF]/80 dark:bg-[#0B1120]/80 backdrop-blur-md border-b border-blue-100/30 dark:border-blue-900/10 transition-colors duration-300">
+        <div class="flex items-center gap-2.5">
+          <button onclick="doSave()" class="btn btn-p">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+              <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+              <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+            </svg>
+            保存配置
+          </button>
+          <div
+            class="flex items-center gap-2 px-3 py-1.5 bg-white/80 dark:bg-slate-800/60 rounded-full border border-blue-100/40 dark:border-blue-900/20 backdrop-blur-sm">
+            <div id="sDot" class="w-2 h-2 rounded-full bg-red-400"></div>
+            <span class="text-xs font-medium" id="sTxt">加载中...</span>
+          </div>
+        </div>
+      </header>
+      <main class="flex-1 overflow-y-auto scr px-5 md:px-6 pb-8 pt-4">
+
+        <!-- 仪表盘 -->
+        <div id="pg-dashboard" class="pg active">
+          <div class="glass p-5 mb-4">
+            <div class="flex items-center gap-3 mb-4">
+              <div
+                class="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl text-white shadow-md shadow-blue-500/20">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9" />
+                  <path
+                    d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-lg">消息拦截修改</h3>
+                <p class="text-xs text-slate-400">MsgHook v1.2.0 · 拦截插件出站消息，支持后缀追加、文本替换、官机代发</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="stat bg-blue-50/80 dark:bg-blue-950/30">
+                <div class="text-2xl font-bold text-blue-500" id="d-rules">0</div>
+                <div class="text-[10px] text-slate-500 mt-1">拦截规则</div>
+              </div>
+              <div class="stat bg-emerald-50/80 dark:bg-emerald-950/30">
+                <div class="text-2xl font-bold text-emerald-500" id="d-active">0</div>
+                <div class="text-[10px] text-slate-500 mt-1">已启用</div>
+              </div>
+              <div class="stat bg-violet-50/80 dark:bg-violet-950/30">
+                <div class="text-2xl font-bold text-violet-500" id="d-plugins">0</div>
+                <div class="text-[10px] text-slate-500 mt-1">已安装插件</div>
+              </div>
+            </div>
+          </div>
+          <div class="glass p-5 mb-4">
+            <div class="sec-t">全局设置</div>
+            <div class="flex items-center justify-between py-3 border-b border-blue-100/30 dark:border-blue-900/10">
+              <div><span class="text-sm font-medium">总开关</span>
+                <p class="text-[11px] text-slate-400">关闭后所有拦截停止</p>
+              </div>
+              <div class="tgl" id="d-enabled" onclick="tg(this)"></div>
+            </div>
+            <div class="flex items-center gap-4 py-3">
+              <div class="flex-1">
+                <label class="text-xs text-slate-500">主人QQ号（指令拦截用）</label>
+                <input type="text" id="d-ownerQQ" class="ipt" placeholder="填写后可在拦截规则中启用仅主人响应">
+              </div>
+            </div>
+          </div>
+          <div
+            style="padding:10px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+            </svg>
+            <span style="font-size:11px;color:#b45309">如果使用官机代发能力，请注意不要代发 AI 等违规消息插件，防止你的机器人被封禁。</span>
+          </div>
+        </div>
+
+        <!-- 拦截规则 -->
+        <div id="pg-rules" class="pg">
+          <div class="glass p-5 mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="font-bold text-base flex items-center gap-2">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                  拦截规则
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">为每个插件单独配置拦截规则。支持后缀、文本替换、官机代发、指令修改、仅主人响应。</p>
+              </div>
+              <button onclick="refreshPlugins()" class="btn btn-s">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                  <path d="M16 16h5v5" />
+                </svg>
+                刷新
+              </button>
+            </div>
+            <p class="text-xs text-slate-400 mb-2">为每个插件单独配置拦截规则，支持后缀追加、文本替换、官机代发、仅主人响应。</p>
+            <div class="flex gap-2 mb-3 flex-wrap">
+              <button onclick="toggleAllHook(true)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9" />
+                  <path
+                    d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z" />
+                </svg>
+                全选 HOOK
+              </button>
+              <button onclick="toggleAllHook(false)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+                全选 SKIP
+              </button>
+              <span style="width:1px;background:rgba(96,165,250,.15);margin:0 4px"></span>
+              <button onclick="toggleAllReplace(true)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                全选官机代发
+              </button>
+              <button onclick="toggleAllReplace(false)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+                取消官机代发
+              </button>
+            </div>
+            <div id="pluginList"></div>
+          </div>
+        </div>
+
+        <!-- 调试日志 -->
+        <div id="pg-logs" class="pg">
+          <div class="glass p-5 mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-3">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path
+                      d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
+                  </svg>
+                  调试日志
+                </h3>
+                <div class="flex gap-1.5">
+                  <button class="lfb active" onclick="fltLog('all',this)">全部</button>
+                  <button class="lfb" onclick="fltLog('info',this)">INFO</button>
+                  <button class="lfb" onclick="fltLog('debug',this)">DEBUG</button>
+                </div>
+              </div>
+              <span class="text-[10px] text-slate-500" id="logCnt">0 条</span>
+            </div>
+            <div id="logC" class="log-c scr">
+              <p style="color:#475569">加载中...</p>
+            </div>
+            <div class="flex items-center justify-end mt-2 gap-4">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] text-slate-500">调试模式</span>
+                <div class="tgl" id="d-debug" onclick="tg(this)" style="width:34px;height:18px"></div>
+              </div>
+              <label class="flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer"><input type="checkbox"
+                  id="logAS" checked> 自动滚动</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- QQBot 桥接 -->
+        <div id="pg-qqbot" class="pg">
+          <div class="glass p-5 mb-4">
+            <div class="flex items-center gap-3 mb-4">
+              <div
+                class="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl text-white shadow-md shadow-blue-500/20">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-lg">QQ 官方机器人桥接</h3>
+                <p class="text-xs text-slate-400">填写 AppID 和 Secret 后自动连接，无需手动开关</p>
+              </div>
+              <div class="ml-auto flex items-center gap-2">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full border" id="qb-status-badge"
+                  style="border-color:rgba(107,114,128,.2);background:rgba(107,114,128,.05)">
+                  <div id="qb-dot" class="w-2 h-2 rounded-full bg-gray-400"></div>
+                  <span class="text-xs font-medium" id="qb-status-text">未连接</span>
+                </div>
+              </div>
+            </div>
+            <div class="sec-t">连接配置</div>
+            <div class="flex gap-3 py-3 border-b border-blue-100/30 dark:border-blue-900/10">
+              <div class="w-1/5">
+                <label class="text-xs text-slate-500">AppID</label>
+                <input type="text" id="qb-appid" class="ipt" placeholder="AppID">
+              </div>
+              <div class="w-1/5">
+                <label class="text-xs text-slate-500">机器人QQ号</label>
+                <input type="text" id="qb-qq" class="ipt" placeholder="QQ号">
+              </div>
+              <div class="w-1/5">
+                <label class="text-xs text-slate-500">主人QQ号</label>
+                <input type="text" id="qb-master" class="ipt" placeholder="可使用 dm 指令">
+              </div>
+              <div class="flex-1">
+                <label class="text-xs text-slate-500">Secret</label>
+                <input type="password" id="qb-secret" class="ipt" placeholder="官方机器人 Secret">
+              </div>
+            </div>
+            <p class="text-xs text-slate-400 py-2 border-b border-blue-100/30 dark:border-blue-900/10">
+              勾选"代发"的插件，其群消息将由官方机器人通过 markdown 模板发送</p>
+            <div class="flex items-center gap-6 py-3 border-b border-blue-100/30 dark:border-blue-900/10">
+              <div class="flex items-center gap-2"><span class="text-sm font-medium">沙箱模式</span>
+                <div class="tgl" id="qb-sandbox" onclick="tg(this)"></div>
+              </div>
+              <div class="flex items-center gap-2"><span class="text-sm font-medium">图片转存</span>
+                <div class="tgl" id="qb-rehost" onclick="tg(this)"></div><span
+                  class="text-[10px] text-slate-400">下载后通过QQ转存，防止开放平台无法访问</span>
+              </div>
+            </div>
+            <div class="py-3 border-b border-blue-100/30 dark:border-blue-900/10">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs text-slate-500">模板内容复制</span>
+                <button onclick="cpTpl('{{.text}}')" class="btn btn-s"
+                  style="padding:3px 10px;font-size:10px;gap:4px"><svg width="10" height="10" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>{{.text}}</button>
+                <button onclick="cpTpl('![{{.px}}]({{.url}}){{.text}}')" class="btn btn-s"
+                  style="padding:3px 10px;font-size:10px;gap:4px"><svg width="10" height="10" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>![{{.px}}]({{.url}}){{.text}}</button>
+                <button onclick="cpKbTpl()" class="btn btn-s" style="padding:3px 10px;font-size:10px;gap:4px"><svg
+                    width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>按钮模板 JSON</button>
+              </div>
+              <p class="text-[10px] text-slate-400 mb-3">请前往 QQ 开放平台 → 高阶能力 提审 2 个 markdown 模板（图文 + 纯文本）和 1
+                个按钮模板。如果不懂，请加入群聊 <a href="https://qm.qq.com/q/oB5hdOZcuQ" target="_blank">1085402468</a></p>
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <label class="text-xs text-slate-500">图文模板 ID <code
+                      style="font-size:10px;color:#94a3b8">![{{.px}}]({{.url}}){{.text}}</code></label>
+                  <input type="text" id="qb-imgTplId" class="ipt" placeholder="图片+文本 markdown 模板 ID">
+                </div>
+                <div class="flex-1">
+                  <label class="text-xs text-slate-500">纯文本模板 ID <code
+                      style="font-size:10px;color:#94a3b8">{{.text}}</code></label>
+                  <input type="text" id="qb-textTplId" class="ipt" placeholder="纯文本 markdown 模板 ID">
+                </div>
+                <div class="flex-1">
+                  <label class="text-xs text-slate-500">Keyboard 模板 ID（必填）</label>
+                  <input type="text" id="qb-kbTplId" class="ipt" placeholder="按钮模板 ID">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="glass p-5 mb-4">
+            <div class="sec-t">连接信息</div>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="stat bg-blue-50/80 dark:bg-blue-950/30">
+                <div class="text-sm font-bold text-blue-500" id="qb-selfid">-</div>
+                <div class="text-[10px] text-slate-500 mt-1">Bot ID</div>
+              </div>
+              <div class="stat bg-emerald-50/80 dark:bg-emerald-950/30">
+                <div class="text-sm font-bold text-emerald-500" id="qb-nickname">-</div>
+                <div class="text-[10px] text-slate-500 mt-1">昵称</div>
+              </div>
+              <div class="stat bg-violet-50/80 dark:bg-violet-950/30">
+                <div class="text-sm font-bold text-violet-500" id="qb-qqnum">-</div>
+                <div class="text-[10px] text-slate-500 mt-1">QQ号</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const API = (p) => '../api' + p;
+    let allPlugins = [], C = {}, logD = [], logFlt = 'all', logTmr = null;
+    const $ = id => document.getElementById(id);
+
+    // 自动检测暗色模式
+    if (window.matchMedia('(prefers-color-scheme:dark)').matches) document.documentElement.classList.add('dark');
+    window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', e => {
+      e.matches ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark');
+    });
+
+    function tg (el) { el.classList.toggle('on'); }
+    function gtg (id) { return $(id).classList.contains('on'); }
+    function stg (id, v) { v ? $(id).classList.add('on') : $(id).classList.remove('on'); }
+
+    function go (pg, el) {
+      document.querySelectorAll('.pg').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.sb').forEach(s => s.classList.remove('active'));
+      $('pg-' + pg).classList.add('active');
+      el.classList.add('active');
+      if (pg === 'logs') { loadLogs(); startLR(); } else { stopLR(); }
+      if (pg === 'qqbot') loadQQBotStatus();
+    }
+
+    function toast (msg, type = 'success') {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      const icon = type === 'success'
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>';
+      el.innerHTML = icon + '<span>' + esc(msg) + '</span>';
+      $('tc').appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 2000);
+    }
+
+    function esc (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    async function af (path, method, body) {
+      const opt = method === 'POST' ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+      return (await fetch(API(path), opt)).json();
+    }
+
+    async function load () {
+      try {
+        const [cfgR, plgR] = await Promise.all([af('/config'), af('/plugins')]);
+        C = cfgR.config || {}; allPlugins = plgR.data || [];
+        render();
+        $('sDot').className = 'w-2 h-2 rounded-full bg-green-500';
+        $('sTxt').textContent = '已连接';
+      } catch (e) { $('sTxt').textContent = '连接失败'; }
+    }
+
+    function render () {
+      stg('d-enabled', C.enabled !== false);
+      stg('d-debug', !!C.debug);
+      $('d-ownerQQ').value = C.ownerQQ || '';
+      const rules = C.rules || [];
+      $('d-rules').textContent = rules.length;
+      $('d-active').textContent = rules.filter(r => r.enabled).length;
+      $('d-plugins').textContent = allPlugins.length;
+      renderPlugins();
+    }
+
+    function renderPlugins () {
+      const ONEBOT_NAME = 'OneBot 外部调用';
+      const el = $('pluginList'), rules = C.rules || [];
+      const ruleMap = new Map(rules.map(r => [r.name, r]));
+      const merged = [];
+      merged.push(ruleMap.get(ONEBOT_NAME) || { name: ONEBOT_NAME, enabled: false, suffix: '', replace: false, replaceText: '', ownerOnly: false });
+      for (const name of allPlugins) if (name !== ONEBOT_NAME) merged.push(ruleMap.get(name) || { name, enabled: false, suffix: '', replace: false, replaceText: '', ownerOnly: false });
+      for (const r of rules) if (r.name !== ONEBOT_NAME && !allPlugins.includes(r.name)) merged.push({ ...r, _missing: true });
+      if (!merged.length) { el.innerHTML = '<div class="empty">未检测到其他插件</div>'; return; }
+      el.innerHTML = merged.map((r, i) => `
+    <div class="pi" style="flex-wrap:wrap" data-idx="${i}">
+      <span class="name">${esc(r.name)}${r.name === 'OneBot 外部调用' ? ' <span style="color:#60A5FA;font-size:10px">(HTTP/WS)</span>' : r._missing ? ' <span style="color:#f87171;font-size:10px">(未安装)</span>' : ''}</span>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <button onclick="tgOwnerOnly(${i})" class="btn" style="padding:4px 10px;font-size:10px;font-weight:600;gap:4px;min-width:72px;${r.ownerOnly ? 'background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,.25)' : 'background:rgba(107,114,128,.08);color:#94a3b8;border:1px solid rgba(107,114,128,.15)'}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+          ${r.ownerOnly ? '仅主人' : '所有人'}
+        </button>
+        <button onclick="tgPlugin(${i})" class="btn" style="padding:4px 10px;font-size:10px;font-weight:600;gap:4px;min-width:56px;${r.enabled ? 'background:linear-gradient(135deg,#60A5FA,#3B82F6);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.25)' : 'background:rgba(107,114,128,.08);color:#94a3b8;border:1px solid rgba(107,114,128,.15)'}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z"/></svg>
+          ${r.enabled ? 'HOOK' : 'SKIP'}
+        </button>
+        <button onclick="tgReplace(${i})" class="btn" style="padding:4px 10px;font-size:10px;font-weight:600;gap:4px;min-width:72px;${r.replace ? 'background:linear-gradient(135deg,#60A5FA,#3B82F6);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.25)' : 'background:rgba(107,114,128,.08);color:#94a3b8;border:1px solid rgba(107,114,128,.15)'}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          官机代发
+        </button>
+      </div>
+      ${r.enabled ? `<div style="width:100%;margin-top:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input class="si" style="flex:1;min-width:140px" type="text" placeholder="后缀（留空不使用）" value="${esc(r.suffix || '')}" onchange="setSuffix(${i},this.value)">
+          <input class="si" style="flex:1;min-width:140px" type="text" placeholder="文本替换（查找=替换;多条）" value="${esc(r.replaceText || '')}" onchange="setReplaceText(${i},this.value)">
+        </div>
+      </div>` : ''}
+    </div>
+  `).join('');
+      C.rules = merged.map(r => ({ name: r.name, enabled: !!r.enabled, suffix: r.suffix || '', replace: !!r.replace, replaceText: r.replaceText || '', ownerOnly: !!r.ownerOnly }));
+    }
+
+    function tgPlugin (idx) { C.rules[idx].enabled = !C.rules[idx].enabled; renderPlugins(); }
+    function setSuffix (idx, val) { C.rules[idx].suffix = val; }
+    function setReplaceText (idx, val) { C.rules[idx].replaceText = val; }
+    function tgReplace (idx) { C.rules[idx].replace = !C.rules[idx].replace; renderPlugins(); }
+    function tgOwnerOnly (idx) { C.rules[idx].ownerOnly = !C.rules[idx].ownerOnly; renderPlugins(); }
+    function toggleAllReplace (val) { (C.rules || []).forEach(r => r.replace = val); renderPlugins(); }
+    function toggleAllHook (val) { (C.rules || []).forEach(r => r.enabled = val); renderPlugins(); }
+
+    async function refreshPlugins () {
+      try { const r = await af('/plugins'); allPlugins = r.data || []; renderPlugins(); toast('已刷新插件列表'); }
+      catch (e) { toast('刷新失败: ' + e, 'error'); }
+    }
+
+    async function loadLogs () {
+      try { const r = await af('/logs'); logD = r.data || []; rndLogs(); }
+      catch { $('logC').innerHTML = '<p style="color:#f87171">获取失败</p>'; }
+    }
+
+    function rndLogs () {
+      const c = $('logC'), f = logFlt === 'all' ? logD : logD.filter(l => l.level === logFlt);
+      $('logCnt').textContent = `${f.length}/${logD.length} 条`;
+      if (!f.length) { c.innerHTML = '<p style="color:#475569">暂无日志</p>'; return; }
+      c.innerHTML = f.map(l => {
+        const t = new Date(l.time), ts = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}.${String(t.getMilliseconds()).padStart(3, '0')}`;
+        const lv = l.level.toUpperCase().padEnd(5);
+        return `<div class="log-e log-${l.level}"><span class="lt">${ts}</span> <span class="ll">[${lv}]</span> <span class="lm">${esc(l.msg)}</span></div>`;
+      }).join('');
+      if ($('logAS')?.checked) c.scrollTop = c.scrollHeight;
+    }
+
+    function fltLog (lv, btn) { logFlt = lv; btn.parentElement.querySelectorAll('.lfb').forEach(b => b.classList.remove('active')); btn.classList.add('active'); rndLogs(); }
+
+    function cpText (text) { const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    function cpTpl (text) { try { cpText(text); toast('已复制: ' + text); } catch { toast('复制失败', 'error'); } }
+    function cpKbTpl () { try { cpText('{"rows": [{"buttons": [{"id": "1","render_data": {"label": "回调","visited_label": "回调","style": 0},"action": {"type": 1,"permission": {"type": 2},"data": "回调","unsupport_tips": "不支持该操作"}}]}]}'); toast('已复制按钮模板 JSON'); } catch { toast('复制失败', 'error'); } }
+    function startLR () { if (logTmr) return; logTmr = setInterval(loadLogs, 3000); }
+    function stopLR () { if (logTmr) { clearInterval(logTmr); logTmr = null; } }
+
+    // ========== QQBot 桥接 ==========
+    async function loadQQBotStatus () {
+      try {
+        const r = await af('/qqbot/status');
+        const d = r.data || {};
+        const cfg = d.config || {};
+        $('qb-appid').value = cfg.appid || '';
+        $('qb-secret').value = cfg.secret || '';
+        $('qb-qq').value = cfg.qqNumber || '';
+        $('qb-master').value = cfg.masterQQ || '';
+        stg('qb-sandbox', cfg.sandbox);
+        stg('qb-rehost', cfg.forceImageRehost);
+        $('qb-imgTplId').value = cfg.imgMarkdownTemplateId || '';
+        $('qb-textTplId').value = cfg.textMarkdownTemplateId || '';
+        $('qb-kbTplId').value = cfg.keyboardTemplateId || '';
+        $('qb-selfid').textContent = d.selfId || '-';
+        $('qb-nickname').textContent = d.nickname || '-';
+        $('qb-qqnum').textContent = cfg.qqNumber || '-';
+        if (d.connected) {
+          $('qb-dot').className = 'w-2 h-2 rounded-full bg-green-500';
+          $('qb-status-text').textContent = '已连接';
+          $('qb-status-badge').style.borderColor = 'rgba(34,197,94,.3)';
+          $('qb-status-badge').style.background = 'rgba(34,197,94,.05)';
+        } else {
+          $('qb-dot').className = 'w-2 h-2 rounded-full bg-gray-400';
+          $('qb-status-text').textContent = cfg.appid && cfg.secret ? '连接中...' : '未配置';
+          $('qb-status-badge').style.borderColor = 'rgba(107,114,128,.2)';
+          $('qb-status-badge').style.background = 'rgba(107,114,128,.05)';
+        }
+      } catch { }
+    }
+
+    // QQBot 配置随全局保存一起保存
+    async function doSave () {
+      C.enabled = gtg('d-enabled');
+      C.debug = gtg('d-debug');
+      C.ownerQQ = $('d-ownerQQ').value.trim();
+      try { const r = await af('/config', 'POST', C); toast(r.success ? '配置已保存' : '保存失败', r.success ? 'success' : 'error'); }
+      catch (e) { toast('保存失败: ' + e, 'error'); }
+      // 同时保存 QQBot 配置
+      const qcfg = {
+        appid: $('qb-appid').value.trim(),
+        secret: $('qb-secret').value.trim(),
+        qqNumber: $('qb-qq').value.trim(),
+        masterQQ: $('qb-master').value.trim(),
+        sandbox: gtg('qb-sandbox'),
+        forceImageRehost: gtg('qb-rehost'),
+        intents: ['GROUP_AT_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE', 'INTERACTION'],
+        imgMarkdownTemplateId: $('qb-imgTplId').value.trim(),
+        textMarkdownTemplateId: $('qb-textTplId').value.trim(),
+        keyboardTemplateId: $('qb-kbTplId').value.trim(),
+      };
+      try { await af('/qqbot/config', 'POST', qcfg); } catch { }
+      setTimeout(loadQQBotStatus, 2000);
+      render();
+    }
+
+    load();
+    loadQQBotStatus();
+  </script>
+</body>
+
+</html>

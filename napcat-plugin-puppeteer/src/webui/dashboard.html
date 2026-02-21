@@ -1,0 +1,2587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Puppeteer 渲染服务 · 控制台</title>
+    <script src="static/plugin-info.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FB7299',
+                        brand: {
+                            pink: '#FB7299',
+                            blue: '#00A1D6',
+                            dark: '#18191C',
+                            gray: '#F4F4F4',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s var(--ease-smooth);
+        }
+
+        .dark .glass-card {
+            background: rgba(42, 43, 46, 0.8);
+            border-color: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: #4b5563;
+            transition: all 0.2s var(--ease-smooth);
+            cursor: pointer;
+            margin-bottom: 4px;
+        }
+
+        .dark .sidebar-item {
+            color: #9ca3af;
+        }
+
+        .sidebar-item:hover {
+            background: rgba(251, 114, 153, 0.1);
+            color: #FB7299;
+        }
+
+        .sidebar-item.active {
+            background: #FB7299;
+            color: white;
+            box-shadow: 0 4px 12px rgba(251, 114, 153, 0.3);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-spring);
+            border: none;
+            gap: 8px;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-primary {
+            background: #FB7299;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #e05a80;
+            box-shadow: 0 4px 12px rgba(251, 114, 153, 0.4);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .dark .input-field {
+            background: #1f2937;
+            border-color: #374151;
+            color: white;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #FB7299;
+            box-shadow: 0 0 0 3px rgba(251, 114, 153, 0.2);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .page-content {
+            display: none;
+            animation: fadeIn 0.4s var(--ease-spring);
+        }
+
+        .page-content.active {
+            display: block;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.connected {
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+            background: #10b981;
+        }
+
+        .status-dot.disconnected {
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+            background: #ef4444;
+        }
+
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.875rem;
+        }
+
+        /* API Specific Styles */
+        .api-sidebar-link {
+            display: block;
+            padding: 8px 12px;
+            color: #6b7280;
+            font-size: 0.875rem;
+            border-left: 2px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .dark .api-sidebar-link {
+            color: #9ca3af;
+        }
+
+        .api-sidebar-link:hover {
+            color: #FB7299;
+            background: rgba(251, 114, 153, 0.05);
+        }
+
+        .api-sidebar-link.active {
+            color: #FB7299;
+            border-left-color: #FB7299;
+            background: rgba(251, 114, 153, 0.1);
+            font-weight: 500;
+        }
+
+        .api-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            transition: all 0.2s;
+            margin-bottom: 1rem;
+        }
+
+        .dark .api-card {
+            background: #202124;
+            border-color: #374151;
+        }
+
+        .api-card:hover {
+            border-color: #FB7299;
+        }
+
+        .api-header {
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .api-header:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+
+        .dark .api-header:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .api-body {
+            display: none;
+            padding: 0 1.5rem 1.5rem;
+            border-top: 1px solid #f3f4f6;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .dark .api-body {
+            border-top-color: #374151;
+        }
+
+        .api-card.open .api-body {
+            display: block;
+        }
+
+        .api-card.open {
+            box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .method-badge {
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.2rem 0.6rem;
+            border-radius: 0.375rem;
+            text-transform: uppercase;
+            min-width: 4rem;
+            text-align: center;
+            letter-spacing: 0.05em;
+        }
+
+        .method-GET {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .dark .method-GET {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        .method-POST {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .dark .method-POST {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+        }
+
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .param-table th {
+            text-align: left;
+            padding: 0.75rem 0.5rem;
+            color: #6b7280;
+            font-weight: 600;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .dark .param-table th {
+            color: #9ca3af;
+            border-color: #374151;
+        }
+
+        .param-table td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid #f3f4f6;
+            color: #4b5563;
+        }
+
+        .dark .param-table td {
+            border-color: #333;
+            color: #d1d5db;
+        }
+
+        .param-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .type-tag {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.75rem;
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.25rem;
+            background: #f3f4f6;
+            color: #ef4444;
+        }
+
+        .dark .type-tag {
+            background: #374151;
+            color: #f87171;
+        }
+
+        .req-opt {
+            color: #f59e0b;
+            font-size: 0.7rem;
+            border: 1px solid #f59e0b;
+            padding: 0 0.25rem;
+            border-radius: 4px;
+            margin-left: 4px;
+        }
+
+        .req-must {
+            color: #ef4444;
+            font-size: 0.7rem;
+            border: 1px solid #ef4444;
+            padding: 0 0.25rem;
+            border-radius: 4px;
+            margin-left: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 3px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.8);
+        }
+
+        /* Toast 消息弹窗 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 12px 24px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            animation: toastIn 0.5s var(--ease-spring) both;
+            backdrop-filter: blur(8px);
+            pointer-events: auto;
+        }
+
+        .toast.hiding {
+            animation: toastOut 0.4s var(--ease-smooth) both;
+        }
+
+        .toast.toast-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .toast.toast-error {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .toast.toast-info {
+            background: linear-gradient(135deg, #FB7299 0%, #e05a80 100%);
+        }
+
+        .toast.toast-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%) scale(0.8);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        @keyframes toastOut {
+            from {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateX(100%) scale(0.8);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-[#18191C] text-gray-800 dark:text-gray-200 transition-colors duration-300">
+    <!-- Toast 容器 -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside
+            class="w-64 flex-shrink-0 bg-white dark:bg-[#202124] border-r border-gray-200 dark:border-gray-800 flex flex-col z-10 transition-colors duration-300">
+            <div class="p-6 flex items-center gap-3">
+                <div class="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-primary">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                        <polyline points="2 17 12 22 22 17"></polyline>
+                        <polyline points="2 12 12 17 22 12"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Puppeteer</h1>
+                    <p class="text-xs text-gray-400">渲染服务</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-4 py-2 overflow-y-auto">
+                <div class="sidebar-item active" onclick="switchPage('status', this)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span>运行状态</span>
+                </div>
+                <div class="sidebar-item" onclick="switchPage('test', this)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    <span>渲染测试</span>
+                </div>
+                <div class="sidebar-item" onclick="switchPage('api', this)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>API 文档</span>
+                </div>
+                <div class="sidebar-item" onclick="switchPage('settings', this)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                        </path>
+                    </svg>
+                    <span>设置</span>
+                </div>
+                <div class="sidebar-item" onclick="switchPage('chrome', this)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <line x1="21.17" y1="8" x2="12" y2="8"></line>
+                        <line x1="3.95" y1="6.06" x2="8.54" y2="14"></line>
+                        <line x1="10.88" y1="21.94" x2="15.46" y2="14"></line>
+                    </svg>
+                    <span>Chrome 安装</span>
+                </div>
+            </nav>
+
+            <div class="px-4 pb-2">
+                <a href="https://github.com/AQiaoYo/napcat-plugin-puppeteer/issues" target="_blank"
+                    class="sidebar-item no-underline" style="text-decoration: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+                        </path>
+                    </svg>
+                    <span>反馈问题</span>
+                </a>
+            </div>
+
+            <div class="p-4 border-t border-gray-200 dark:border-gray-800">
+                <div
+                    class="flex items-center justify-center w-full p-2 rounded-lg text-gray-500 bg-gray-50 dark:bg-gray-800/50 cursor-default">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" class="opacity-70">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <span class="ml-2 text-xs">跟随系统主题</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Wrapper -->
+        <div
+            class="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-[#18191C] relative transition-colors duration-300">
+            <!-- Scrollable Content -->
+            <main id="mainContent" class="flex-1 overflow-y-auto h-full relative">
+                <header id="mainHeader"
+                    class="sticky top-0 z-20 flex justify-between items-center px-4 py-4 md:px-8 md:py-6 bg-gray-50 dark:bg-[#18191C] z-10 transition-all duration-300 border-b border-transparent">
+                    <div>
+                        <h2 class="text-2xl font-bold" id="pageTitle">运行状态</h2>
+                        <p class="text-gray-500 text-sm mt-1" id="pageDesc">查看插件和服务概览</p>
+                    </div>
+                    <!-- 默认状态指示器 -->
+                    <div id="headerStatus"
+                        class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#202124] rounded-full shadow-sm border border-gray-100 dark:border-gray-800">
+                        <div id="statusDot" class="status-dot disconnected"></div>
+                        <span class="text-sm font-medium" id="statusText">连接检查中...</span>
+                    </div>
+                    <!-- 设置页面专用操作栏 -->
+                    <div id="headerSettingsActions" class="hidden items-center gap-3">
+                        <span class="text-xs text-gray-400 flex items-center gap-1">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            自动保存
+                        </span>
+                        <button onclick="loadSettings()"
+                            class="btn text-sm py-1.5 px-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                            重新加载
+                        </button>
+                        <button onclick="resetSettings()"
+                            class="btn text-sm py-1.5 px-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 6h18"></path>
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            </svg>
+                            恢复默认
+                        </button>
+                    </div>
+                </header>
+
+                <div class="px-4 md:px-8 pb-8">
+                    <!-- Page: Status -->
+                    <div id="page-status" class="page-content active">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div class="glass-card p-6">
+                                <div class="text-gray-500 text-sm mb-2">总渲染次数</div>
+                                <div class="text-3xl font-bold text-primary" id="statTotalRenders">0</div>
+                            </div>
+                            <div class="glass-card p-6">
+                                <div class="text-gray-500 text-sm mb-2">失败次数</div>
+                                <div class="text-3xl font-bold text-red-500" id="statFailedRenders">0</div>
+                            </div>
+                            <div class="glass-card p-6">
+                                <div class="text-gray-500 text-sm mb-2">当前页面数</div>
+                                <div class="text-3xl font-bold text-blue-500" id="statPageCount">0</div>
+                            </div>
+                            <div class="glass-card p-6">
+                                <div class="text-gray-500 text-sm mb-2">运行时长</div>
+                                <div class="text-xl font-bold text-green-500 truncate" id="statUptime">-</div>
+                            </div>
+                        </div>
+
+                        <div class="glass-card p-6 mb-8">
+                            <h3 class="font-bold text-lg mb-4">浏览器控制</h3>
+                            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div class="flex items-center gap-4">
+                                    <div
+                                        class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-primary">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-gray-900 dark:text-gray-100">实例管理</div>
+                                        <div class="text-sm text-gray-500">控制 Puppeteer 浏览器生命周期</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-wrap gap-3">
+                                    <button onclick="startBrowser()" class="btn btn-primary">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                        </svg>
+                                        启动
+                                    </button>
+                                    <button onclick="restartBrowser()" class="btn"
+                                        style="background:#f59e0b;color:white;">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <polyline points="23 4 23 10 17 10"></polyline>
+                                            <polyline points="1 20 1 14 7 14"></polyline>
+                                            <path
+                                                d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                                            </path>
+                                        </svg>
+                                        重启
+                                    </button>
+                                    <button onclick="stopBrowser()" class="btn btn-danger">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        </svg>
+                                        停止
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold text-lg mb-4">系统信息</h3>
+                            <div class="grid md:grid-cols-2 gap-4 text-sm">
+                                <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                    <span class="text-gray-500">连接状态</span>
+                                    <span class="font-medium" id="infoConnected">-</span>
+                                </div>
+                                <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                    <span class="text-gray-500">连接模式</span>
+                                    <span class="font-medium" id="infoMode">-</span>
+                                </div>
+                                <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                    <span class="text-gray-500">浏览器版本</span>
+                                    <span class="font-medium" id="infoVersion">-</span>
+                                </div>
+                                <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                    <span class="text-gray-500 flex-shrink-0 mr-4">浏览器地址</span>
+                                    <span class="font-medium truncate font-mono text-xs" id="infoPath">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page: Test -->
+                    <div id="page-test" class="page-content h-full">
+                        <div class="grid md:grid-cols-2 gap-6 h-[calc(100vh-140px)] min-h-[600px]">
+                            <div class="glass-card flex flex-col overflow-hidden p-0">
+                                <div class="p-6 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+                                    <h3 class="font-bold flex items-center gap-2">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                                            <line x1="9" y1="20" x2="15" y2="20"></line>
+                                            <line x1="12" y1="4" x2="12" y2="20"></line>
+                                        </svg>
+                                        测试参数
+                                    </h3>
+                                </div>
+
+                                <div class="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+                                    <div>
+                                        <label
+                                            class="text-xs font-semibold text-gray-500 uppercase mb-1 block">渲染类型</label>
+                                        <select id="testType" class="input-field" onchange="updateTestUI()">
+                                            <option value="html">HTML 字符串</option>
+                                            <option value="url">URL 地址</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="flex flex-col">
+                                        <label
+                                            class="text-xs font-semibold text-gray-500 uppercase mb-1 block">内容</label>
+                                        <textarea id="testContent"
+                                            class="input-field font-mono text-xs p-3 min-h-[200px]"
+                                            placeholder="输入 HTML 或 URL...">&lt;html&gt;
+&lt;body style="padding:40px;font-family:sans-serif;background:#fff0f6;"&gt;
+  &lt;h1 style="color:#FB7299;font-size:3em;"&gt;Hello Puppeteer!&lt;/h1&gt;
+  &lt;p&gt;当前时间: {{time}}&lt;/p&gt;
+  &lt;div style="padding:20px;background:white;border-radius:12px;margin-top:20px;"&gt;
+     Test Card
+  &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</textarea>
+                                    </div>
+
+                                    <div id="group-template-data">
+                                        <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">模板数据
+                                            (JSON)</label>
+                                        <input id="testData" class="input-field font-mono text-sm"
+                                            placeholder='{"time": "2024-01-01"}' value='{"time": "Now"}' />
+                                    </div>
+
+                                    <!-- Advanced Options -->
+                                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                        <div onclick="document.getElementById('advOptions').classList.toggle('hidden');this.querySelector('svg').classList.toggle('rotate-180')"
+                                            class="bg-gray-50 dark:bg-[#202124] px-4 py-2 cursor-pointer flex justify-between items-center select-none">
+                                            <span class="text-xs font-bold text-gray-500 uppercase">高级选项</span>
+                                            <svg class="w-4 h-4 text-gray-400 transition-transform duration-200"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div id="advOptions" class="hidden p-4 space-y-4 bg-white dark:bg-[#18191C]">
+                                            <div class="grid grid-cols-3 gap-3">
+                                                <div>
+                                                    <label class="text-[10px] text-gray-400 uppercase block mb-1">宽
+                                                        (Width)</label>
+                                                    <input id="testWidth" type="number" class="input-field text-sm py-1"
+                                                        placeholder="1280" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-gray-400 uppercase block mb-1">高
+                                                        (Height)</label>
+                                                    <input id="testHeight" type="number"
+                                                        class="input-field text-sm py-1" placeholder="800" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-gray-400 uppercase block mb-1">缩放
+                                                        (Scale)</label>
+                                                    <input id="testScale" type="number" class="input-field text-sm py-1"
+                                                        placeholder="2" step="0.5" />
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label class="text-[10px] text-gray-400 uppercase block mb-1">选择器
+                                                        (Selector)</label>
+                                                    <input id="testSelector" class="input-field text-sm py-1 font-mono"
+                                                        placeholder="body" />
+                                                </div>
+                                                <div>
+                                                    <label class="text-[10px] text-gray-400 uppercase block mb-1">等待元素
+                                                        (Wait)</label>
+                                                    <input id="testWaitSelector"
+                                                        class="input-field text-sm py-1 font-mono" placeholder="#app" />
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-4">
+                                                <div class="flex items-center gap-2">
+                                                    <input id="testOmitBg" type="checkbox"
+                                                        class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                                                    <label for="testOmitBg" class="text-xs text-gray-500">透明背景</label>
+                                                </div>
+                                                <div class="flex items-center gap-2 flex-1 justify-end">
+                                                    <label class="text-xs text-gray-500">延迟(ms)</label>
+                                                    <input id="testDelay" type="number"
+                                                        class="input-field text-sm py-1 w-20" placeholder="0" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="p-6 border-t border-gray-100 dark:border-gray-800 flex-shrink-0 bg-gray-50/50 dark:bg-gray-800/20">
+                                    <button onclick="runTest()"
+                                        class="btn btn-primary w-full py-3 shadow-pink-500/20 shadow-lg">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                        </svg>
+                                        执行渲染
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="glass-card flex flex-col h-full overflow-hidden p-0">
+                                <div
+                                    class="p-6 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 flex justify-between items-center">
+                                    <h3 class="font-bold">结果预览</h3>
+                                    <span id="testTime" class="text-xs text-gray-500 font-mono"></span>
+                                </div>
+                                <div id="testResult"
+                                    class="flex-1 bg-gray-100 dark:bg-[#000000] flex flex-col items-center justify-center overflow-auto custom-scrollbar p-4">
+                                    <div class="text-gray-400 text-sm">等待渲染...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page: API -->
+                    <div id="page-api" class="page-content">
+                        <div class="flex flex-col lg:flex-row gap-8 items-start max-w-7xl mx-auto">
+                            <!-- Left TOC -->
+                            <div class="hidden lg:block w-56 flex-shrink-0 sticky top-28">
+                                <div
+                                    class="bg-white dark:bg-[#202124] rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-3">
+                                    <div class="text-xs font-bold text-gray-400 uppercase px-3 py-2">快速开始</div>
+                                    <a onclick="scrollToApi('api-quickstart')" class="api-sidebar-link">调用说明</a>
+
+                                    <div class="h-px bg-gray-100 dark:bg-gray-700 my-2"></div>
+                                    <div class="text-xs font-bold text-gray-400 uppercase px-3 py-2">核心服务</div>
+                                    <a onclick="scrollToApi('api-screenshot')" class="api-sidebar-link">截图
+                                        (Screenshot)</a>
+                                    <a onclick="scrollToApi('api-render')" class="api-sidebar-link">渲染 (Render)</a>
+                                    <a onclick="scrollToApi('api-screenshot-get')" class="api-sidebar-link">URL截图
+                                        (GET)</a>
+
+                                    <div class="h-px bg-gray-100 dark:bg-gray-700 my-2"></div>
+                                    <div class="text-xs font-bold text-gray-400 uppercase px-3 py-2">浏览器控制</div>
+                                    <a onclick="scrollToApi('api-browser-status')" class="api-sidebar-link">实例状态</a>
+                                    <a onclick="scrollToApi('api-browser-ops')" class="api-sidebar-link">生命周期管理</a>
+
+                                    <div class="h-px bg-gray-100 dark:bg-gray-700 my-2"></div>
+                                    <div class="text-xs font-bold text-gray-400 uppercase px-3 py-2">系统配置</div>
+                                    <a onclick="scrollToApi('api-sys-config')" class="api-sidebar-link">配置管理</a>
+                                    <a onclick="scrollToApi('api-sys-status')" class="api-sidebar-link">插件状态</a>
+                                </div>
+                            </div>
+
+                            <!-- Right Content -->
+                            <div class="flex-1 w-full min-w-0 space-y-12 pb-24">
+
+                                <!-- Section: Quick Start -->
+                                <section id="api-quickstart">
+                                    <h3
+                                        class="flex items-center gap-2 text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" class="text-primary">
+                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                        </svg>
+                                        快速开始
+                                    </h3>
+
+                                    <!-- 完整路径说明 -->
+                                    <div class="glass-card p-6 mb-6">
+                                        <div class="flex items-start gap-3 mb-4">
+                                            <div
+                                                class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-500 flex-shrink-0">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    stroke-linejoin="round">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1">
+                                                <h4 class="font-bold text-lg mb-3">API 路径说明</h4>
+
+                                                <!-- 无认证 API -->
+                                                <div class="mb-4">
+                                                    <div class="flex items-center gap-2 mb-2">
+                                                        <span
+                                                            class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-bold rounded">推荐</span>
+                                                        <span class="text-sm font-semibold">无认证 API（供其他插件调用）</span>
+                                                    </div>
+                                                    <div
+                                                        class="bg-gray-900 text-gray-100 rounded-lg p-3 font-mono text-sm overflow-x-auto">
+                                                        <span class="text-gray-400">{host}</span><span
+                                                            class="text-green-400">/plugin/napcat-plugin-puppeteer/api</span><span
+                                                            class="text-yellow-400">/{endpoint}</span>
+                                                    </div>
+                                                    <p class="text-xs text-gray-400 mt-1">例如：<code
+                                                            class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">http://localhost:6099/plugin/napcat-plugin-puppeteer/api/render</code>
+                                                    </p>
+                                                </div>
+
+                                                <!-- 需认证 API -->
+                                                <div>
+                                                    <div class="flex items-center gap-2 mb-2">
+                                                        <span
+                                                            class="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs font-bold rounded">WebUI</span>
+                                                        <span class="text-sm font-semibold">需认证 API（WebUI 管理）</span>
+                                                    </div>
+                                                    <div
+                                                        class="bg-gray-900 text-gray-100 rounded-lg p-3 font-mono text-sm overflow-x-auto">
+                                                        <span class="text-gray-400">{host}</span><span
+                                                            class="text-blue-400">/api/Plugin/ext/napcat-plugin-puppeteer</span><span
+                                                            class="text-yellow-400">/{endpoint}</span>
+                                                    </div>
+                                                    <p class="text-xs text-gray-400 mt-1">需要 WebUI 登录 Token，用于配置管理等操作
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 调用示例 -->
+                                    <div class="glass-card p-6">
+                                        <div class="flex items-start gap-3 mb-4">
+                                            <div
+                                                class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-green-500 flex-shrink-0">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    stroke-linejoin="round">
+                                                    <polyline points="16 18 22 12 16 6"></polyline>
+                                                    <polyline points="8 6 2 12 8 18"></polyline>
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <h4 class="font-bold text-lg mb-2">其他插件调用示例</h4>
+                                                <p class="text-sm text-gray-500 mb-4">在 NapCat 插件中调用渲染服务（使用无认证 API）：</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="space-y-4">
+                                            <div>
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <span class="method-badge method-POST">POST</span>
+                                                    <span class="text-xs font-semibold text-gray-500">/render - HTML
+                                                        模板渲染</span>
+                                                </div>
+                                                <pre class="text-xs overflow-x-auto">// 在其他插件中调用（无需认证）
+const response = await fetch('http://localhost:6099/plugin/napcat-plugin-puppeteer/api/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        html: '&lt;div style="padding:20px;background:#fff;"&gt;&lt;h1&gt;Hello {{name}}&lt;/h1&gt;&lt;/div&gt;',
+        data: { name: 'World' },
+        encoding: 'base64'
+    })
+});
+const result = await response.json();
+// result.data 为 Base64 编码的图片数据</pre>
+                                            </div>
+
+                                            <div>
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <span class="method-badge method-POST">POST</span>
+                                                    <span class="text-xs font-semibold text-gray-500">/screenshot - URL
+                                                        截图</span>
+                                                </div>
+                                                <pre class="text-xs overflow-x-auto">const response = await fetch('http://localhost:6099/plugin/napcat-plugin-puppeteer/api/screenshot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        file: 'https://example.com',
+        file_type: 'url',
+        encoding: 'base64',
+        setViewport: { width: 1280, height: 800 }
+    })
+});
+const result = await response.json();
+// result.data 为 Base64 编码的截图</pre>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            class="mt-4 p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-800">
+                                            <div class="flex gap-2 text-sm text-amber-800 dark:text-amber-200">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    stroke-linejoin="round" class="flex-shrink-0 mt-0.5">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                                </svg>
+                                                <div>
+                                                    <p class="font-medium">提示</p>
+                                                    <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">请将
+                                                        <code>localhost:6099</code> 替换为实际的 NapCat
+                                                        服务地址和端口。插件间通信无需认证，可直接调用。
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <!-- Section: Core -->
+                                <section>
+                                    <h3
+                                        class="flex items-center gap-2 text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" class="text-primary">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                            <polyline points="21 15 16 10 5 21"></polyline>
+                                        </svg>
+                                        核心服务
+                                    </h3>
+
+                                    <!-- POST /screenshot -->
+                                    <div id="api-screenshot" class="api-card open">
+                                        <div class="api-header" onclick="toggleApi(this)">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <span class="method-badge method-POST">POST</span>
+                                                <div class="flex items-center gap-2">
+                                                    <code class="text-sm font-semibold truncate">/screenshot</code>
+                                                    <span
+                                                        class="px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-bold">无认证</span>
+                                                </div>
+                                            </div>
+                                            <svg class="w-4 h-4 text-gray-400 transform transition-transform"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="api-body">
+                                            <p class="text-sm text-gray-500 my-4">通用截图接口，支持 URL、本地文件路径或直接传入 HTML
+                                                字符串进行渲染。</p>
+
+                                            <div class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                                Request
+                                                Body (JSON)</div>
+                                            <div class="overflow-x-auto">
+                                                <table class="param-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>参数名</th>
+                                                            <th>类型</th>
+                                                            <th>必填</th>
+                                                            <th>说明</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>file</td>
+                                                            <td><span class="type-tag">string</span></td>
+                                                            <td><span class="req-must">是</span></td>
+                                                            <td>目标内容 (URL / HTML代码 / 文件路径)</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>file_type</td>
+                                                            <td><span class="type-tag">string</span></td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>指定内容类型: <code>url</code> | <code>htmlString</code> |
+                                                                <code>file</code> | <code>auto</code>(默认)
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>selector</td>
+                                                            <td><span class="type-tag">string</span></td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>CSS 选择器，只截取指定元素。默认 <code>body</code></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>omitBackground</td>
+                                                            <td><span class="type-tag">boolean</span></td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>是否隐藏默认背景（设为透明）。默认 <code>false</code></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>data</td>
+                                                            <td><span class="type-tag">object</span></td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>Handlebars 模板数据，仅当 file 为模板时有效</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>waitSelector</td>
+                                                            <td><span class="type-tag">string</span></td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>等待该元素出现后再截图</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>setViewport</td>
+                                                            <td><span class="type-tag">object</span></td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>{ width, height, deviceScaleFactor }</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <div class="text-sm font-bold text-gray-700 dark:text-gray-300 mt-4 mb-2">
+                                                Response JSON</div>
+                                            <pre class="res-preview">{
+  "code": 0,
+  "data": "Base64String...",  // 图片数据
+  "message": "OK",
+  "time": 150                 // 耗时(ms)
+}</pre>
+                                        </div>
+                                    </div>
+
+                                    <!-- POST /render -->
+                                    <div id="api-render" class="api-card">
+                                        <div class="api-header" onclick="toggleApi(this)">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <span class="method-badge method-POST">POST</span>
+                                                <div class="flex items-center gap-2">
+                                                    <code class="text-sm font-semibold truncate">/render</code>
+                                                    <span
+                                                        class="px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-bold">无认证</span>
+                                                </div>
+                                            </div>
+                                            <svg class="w-4 h-4 text-gray-400 transform -rotate-90 transition-transform"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="api-body">
+                                            <p class="text-sm text-gray-500 my-4"><code>/screenshot</code>
+                                                的语义化别名，专门用于
+                                                HTML 模板渲染。</p>
+                                            <div class="overflow-x-auto">
+                                                <table class="param-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>参数名</th>
+                                                            <th>类型</th>
+                                                            <th>必填</th>
+                                                            <th>说明</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>html</td>
+                                                            <td><span class="type-tag">string</span></td>
+                                                            <td><span class="req-must">是</span></td>
+                                                            <td>HTML 模板字符串</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>data</td>
+                                                            <td><span class="type-tag">object</span></td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>模板插值数据</td>
+                                                        </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- GET /screenshot -->
+                                    <div id="api-screenshot-get" class="api-card">
+                                        <div class="api-header" onclick="toggleApi(this)">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <span class="method-badge method-GET">GET</span>
+                                                <code class="text-sm font-semibold truncate">/screenshot</code>
+                                            </div>
+                                            <svg class="w-4 h-4 text-gray-400 transform -rotate-90 transition-transform"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="api-body">
+                                            <p class="text-sm text-gray-500 my-4">轻量级 URL 截图接口，适合快速调试或简单场景。</p>
+                                            <div class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                                Query
+                                                Parameters</div>
+                                            <div class="overflow-x-auto">
+                                                <table class="param-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>参数名</th>
+                                                            <th>必填</th>
+                                                            <th>说明</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>url</td>
+                                                            <td><span class="req-must">是</span></td>
+                                                            <td>目标网页地址</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>width</td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>视口宽度 (默认 1280)</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>height</td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>视口高度 (默认 800)</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>selector</td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>元素选择器</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>raw</td>
+                                                            <td><span class="req-opt">否</span></td>
+                                                            <td>如果为 <code>true</code>，直接返回 image/png 流，不包装 JSON</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <!-- Section: Browser -->
+                                <section>
+                                    <h3
+                                        class="flex items-center gap-2 text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" class="text-primary">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                        </svg>
+                                        浏览器控制
+                                    </h3>
+
+                                    <div id="api-browser-status" class="api-card">
+                                        <div class="api-header" onclick="toggleApi(this)">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <span class="method-badge method-GET">GET</span>
+                                                <div class="flex items-center gap-2">
+                                                    <code class="text-sm font-semibold truncate">/browser/status</code>
+                                                    <span
+                                                        class="px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-bold">无认证</span>
+                                                </div>
+                                            </div>
+                                            <svg class="w-4 h-4 text-gray-400 transform -rotate-90 transition-transform"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="api-body">
+                                            <p class="text-sm text-gray-500 my-4">获取 Puppeteer 实例的详细状态。</p>
+                                            <pre class="res-preview">{
+  "code": 0,
+  "data": {
+    "connected": true,      // 浏览器是否连接
+    "version": "Chrome...", // 版本信息
+    "pageCount": 1,         // 打开的页面数
+    "pid": 12345,           // 进程 ID
+    "executablePath": "..." // 浏览器路径
+  }
+}</pre>
+                                        </div>
+                                    </div>
+
+                                    <div id="api-browser-ops" class="api-card">
+                                        <div class="api-header" onclick="toggleApi(this)">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <span class="method-badge method-POST">POST</span>
+                                                <div class="flex items-center gap-2">
+                                                    <code
+                                                        class="text-sm font-semibold truncate">/browser/{action}</code>
+                                                    <span
+                                                        class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-bold">需认证</span>
+                                                </div>
+                                            </div>
+                                            <svg class="w-4 h-4 text-gray-400 transform -rotate-90 transition-transform"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="api-body">
+                                            <p class="text-sm text-gray-500 my-4">生命周期控制接口，支持 <code>start</code>,
+                                                <code>stop</code>, <code>restart</code>。
+                                            </p>
+                                            <div
+                                                class="text-xs p-2 mb-4 bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded">
+                                                🔒 此接口需要 WebUI 认证 Token
+                                            </div>
+                                            <div class="flex gap-2 mb-4 flex-wrap">
+                                                <span
+                                                    class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono">POST
+                                                    /browser/start</span>
+                                                <span
+                                                    class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono">POST
+                                                    /browser/stop</span>
+                                                <span
+                                                    class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono">POST
+                                                    /browser/restart</span>
+                                            </div>
+                                            <pre
+                                                class="res-preview">{ "code": 0, "message": "Browser started successfully" }</pre>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <!-- Section: Config -->
+                                <section>
+                                    <h3
+                                        class="flex items-center gap-2 text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" class="text-primary">
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                            <path
+                                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                            </path>
+                                        </svg>
+                                        系统配置
+                                    </h3>
+
+                                    <div id="api-sys-config" class="api-card">
+                                        <div class="api-header" onclick="toggleApi(this)">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <span class="method-badge method-POST">POST</span>
+                                                <div class="flex items-center gap-2">
+                                                    <code class="text-sm font-semibold truncate">/config</code>
+                                                    <span
+                                                        class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-bold">需认证</span>
+                                                </div>
+                                            </div>
+                                            <svg class="w-4 h-4 text-gray-400 transform -rotate-90 transition-transform"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="api-body">
+                                            <p class="text-sm text-gray-500 my-4">热更新插件配置，实时生效（部分浏览器配置需重启生效）。</p>
+                                            <div
+                                                class="text-xs p-2 mb-4 bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded">
+                                                🔒 此接口需要 WebUI 认证 Token
+                                            </div>
+                                            <div class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                                Request
+                                                Body</div>
+                                            <pre class="res-preview">{
+  "browser": {
+    "headless": true,
+    "args": ["--no-sandbox"]
+  },
+  "maxPages": 10,
+  "lockTimeout": 30000
+}</pre>
+                                        </div>
+                                    </div>
+
+                                    <div id="api-sys-status" class="api-card">
+                                        <div class="api-header" onclick="toggleApi(this)">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <span class="method-badge method-GET">GET</span>
+                                                <div class="flex items-center gap-2">
+                                                    <code class="text-sm font-semibold truncate">/status</code>
+                                                    <span
+                                                        class="px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-bold">无认证</span>
+                                                </div>
+                                            </div>
+                                            <svg class="w-4 h-4 text-gray-400 transform -rotate-90 transition-transform"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="api-body">
+                                            <p class="text-sm text-gray-500 my-4">获取插件整体运行统计。</p>
+                                            <pre class="res-preview">{
+  "totalRenders": 100,
+  "failedRenders": 2,
+  "uptimeFormatted": "2小时 15分"
+}</pre>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page: Settings -->
+                    <div id="page-settings" class="page-content">
+                        <div class="max-w-3xl mx-auto space-y-6">
+                            <!-- 注意事项 -->
+                            <div
+                                class="glass-card p-4 bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800">
+                                <div class="flex gap-3">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        class="text-amber-500 flex-shrink-0 mt-0.5">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                    </svg>
+                                    <div class="text-sm text-amber-800 dark:text-amber-200">
+                                        <p class="font-medium mb-1">注意事项</p>
+                                        <ul
+                                            class="list-disc list-inside text-xs space-y-1 text-amber-700 dark:text-amber-300">
+                                            <li>修改浏览器配置后需要重启浏览器才能生效</li>
+                                            <li>最大页面数设置过高可能导致内存占用过大</li>
+                                            <li>自定义浏览器路径需确保路径正确且有执行权限</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 浏览器配置 -->
+                            <div class="glass-card p-6">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div
+                                        class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-500">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <line x1="2" y1="12" x2="22" y2="12"></line>
+                                            <path
+                                                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-lg">浏览器配置</h3>
+                                        <p class="text-sm text-gray-500">Puppeteer 浏览器实例设置</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label
+                                                class="text-xs font-semibold text-gray-500 uppercase mb-2 block">最大页面数</label>
+                                            <input id="settingsMaxPages" type="number" class="input-field"
+                                                placeholder="10" min="1" max="50" />
+                                            <p class="text-xs text-gray-400 mt-1">同时打开的最大页面数量</p>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-semibold text-gray-500 uppercase mb-2 block">锁定超时
+                                                (ms)</label>
+                                            <input id="settingsLockTimeout" type="number" class="input-field"
+                                                placeholder="30000" min="1000" step="1000" />
+                                            <p class="text-xs text-gray-400 mt-1">页面锁定等待超时时间</p>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-xs font-semibold text-gray-500 uppercase mb-2 block">浏览器路径
+                                            (可选)</label>
+                                        <input id="settingsExecPath" type="text" class="input-field font-mono text-sm"
+                                            placeholder="留空自动检测系统 Chrome/Edge" />
+                                        <p class="text-xs text-gray-400 mt-1">自定义 Chrome/Chromium 可执行文件路径</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-xs font-semibold text-gray-500 uppercase mb-2 block">
+                                            <span class="flex items-center gap-2">
+                                                远程浏览器地址 (Docker)
+                                                <span
+                                                    class="px-2 py-0.5 text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">推荐</span>
+                                            </span>
+                                        </label>
+                                        <input id="settingsBrowserWSEndpoint" type="text"
+                                            class="input-field font-mono text-sm"
+                                            placeholder="ws://chrome:3000 或 ws://localhost:9222/devtools/browser/..." />
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            连接远程浏览器的 WebSocket 地址。设置后将忽略本地浏览器路径。
+                                            <br>适用于 Docker 环境，可使用 <code
+                                                class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">browserless/chrome</code>
+                                            等镜像。
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label
+                                            class="text-xs font-semibold text-gray-500 uppercase mb-2 block">启动参数</label>
+                                        <input id="settingsBrowserArgs" type="text"
+                                            class="input-field font-mono text-sm"
+                                            placeholder="--no-sandbox,--disable-setuid-sandbox" />
+                                        <p class="text-xs text-gray-400 mt-1">浏览器启动参数，多个参数用逗号分隔</p>
+                                    </div>
+
+                                    <div
+                                        class="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <div>
+                                            <div class="font-medium">无头模式</div>
+                                            <div class="text-sm text-gray-500">隐藏浏览器窗口运行</div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="settingsHeadless" class="sr-only peer" checked>
+                                            <div
+                                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 dark:peer-focus:ring-pink-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary">
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 渲染默认值 -->
+                            <div class="glass-card p-6">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div
+                                        class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-green-500">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                            <polyline points="21 15 16 10 5 21"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-lg">渲染默认值</h3>
+                                        <p class="text-sm text-gray-500">截图渲染的默认参数</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label
+                                                class="text-xs font-semibold text-gray-500 uppercase mb-2 block">默认宽度</label>
+                                            <input id="settingsDefaultWidth" type="number" class="input-field"
+                                                placeholder="1280" min="100" />
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="text-xs font-semibold text-gray-500 uppercase mb-2 block">默认高度</label>
+                                            <input id="settingsDefaultHeight" type="number" class="input-field"
+                                                placeholder="800" min="100" />
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="text-xs font-semibold text-gray-500 uppercase mb-2 block">设备缩放</label>
+                                            <input id="settingsDefaultScale" type="number" class="input-field"
+                                                placeholder="2" min="0.5" max="4" step="0.5" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 其他设置 -->
+                            <div class="glass-card p-6">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div
+                                        class="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center text-purple-500">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                            <path
+                                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-lg">其他设置</h3>
+                                        <p class="text-sm text-gray-500">调试与高级选项</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div
+                                        class="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <div>
+                                            <div class="font-medium">调试模式</div>
+                                            <div class="text-sm text-gray-500">启用后输出详细日志到控制台</div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="settingsDebug" class="sr-only peer">
+                                            <div
+                                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 dark:peer-focus:ring-pink-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary">
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <div
+                                        class="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <div>
+                                            <div class="font-medium">自动启动浏览器</div>
+                                            <div class="text-sm text-gray-500">插件加载时自动启动浏览器实例</div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="settingsAutoStart" class="sr-only peer" checked>
+                                            <div
+                                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 dark:peer-focus:ring-pink-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary">
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page: Chrome Install -->
+                    <div id="page-chrome" class="page-content">
+                        <div class="max-w-3xl mx-auto space-y-6">
+                            <!-- 环境信息 -->
+                            <div class="glass-card p-6">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div
+                                        class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-500">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-lg">系统环境</h3>
+                                        <p class="text-sm text-gray-500">当前运行环境信息</p>
+                                    </div>
+                                </div>
+
+                                <div class="grid md:grid-cols-2 gap-4 text-sm">
+                                    <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <span class="text-gray-500">操作系统</span>
+                                        <span class="font-medium" id="chromePlatform">-</span>
+                                    </div>
+                                    <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <span class="text-gray-500">系统架构</span>
+                                        <span class="font-medium" id="chromeArch">-</span>
+                                    </div>
+                                    <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <span class="text-gray-500">Linux 发行版</span>
+                                        <span class="font-medium" id="chromeDistro">-</span>
+                                    </div>
+                                    <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <span class="text-gray-500">推荐版本</span>
+                                        <span class="font-medium font-mono text-xs" id="chromeDefaultVersion">-</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chrome 状态 -->
+                            <div class="glass-card p-6">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div
+                                        class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-green-500">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <circle cx="12" cy="12" r="4"></circle>
+                                            <line x1="21.17" y1="8" x2="12" y2="8"></line>
+                                            <line x1="3.95" y1="6.06" x2="8.54" y2="14"></line>
+                                            <line x1="10.88" y1="21.94" x2="15.46" y2="14"></line>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-lg">Chrome 状态</h3>
+                                        <p class="text-sm text-gray-500">本地 Chrome 浏览器安装状态</p>
+                                    </div>
+                                    <button onclick="loadChromeStatus()"
+                                        class="btn text-sm py-1.5 px-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <polyline points="23 4 23 10 17 10"></polyline>
+                                            <polyline points="1 20 1 14 7 14"></polyline>
+                                            <path
+                                                d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                                            </path>
+                                        </svg>
+                                        刷新
+                                    </button>
+                                </div>
+
+                                <div id="chromeStatusContent">
+                                    <div class="flex items-center justify-center p-8 text-gray-400">
+                                        <div
+                                            class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mr-3">
+                                        </div>
+                                        加载中...
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 安装选项 -->
+                            <div class="glass-card p-6">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div
+                                        class="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center text-purple-500">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-lg">安装 Chrome</h3>
+                                        <p class="text-sm text-gray-500">下载并安装 Chrome for Testing</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label
+                                                class="text-xs font-semibold text-gray-500 uppercase mb-2 block">Chrome
+                                                版本</label>
+                                            <input id="chromeVersion" type="text" class="input-field font-mono text-sm"
+                                                placeholder="131.0.6778.204" />
+                                            <p class="text-xs text-gray-400 mt-1">留空使用推荐版本</p>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="text-xs font-semibold text-gray-500 uppercase mb-2 block">下载源</label>
+                                            <select id="chromeSource" class="input-field">
+                                                <option value="NPMMIRROR">NPM 镜像 (国内推荐)</option>
+                                                <option value="GOOGLE">Google 官方源</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <div>
+                                            <div class="font-medium">安装系统依赖</div>
+                                            <div class="text-sm text-gray-500">自动安装 Chrome 运行所需的系统库（仅 Linux）</div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="chromeInstallDeps" class="sr-only peer" checked>
+                                            <div
+                                                class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 dark:peer-focus:ring-pink-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary">
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <!-- 进度条 -->
+                                    <div id="chromeProgressContainer" class="hidden">
+                                        <div class="mb-2 flex justify-between text-sm">
+                                            <span id="chromeProgressText"
+                                                class="text-gray-600 dark:text-gray-400">准备中...</span>
+                                            <span id="chromeProgressPercent" class="font-mono text-primary">0%</span>
+                                        </div>
+                                        <div
+                                            class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                                            <div id="chromeProgressBar"
+                                                class="bg-primary h-3 rounded-full transition-all duration-300"
+                                                style="width: 0%"></div>
+                                        </div>
+                                        <div id="chromeProgressDetails" class="mt-2 text-xs text-gray-500 font-mono">
+                                        </div>
+                                    </div>
+
+                                    <div class="flex gap-3 pt-2">
+                                        <button id="btnInstallChrome" onclick="installChrome()"
+                                            class="btn btn-primary flex-1">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                <polyline points="7 10 12 15 17 10"></polyline>
+                                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                                            </svg>
+                                            安装 Chrome
+                                        </button>
+                                        <button id="btnInstallDeps" onclick="installDepsOnly()"
+                                            class="btn bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z">
+                                                </path>
+                                                <polyline points="14 2 14 8 20 8"></polyline>
+                                                <line x1="12" y1="18" x2="12" y2="12"></line>
+                                                <line x1="9" y1="15" x2="15" y2="15"></line>
+                                            </svg>
+                                            仅安装依赖
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Docker 提示 -->
+                            <div
+                                class="glass-card p-4 bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
+                                <div class="flex gap-3">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        class="text-blue-500 flex-shrink-0 mt-0.5">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                    </svg>
+                                    <div class="text-sm text-blue-800 dark:text-blue-200">
+                                        <p class="font-medium mb-1">Docker 环境说明</p>
+                                        <ul
+                                            class="list-disc list-inside text-xs space-y-1 text-blue-700 dark:text-blue-300">
+                                            <li>本功能专为 NapCat Docker 环境 (Ubuntu 22.04) 设计</li>
+                                            <li>安装过程会自动下载 Chrome for Testing 并配置系统依赖</li>
+                                            <li>安装完成后会自动更新浏览器路径配置</li>
+                                            <li>如果容器重启，可能需要重新安装（建议挂载数据卷持久化）</li>
+                                            <li>也可以使用远程浏览器（如 browserless/chrome）替代本地安装</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // === Core Logic ===
+
+        // 从 localStorage 获取 token（NapCat WebUI 鉴权方式）
+        function getToken() {
+            return localStorage.getItem('token') || '';
+        }
+
+        function authHeaders(h = {}) {
+            const token = getToken();
+            if (token) h['Authorization'] = 'Bearer ' + token;
+            return h;
+        }
+
+        // 构建 URL
+        function buildUrl(base, path) {
+            const url = new URL(base + path, window.location.origin);
+            return url.toString();
+        }
+
+        // 解析插件名
+        function resolvePluginName() {
+            if (window.__PLUGIN_NAME__) return window.__PLUGIN_NAME__;
+            try {
+                if (window.parent && window.parent.__PLUGIN_NAME__) return window.parent.__PLUGIN_NAME__;
+            } catch (e) { }
+            const extMatch = location.pathname.match(/\/ext\/([^\/]+)/);
+            if (extMatch) return extMatch[1];
+            const pluginMatch = location.pathname.match(/\/plugin\/([^\/]+)/);
+            if (pluginMatch) return pluginMatch[1];
+            return 'napcat-plugin-puppeteer';
+        }
+
+        const PLUGIN_NAME = resolvePluginName();
+
+        // 两种 API 基础路径
+        // 无认证 API（供其他插件调用）: /plugin/{pluginId}/api/
+        // 需认证 API（WebUI 管理）: /api/Plugin/ext/{pluginId}/
+        const API_BASE_NO_AUTH = '/plugin/' + PLUGIN_NAME + '/api';
+        const API_BASE_AUTH = '/api/Plugin/ext/' + PLUGIN_NAME;
+
+        // 无认证 API 请求（用于渲染、状态查询等）
+        async function noAuthFetch(path, options = {}) {
+            const res = await fetch(buildUrl(API_BASE_NO_AUTH, path), {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `HTTP ${res.status}`);
+            }
+            return res.json();
+        }
+
+        // 需认证 API 请求（用于配置管理、浏览器控制等）
+        async function authFetch(path, options = {}) {
+            const res = await fetch(buildUrl(API_BASE_AUTH, path), {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers, ...authHeaders() }
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `HTTP ${res.status}`);
+            }
+            return res.json();
+        }
+
+        // === UI Logic ===
+
+        // Scroll Effect
+        const mainContent = document.getElementById('mainContent');
+        const mainHeader = document.getElementById('mainHeader');
+
+        mainContent.addEventListener('scroll', () => {
+            const isScrolled = mainContent.scrollTop > 10;
+            if (isScrolled) {
+                mainHeader.classList.remove('border-transparent');
+                mainHeader.classList.add('shadow-lg', 'border-gray-200', 'dark:border-gray-800');
+            } else {
+                mainHeader.classList.add('border-transparent');
+                mainHeader.classList.remove('shadow-lg', 'border-gray-200', 'dark:border-gray-800');
+            }
+        });
+
+        // Navigation
+        function switchPage(pageId, el) {
+            // Update Menu
+            document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+
+            // Update Content
+            document.querySelectorAll('.page-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+
+            // Update Header
+            const docMap = {
+                'status': ['运行状态', '查看插件和服务概览'],
+                'test': ['渲染测试', '测试 HTML 渲染效果'],
+                'api': ['API 文档', '接口调用参考'],
+                'settings': ['设置', '插件配置管理'],
+                'chrome': ['Chrome 安装', '安装和管理 Chrome 浏览器']
+            };
+            document.getElementById('pageTitle').textContent = docMap[pageId][0];
+            document.getElementById('pageDesc').textContent = docMap[pageId][1];
+
+            // Toggle header actions based on page
+            const headerStatus = document.getElementById('headerStatus');
+            const headerSettingsActions = document.getElementById('headerSettingsActions');
+
+            if (pageId === 'settings') {
+                headerStatus.classList.add('hidden');
+                headerSettingsActions.classList.remove('hidden');
+                headerSettingsActions.classList.add('flex');
+                loadSettings();
+            } else if (pageId === 'chrome') {
+                headerStatus.classList.add('hidden');
+                headerSettingsActions.classList.add('hidden');
+                headerSettingsActions.classList.remove('flex');
+                loadChromeStatus();
+            } else {
+                headerStatus.classList.remove('hidden');
+                headerSettingsActions.classList.add('hidden');
+                headerSettingsActions.classList.remove('flex');
+            }
+        }
+
+        // Dark Mode Logic - Follow System
+        function updateTheme() {
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        // 初始化主题并监听系统主题变化
+        updateTheme();
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme);
+
+        // Status Logic - 使用无认证 API
+        async function fetchStatus() {
+            try {
+                const data = await noAuthFetch('/status');
+                if (data.code === 0) {
+                    const browser = data.data.browser || {};
+
+                    // Top Status
+                    const dot = document.getElementById('statusDot');
+                    const txt = document.getElementById('statusText');
+                    dot.className = 'status-dot ' + (browser.connected ? 'connected' : 'disconnected');
+                    txt.textContent = browser.connected ? '服务正常' : '服务断开';
+
+                    // Cards
+                    document.getElementById('statTotalRenders').textContent = browser.totalRenders || 0;
+                    document.getElementById('statFailedRenders').textContent = browser.failedRenders || 0;
+                    document.getElementById('statPageCount').textContent = browser.pageCount || 0;
+                    document.getElementById('statUptime').textContent = data.data.uptimeFormatted || '-';
+
+                    // Info
+                    document.getElementById('infoConnected').textContent = browser.connected ? '✅ 已连接' : '❌ 未连接';
+                    document.getElementById('infoConnected').className = 'font-medium ' + (browser.connected ? 'text-green-500' : 'text-red-500');
+                    document.getElementById('infoVersion').textContent = browser.version || '-';
+
+                    // 显示连接模式和路径
+                    const pathEl = document.getElementById('infoPath');
+                    const modeEl = document.getElementById('infoMode');
+                    if (browser.mode === 'remote') {
+                        pathEl.textContent = browser.browserWSEndpoint || '-';
+                        pathEl.title = browser.browserWSEndpoint || '';
+                        if (modeEl) {
+                            modeEl.textContent = '🌐 远程连接';
+                            modeEl.className = 'font-medium text-blue-500';
+                        }
+                    } else {
+                        pathEl.textContent = browser.executablePath || '-';
+                        pathEl.title = browser.executablePath || '';
+                        if (modeEl) {
+                            modeEl.textContent = '💻 本地启动';
+                            modeEl.className = 'font-medium text-gray-500';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Status fetch failed:', e);
+            }
+        }
+
+        // Action Logic - 使用需认证 API（管理操作）
+        async function startBrowser() { await browserAction('start', '启动'); }
+        async function stopBrowser() { await browserAction('stop', '停止'); }
+        async function restartBrowser() { await browserAction('restart', '重启'); }
+
+        async function browserAction(action, name) {
+            showToast(`正在${name}浏览器...`, 'info');
+            try {
+                const data = await authFetch('/browser/' + action, { method: 'POST' });
+                const success = data.code === 0;
+                showToast(data.message || (success ? `${name}成功` : `${name}失败`), success ? 'success' : 'error');
+                setTimeout(fetchStatus, 1000);
+            } catch (e) {
+                showToast(`${name}失败: ` + e.message, 'error');
+            }
+        }
+
+        // Test Logic - 使用无认证 API（渲染服务）
+        async function runTest() {
+            const type = document.getElementById('testType').value;
+            const content = document.getElementById('testContent').value;
+            const dataStr = document.getElementById('testData').value;
+
+            // Advanced Params
+            const width = parseInt(document.getElementById('testWidth').value) || undefined;
+            const height = parseInt(document.getElementById('testHeight').value) || undefined;
+            const scale = parseFloat(document.getElementById('testScale').value) || undefined;
+            const selector = document.getElementById('testSelector').value || undefined;
+            const waitSelector = document.getElementById('testWaitSelector').value || undefined;
+            const omitBackground = document.getElementById('testOmitBg').checked;
+            const delay = parseInt(document.getElementById('testDelay').value) || undefined;
+
+            const resultEl = document.getElementById('testResult');
+            const timeEl = document.getElementById('testTime');
+
+            resultEl.innerHTML = '<div class="flex flex-col items-center gap-2"><div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div><span class="text-sm text-gray-400">渲染中...</span></div>';
+            timeEl.textContent = '';
+
+            try {
+                let data;
+                try { data = dataStr ? JSON.parse(dataStr) : undefined; }
+                catch (e) { throw new Error('模板数据 JSON 格式错误'); }
+
+                // Construct Base Body
+                const body = {
+                    encoding: 'base64',
+                    data,
+                    // Advanced
+                    selector,
+                    waitForSelector: waitSelector,
+                    omitBackground,
+                    waitForTimeout: delay,
+                };
+
+                // Viewport
+                if (width || height || scale) {
+                    body.setViewport = {
+                        width: width,
+                        height: height,
+                        deviceScaleFactor: scale
+                    };
+                }
+
+                if (type === 'html') {
+                    body.html = content;
+                } else {
+                    body.file = content;
+                    body.file_type = 'auto'; // ensure auto detection for URL/File
+                }
+
+                const endpoint = type === 'html' ? '/render' : '/screenshot';
+                const startTime = Date.now();
+                // 使用无认证 API 进行渲染
+                const result = await noAuthFetch(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(body)
+                });
+                const duration = Date.now() - startTime;
+
+                if (result.code === 0) {
+                    // Check if it's multiple images (renderHtml / screenshot usually returns single, but let's handle array just in case logic changes)
+                    const results = Array.isArray(result.data) ? result.data : [result.data];
+
+                    const imagesHtml = results.map(img =>
+                        `<img src="data:image/png;base64,${img}" class="max-w-full h-auto shadow-lg rounded mb-4" />`
+                    ).join('');
+
+                    resultEl.innerHTML = `<div class="w-full flex flex-col items-center overflow-auto p-4 max-h-full">${imagesHtml}</div>`;
+                    timeEl.textContent = `耗时: ${result.time || duration}ms`;
+                } else {
+                    resultEl.innerHTML = `<div class="text-red-500 p-4 bg-red-50 dark:bg-red-900/10 rounded">❌ ${result.message}</div>`;
+                }
+            } catch (e) {
+                resultEl.innerHTML = `<div class="text-red-500 p-4 bg-red-50 dark:bg-red-900/10 rounded">❌ ${e.message}</div>`;
+            }
+        }
+
+        function updateTestUI() {
+            const type = document.getElementById('testType').value;
+            const groupData = document.getElementById('group-template-data');
+            const content = document.getElementById('testContent');
+
+            if (type === 'html') {
+                if (groupData) groupData.style.display = 'block';
+                content.placeholder = '输入 HTML 代码...';
+                if (content.value.startsWith('http')) content.value = '';
+            } else {
+                if (groupData) groupData.style.display = 'none';
+                content.placeholder = '输入 URL (例如 https://example.com)...';
+                if (!content.value || content.value.trim().startsWith('<')) {
+                    content.value = 'https://napneko.github.io/';
+                }
+            }
+        }        // API Docs Logic
+        function toggleApi(header) {
+            const card = header.parentElement;
+            const isOpen = card.classList.contains('open');
+
+            // Close all others (optional, for accordion style)
+            // document.querySelectorAll('.api-card').forEach(c => c.classList.remove('open'));
+
+            if (isOpen) {
+                card.classList.remove('open');
+                header.querySelector('svg').style.transform = 'rotate(-90deg)';
+            } else {
+                card.classList.add('open');
+                header.querySelector('svg').style.transform = 'rotate(0deg)';
+
+                // Scroll into view if needed
+                setTimeout(() => {
+                    const rect = card.getBoundingClientRect();
+                    if (rect.top < 100 || rect.bottom > window.innerHeight) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }, 300);
+            }
+        }
+
+        function scrollToApi(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                // Open if closed
+                if (!el.classList.contains('open')) {
+                    const header = el.querySelector('.api-header');
+                    if (header) toggleApi(header);
+                }
+
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                // Highlight effect
+                el.style.transition = 'all 0.5s';
+                const originalBorder = el.style.borderColor;
+                el.style.borderColor = '#FB7299';
+                el.style.boxShadow = '0 0 0 4px rgba(251, 114, 153, 0.2)';
+
+                setTimeout(() => {
+                    el.style.borderColor = originalBorder;
+                    el.style.boxShadow = '';
+                }, 1500);
+            }
+        }
+
+        // Init
+        fetchStatus();
+        updateTestUI();
+        setInterval(fetchStatus, 5000);
+
+        // === Toast 消息弹窗 ===
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+
+        // === Settings Logic ===
+
+        // Default settings values
+        const defaultSettings = {
+            maxPages: 10,
+            lockTimeout: 30000,
+            executablePath: '',
+            browserWSEndpoint: '',
+            browserArgs: '',
+            headless: true,
+            debug: false,
+            autoStart: true,
+            defaultWidth: 1280,
+            defaultHeight: 800,
+            defaultScale: 2
+        };
+
+        // 防抖保存定时器
+        let saveDebounceTimer = null;
+
+        // Load settings from server
+        async function loadSettings() {
+            try {
+                const data = await authFetch('/config');
+                if (data.code === 0) {
+                    const config = data.data;
+
+                    // Browser settings
+                    document.getElementById('settingsMaxPages').value = config.browser?.maxPages || defaultSettings.maxPages;
+                    document.getElementById('settingsLockTimeout').value = config.browser?.timeout || defaultSettings.lockTimeout;
+                    document.getElementById('settingsExecPath').value = config.browser?.executablePath || '';
+                    document.getElementById('settingsBrowserWSEndpoint').value = config.browser?.browserWSEndpoint || '';
+                    document.getElementById('settingsBrowserArgs').value = (config.browser?.args || []).join(',');
+                    document.getElementById('settingsHeadless').checked = config.browser?.headless !== false;
+
+                    // Render defaults
+                    document.getElementById('settingsDefaultWidth').value = config.browser?.defaultViewportWidth || defaultSettings.defaultWidth;
+                    document.getElementById('settingsDefaultHeight').value = config.browser?.defaultViewportHeight || defaultSettings.defaultHeight;
+                    document.getElementById('settingsDefaultScale').value = config.browser?.deviceScaleFactor || defaultSettings.defaultScale;
+
+                    // Other settings
+                    document.getElementById('settingsDebug').checked = config.debug || false;
+                    document.getElementById('settingsAutoStart').checked = config.enabled !== false;
+
+                    // 绑定实时保存事件
+                    bindSettingsAutoSave();
+                }
+            } catch (e) {
+                console.error('Failed to load settings:', e);
+                showToast('加载配置失败: ' + e.message, 'error');
+            }
+        }
+
+        // 绑定设置项的自动保存事件
+        function bindSettingsAutoSave() {
+            const inputIds = [
+                'settingsMaxPages', 'settingsLockTimeout', 'settingsExecPath', 'settingsBrowserWSEndpoint', 'settingsBrowserArgs',
+                'settingsDefaultWidth', 'settingsDefaultHeight', 'settingsDefaultScale'
+            ];
+            const checkboxIds = ['settingsHeadless', 'settingsDebug', 'settingsAutoStart'];
+
+            // 输入框：使用防抖保存
+            inputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.dataset.bound) {
+                    el.dataset.bound = 'true';
+                    el.addEventListener('input', () => debounceSaveSettings());
+                    el.addEventListener('change', () => debounceSaveSettings());
+                }
+            });
+
+            // 复选框：立即保存
+            checkboxIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.dataset.bound) {
+                    el.dataset.bound = 'true';
+                    el.addEventListener('change', () => saveSettings(true));
+                }
+            });
+        }
+
+        // 防抖保存
+        function debounceSaveSettings() {
+            if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+            saveDebounceTimer = setTimeout(() => saveSettings(false), 800);
+        }
+
+        // Save settings to server
+        async function saveSettings(showSuccessToast = true) {
+            try {
+                const config = {
+                    enabled: document.getElementById('settingsAutoStart').checked,
+                    browser: {
+                        maxPages: parseInt(document.getElementById('settingsMaxPages').value) || defaultSettings.maxPages,
+                        timeout: parseInt(document.getElementById('settingsLockTimeout').value) || defaultSettings.lockTimeout,
+                        headless: document.getElementById('settingsHeadless').checked,
+                        executablePath: document.getElementById('settingsExecPath').value || undefined,
+                        browserWSEndpoint: document.getElementById('settingsBrowserWSEndpoint').value || undefined,
+                        args: document.getElementById('settingsBrowserArgs').value
+                            ? document.getElementById('settingsBrowserArgs').value.split(',').map(s => s.trim()).filter(Boolean)
+                            : undefined,
+                        defaultViewportWidth: parseInt(document.getElementById('settingsDefaultWidth').value) || defaultSettings.defaultWidth,
+                        defaultViewportHeight: parseInt(document.getElementById('settingsDefaultHeight').value) || defaultSettings.defaultHeight,
+                        deviceScaleFactor: parseFloat(document.getElementById('settingsDefaultScale').value) || defaultSettings.defaultScale
+                    },
+                    debug: document.getElementById('settingsDebug').checked
+                };
+
+                // Clean up undefined values in browser config
+                if (!config.browser.executablePath) delete config.browser.executablePath;
+                if (!config.browser.browserWSEndpoint) delete config.browser.browserWSEndpoint;
+                if (!config.browser.args || config.browser.args.length === 0) delete config.browser.args;
+
+                await authFetch('/config', {
+                    method: 'POST',
+                    body: JSON.stringify(config)
+                });
+
+                if (showSuccessToast) {
+                    showToast('配置已保存', 'success');
+                }
+            } catch (e) {
+                console.error('Failed to save settings:', e);
+                showToast('保存失败: ' + e.message, 'error');
+            }
+        }
+
+        // Reset settings to default
+        async function resetSettings() {
+            showToast('正在恢复默认配置...', 'info');
+
+            document.getElementById('settingsMaxPages').value = defaultSettings.maxPages;
+            document.getElementById('settingsLockTimeout').value = defaultSettings.lockTimeout;
+            document.getElementById('settingsExecPath').value = '';
+            document.getElementById('settingsBrowserWSEndpoint').value = '';
+            document.getElementById('settingsBrowserArgs').value = '';
+            document.getElementById('settingsHeadless').checked = defaultSettings.headless;
+            document.getElementById('settingsDefaultWidth').value = defaultSettings.defaultWidth;
+            document.getElementById('settingsDefaultHeight').value = defaultSettings.defaultHeight;
+            document.getElementById('settingsDefaultScale').value = defaultSettings.defaultScale;
+            document.getElementById('settingsDebug').checked = defaultSettings.debug;
+            document.getElementById('settingsAutoStart').checked = defaultSettings.autoStart;
+
+            // 立即保存恢复后的默认值
+            await saveSettings(false);
+            showToast('已恢复默认配置', 'success');
+        }
+
+        // === Chrome Install Logic ===
+
+        let chromeProgressTimer = null;
+
+        // 加载 Chrome 状态
+        async function loadChromeStatus() {
+            try {
+                const data = await noAuthFetch('/chrome/status');
+                if (data.code === 0) {
+                    const info = data.data;
+
+                    // 更新环境信息
+                    document.getElementById('chromePlatform').textContent = info.platform || '-';
+                    document.getElementById('chromeArch').textContent = info.arch || '-';
+                    document.getElementById('chromeDistro').textContent = info.linuxDistro || '-';
+                    document.getElementById('chromeDefaultVersion').textContent = info.defaultVersion || '-';
+
+                    // 设置默认版本到输入框
+                    const versionInput = document.getElementById('chromeVersion');
+                    if (!versionInput.value) {
+                        versionInput.placeholder = info.defaultVersion || '131.0.6778.204';
+                    }
+
+                    // 更新状态内容
+                    const statusContent = document.getElementById('chromeStatusContent');
+                    if (info.installed) {
+                        statusContent.innerHTML = `
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
+                                    <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-500">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-medium text-green-800 dark:text-green-200">Chrome 已安装</div>
+                                        <div class="text-sm text-green-600 dark:text-green-400">${info.version || '版本未知'}</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm">
+                                    <div class="flex justify-between p-3 bg-gray-50 dark:bg-[#202124] rounded-lg">
+                                        <span class="text-gray-500">可执行文件</span>
+                                        <span class="font-mono text-xs truncate max-w-[300px]" title="${info.executablePath || ''}">${info.executablePath || '-'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        statusContent.innerHTML = `
+                            <div class="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-800">
+                                <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center text-amber-500">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-medium text-amber-800 dark:text-amber-200">Chrome 未安装</div>
+                                    <div class="text-sm text-amber-600 dark:text-amber-400">请点击下方按钮安装 Chrome</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // 如果正在安装，显示进度
+                    if (info.isInstalling) {
+                        updateChromeProgress(info.progress);
+                        startProgressPolling();
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load Chrome status:', e);
+                document.getElementById('chromeStatusContent').innerHTML = `
+                    <div class="text-red-500 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg">
+                        加载状态失败: ${e.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 更新进度显示
+        function updateChromeProgress(progress) {
+            const container = document.getElementById('chromeProgressContainer');
+            const bar = document.getElementById('chromeProgressBar');
+            const text = document.getElementById('chromeProgressText');
+            const percent = document.getElementById('chromeProgressPercent');
+            const details = document.getElementById('chromeProgressDetails');
+            const btnInstall = document.getElementById('btnInstallChrome');
+            const btnDeps = document.getElementById('btnInstallDeps');
+
+            if (!progress || progress.status === 'idle') {
+                container.classList.add('hidden');
+                btnInstall.disabled = false;
+                btnDeps.disabled = false;
+                return;
+            }
+
+            container.classList.remove('hidden');
+
+            // 更新进度条
+            bar.style.width = `${progress.progress || 0}%`;
+            percent.textContent = `${Math.round(progress.progress || 0)}%`;
+            text.textContent = progress.message || '处理中...';
+
+            // 更新详情
+            let detailsText = '';
+            if (progress.downloadedBytes && progress.totalBytes) {
+                const downloaded = (progress.downloadedBytes / 1024 / 1024).toFixed(2);
+                const total = (progress.totalBytes / 1024 / 1024).toFixed(2);
+                detailsText = `${downloaded} MB / ${total} MB`;
+                if (progress.speed) detailsText += ` | ${progress.speed}`;
+                if (progress.eta) detailsText += ` | 剩余 ${progress.eta}`;
+            }
+            details.textContent = detailsText;
+
+            // 根据状态更新按钮
+            if (progress.status === 'completed') {
+                bar.classList.remove('bg-primary');
+                bar.classList.add('bg-green-500');
+                btnInstall.disabled = false;
+                btnDeps.disabled = false;
+                showToast('Chrome 安装完成！', 'success');
+                stopProgressPolling();
+                // 刷新状态
+                setTimeout(loadChromeStatus, 1000);
+            } else if (progress.status === 'failed') {
+                bar.classList.remove('bg-primary');
+                bar.classList.add('bg-red-500');
+                text.textContent = progress.error || '安装失败';
+                btnInstall.disabled = false;
+                btnDeps.disabled = false;
+                showToast('安装失败: ' + (progress.error || '未知错误'), 'error');
+                stopProgressPolling();
+            } else {
+                bar.classList.remove('bg-green-500', 'bg-red-500');
+                bar.classList.add('bg-primary');
+                btnInstall.disabled = true;
+                btnDeps.disabled = true;
+            }
+        }
+
+        // 开始轮询进度
+        function startProgressPolling() {
+            if (chromeProgressTimer) return;
+            chromeProgressTimer = setInterval(async () => {
+                try {
+                    const data = await noAuthFetch('/chrome/progress');
+                    if (data.code === 0) {
+                        updateChromeProgress(data.data.progress);
+                        if (!data.data.isInstalling) {
+                            stopProgressPolling();
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch progress:', e);
+                }
+            }, 1000);
+        }
+
+        // 停止轮询进度
+        function stopProgressPolling() {
+            if (chromeProgressTimer) {
+                clearInterval(chromeProgressTimer);
+                chromeProgressTimer = null;
+            }
+        }
+
+        // 安装 Chrome
+        async function installChrome() {
+            const version = document.getElementById('chromeVersion').value.trim();
+            const source = document.getElementById('chromeSource').value;
+            const installDeps = document.getElementById('chromeInstallDeps').checked;
+
+            try {
+                showToast('正在启动安装...', 'info');
+
+                // 重置进度条样式
+                const bar = document.getElementById('chromeProgressBar');
+                bar.classList.remove('bg-green-500', 'bg-red-500');
+                bar.classList.add('bg-primary');
+                bar.style.width = '0%';
+
+                const data = await authFetch('/chrome/install', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        version: version || undefined,
+                        source,
+                        installDeps
+                    })
+                });
+
+                if (data.code === 0) {
+                    showToast('安装任务已启动', 'success');
+                    // 开始轮询进度
+                    startProgressPolling();
+                    // 显示进度条
+                    updateChromeProgress({ status: 'downloading', progress: 0, message: '准备中...' });
+                } else {
+                    showToast('启动安装失败: ' + data.message, 'error');
+                }
+            } catch (e) {
+                showToast('启动安装失败: ' + e.message, 'error');
+            }
+        }
+
+        // 仅安装依赖
+        async function installDepsOnly() {
+            try {
+                showToast('正在安装依赖...', 'info');
+
+                const data = await authFetch('/chrome/install-deps', {
+                    method: 'POST'
+                });
+
+                if (data.code === 0) {
+                    showToast(data.message || '依赖安装任务已启动', 'success');
+                } else {
+                    showToast('安装失败: ' + data.message, 'error');
+                }
+            } catch (e) {
+                showToast('安装失败: ' + e.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

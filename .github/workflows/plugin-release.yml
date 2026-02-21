@@ -1,0 +1,83 @@
+name: Build & Release Plugins
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'napcat-plugin-*/**'
+      - '.github/**'
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 完整历史，确保多 commit push 时 diff 正确
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Build plugins (incremental)
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          # workflow_dispatch 手动触发时全量构建，push 触发时增量构建
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node .github/scripts/build-plugins.mjs \
+              "https://github.com/${{ github.repository }}" \
+              "plugins" \
+              --all
+          else
+            node .github/scripts/build-plugins.mjs \
+              "https://github.com/${{ github.repository }}" \
+              "plugins"
+          fi
+
+      - name: Commit plugin.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugin.json
+          git diff --cached --quiet && echo "plugin.json 无变化" || {
+            git commit -m "chore: auto-update plugin.json [skip ci]"
+            git push
+          }
+
+      - name: Create or update Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="plugins"
+
+          # 创建 Release（如果不存在）
+          if ! gh release view "$RELEASE_TAG" &>/dev/null; then
+            gh release create "$RELEASE_TAG" \
+              --title "NapCat Plugins" \
+              --notes "自动构建的插件包，持续更新。" \
+              --latest=false
+          fi
+
+          # 只上传本次构建产生的 zip（增量）
+          shopt -s nullglob
+          zips=(.plugin-zips/napcat-plugin-*.zip)
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "📦 本次无新构建的 zip，跳过上传"
+          else
+            for zip_file in "${zips[@]}"; do
+              echo "📤 上传: $(basename $zip_file)"
+              gh release upload "$RELEASE_TAG" "$zip_file" --clobber
+            done
+            echo "✅ 已上传 ${#zips[@]} 个插件包"
+          fi

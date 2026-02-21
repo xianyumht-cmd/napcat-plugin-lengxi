@@ -1,0 +1,28 @@
+{
+  "name": "napcat-plugin-amsghook",
+  "plugin": "消息代发转卡",
+  "version": "1.0.2",
+  "type": "module",
+  "main": "dist/index.mjs",
+  "description": "让所有插件与Onebot的消息通过官机Markdown发送，也可以修改其他插件预发送的内容",
+  "author": "冷曦",
+  "napcat": {
+    "tags": [
+      "工具"
+    ],
+    "minVersion": "4.14.0"
+  },
+  "dependencies": {
+    "napcat-types": "0.0.9",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0"
+  },
+  "scripts": {
+    "build": "vite build"
+  }
+}
