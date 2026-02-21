@@ -21,6 +21,8 @@ export function registerApiRoutes (router: any): void {
     if (body.blockedUsers !== undefined) {
       state.config.blockedUsers = String(body.blockedUsers || '').split(',').map(s => s.trim()).filter(Boolean);
     }
+    if (body.globalReplace !== undefined) state.config.globalReplace = Boolean(body.globalReplace);
+    if (body.globalOwnerOnly !== undefined) state.config.globalOwnerOnly = Boolean(body.globalOwnerOnly);
     if (body.rules !== undefined && Array.isArray(body.rules)) {
       state.config.rules = (body.rules as any[]).map(r => ({
         name: String(r.name || ''), enabled: Boolean(r.enabled),

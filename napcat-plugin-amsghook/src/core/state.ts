@@ -18,6 +18,8 @@ export const DEFAULT_CONFIG: PluginConfig = {
   ownerQQ: '',
   blockedGroups: [],
   blockedUsers: [],
+  globalReplace: false,
+  globalOwnerOnly: false,
 };
 
 export const state = {

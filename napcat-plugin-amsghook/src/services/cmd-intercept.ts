@@ -57,8 +57,9 @@ export function installCmdInterceptHooks (): void {
 
       const rule = findRule(pluginName);
 
-      // ===== 仅主人响应检查 =====
-      if (rule?.ownerOnly && ownerQQ && senderQQ !== ownerQQ) {
+      // ===== 仅主人响应检查（全局 or 插件级） =====
+      const isOwnerOnly = state.config.globalOwnerOnly || rule?.ownerOnly;
+      if (isOwnerOnly && ownerQQ && senderQQ !== ownerQQ) {
         if (pluginName !== 'napcat-plugin-amsghook') {
           if (state.config.debug) addLog('debug', `指令拦截: 非主人 ${senderQQ} → ${pluginName} 已拦截`);
           return;

@@ -617,6 +617,18 @@
                 <input type="text" id="d-blockedUsers" class="ipt" placeholder="这些用户的消息不会触发任何插件指令">
               </div>
             </div>
+            <div class="flex items-center justify-between py-3 border-t border-blue-100/30 dark:border-blue-900/10">
+              <div><span class="text-sm font-medium">全局官机代发</span>
+                <p class="text-[11px] text-slate-400">开启后所有插件消息均通过官方机器人代发</p>
+              </div>
+              <div class="tgl" id="d-globalReplace" onclick="tg(this)"></div>
+            </div>
+            <div class="flex items-center justify-between py-3 border-t border-blue-100/30 dark:border-blue-900/10">
+              <div><span class="text-sm font-medium">全局仅主人</span>
+                <p class="text-[11px] text-slate-400">开启后所有插件仅响应主人消息</p>
+              </div>
+              <div class="tgl" id="d-globalOwnerOnly" onclick="tg(this)"></div>
+            </div>
           </div>
           <div
             style="padding:10px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;display:flex;align-items:center;gap:8px">
@@ -656,7 +668,6 @@
                 刷新
               </button>
             </div>
-            <p class="text-xs text-slate-400 mb-2">为每个插件单独配置拦截规则，支持后缀追加、文本替换、官机代发、仅主人响应。</p>
             <div class="flex gap-2 mb-3 flex-wrap">
               <button onclick="toggleAllHook(true)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -676,14 +687,14 @@
                 全选 SKIP
               </button>
               <span style="width:1px;background:rgba(96,165,250,.15);margin:0 4px"></span>
-              <button onclick="toggleAllReplace(true)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
+              <button id="btnAllReplace" onclick="toggleAllReplace(true)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
                 全选官机代发
               </button>
-              <button onclick="toggleAllReplace(false)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
+              <button id="btnNoReplace" onclick="toggleAllReplace(false)" class="btn btn-s" style="font-size:11px;padding:5px 10px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">
                   <path d="M18 6 6 18" />
@@ -918,6 +929,8 @@
       $('d-ownerQQ').value = C.ownerQQ || '';
       $('d-blockedGroups').value = (C.blockedGroups || []).join(',');
       $('d-blockedUsers').value = (C.blockedUsers || []).join(',');
+      stg('d-globalReplace', !!C.globalReplace);
+      stg('d-globalOwnerOnly', !!C.globalOwnerOnly);
       const rules = C.rules || [];
       $('d-rules').textContent = rules.length;
       $('d-active').textContent = rules.filter(r => r.enabled).length;
@@ -934,21 +947,27 @@
       for (const name of allPlugins) if (name !== ONEBOT_NAME) merged.push(ruleMap.get(name) || { name, enabled: false, suffix: '', replace: false, replaceText: '', ownerOnly: false, blockedGroups: [], blockedUsers: [] });
       for (const r of rules) if (r.name !== ONEBOT_NAME && !allPlugins.includes(r.name)) merged.push({ ...r, _missing: true });
       if (!merged.length) { el.innerHTML = '<div class="empty">未检测到其他插件</div>'; return; }
-      el.innerHTML = merged.map((r, i) => `
+      const gReplace = !!C.globalReplace;
+      const gOwner = !!C.globalOwnerOnly;
+      const disabledStyle = 'opacity:.4;pointer-events:none;cursor:not-allowed;';
+      el.innerHTML = merged.map((r, i) => {
+        const ownerActive = gOwner || r.ownerOnly;
+        const replaceActive = gReplace || r.replace;
+        return `
     <div class="pi" style="flex-wrap:wrap" data-idx="${i}">
       <span class="name">${esc(r.name)}${r.name === 'OneBot 外部调用' ? ' <span style="color:#60A5FA;font-size:10px">(HTTP/WS)</span>' : r._missing ? ' <span style="color:#f87171;font-size:10px">(未安装)</span>' : ''}</span>
       <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-        <button onclick="tgOwnerOnly(${i})" class="btn" style="padding:4px 10px;font-size:10px;font-weight:600;gap:4px;min-width:72px;${r.ownerOnly ? 'background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,.25)' : 'background:rgba(107,114,128,.08);color:#94a3b8;border:1px solid rgba(107,114,128,.15)'}">
+        <button onclick="${gOwner ? '' : `tgOwnerOnly(${i})`}" class="btn" style="padding:4px 10px;font-size:10px;font-weight:600;gap:4px;min-width:72px;${gOwner ? disabledStyle : ''}${ownerActive ? 'background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(245,158,11,.25)' : 'background:rgba(107,114,128,.08);color:#94a3b8;border:1px solid rgba(107,114,128,.15)'}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
-          ${r.ownerOnly ? '仅主人' : '所有人'}
+          ${ownerActive ? '仅主人' : '所有人'}${gOwner ? ' (全局)' : ''}
         </button>
         <button onclick="tgPlugin(${i})" class="btn" style="padding:4px 10px;font-size:10px;font-weight:600;gap:4px;min-width:56px;${r.enabled ? 'background:linear-gradient(135deg,#60A5FA,#3B82F6);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.25)' : 'background:rgba(107,114,128,.08);color:#94a3b8;border:1px solid rgba(107,114,128,.15)'}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z"/></svg>
           ${r.enabled ? 'HOOK' : 'SKIP'}
         </button>
-        <button onclick="tgReplace(${i})" class="btn" style="padding:4px 10px;font-size:10px;font-weight:600;gap:4px;min-width:72px;${r.replace ? 'background:linear-gradient(135deg,#60A5FA,#3B82F6);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.25)' : 'background:rgba(107,114,128,.08);color:#94a3b8;border:1px solid rgba(107,114,128,.15)'}">
+        <button onclick="${gReplace ? '' : `tgReplace(${i})`}" class="btn" style="padding:4px 10px;font-size:10px;font-weight:600;gap:4px;min-width:72px;${gReplace ? disabledStyle : ''}${replaceActive ? 'background:linear-gradient(135deg,#60A5FA,#3B82F6);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.25)' : 'background:rgba(107,114,128,.08);color:#94a3b8;border:1px solid rgba(107,114,128,.15)'}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          官机代发
+          官机代发${gReplace ? ' (全局)' : ''}
         </button>
       </div>
       ${r.enabled ? `<div style="width:100%;margin-top:6px">
@@ -962,8 +981,11 @@
         </div>
       </div>` : ''}
     </div>
-  `).join('');
+  `}).join('');
       C.rules = merged.map(r => ({ name: r.name, enabled: !!r.enabled, suffix: r.suffix || '', replace: !!r.replace, replaceText: r.replaceText || '', ownerOnly: !!r.ownerOnly, blockedGroups: r.blockedGroups || [], blockedUsers: r.blockedUsers || [] }));
+      // 全局开关时禁用批量按钮
+      if ($('btnAllReplace')) { $('btnAllReplace').style.opacity = gReplace ? '.4' : '1'; $('btnAllReplace').style.pointerEvents = gReplace ? 'none' : ''; }
+      if ($('btnNoReplace')) { $('btnNoReplace').style.opacity = gReplace ? '.4' : '1'; $('btnNoReplace').style.pointerEvents = gReplace ? 'none' : ''; }
     }
 
     function tgPlugin (idx) { C.rules[idx].enabled = !C.rules[idx].enabled; renderPlugins(); }
@@ -1045,6 +1067,8 @@
       C.ownerQQ = $('d-ownerQQ').value.trim();
       C.blockedGroups = $('d-blockedGroups').value.trim();
       C.blockedUsers = $('d-blockedUsers').value.trim();
+      C.globalReplace = gtg('d-globalReplace');
+      C.globalOwnerOnly = gtg('d-globalOwnerOnly');
       try { const r = await af('/config', 'POST', C); toast(r.success ? '配置已保存' : '保存失败', r.success ? 'success' : 'error'); }
       catch (e) { toast('保存失败: ' + e, 'error'); }
       // 同时保存 QQBot 配置

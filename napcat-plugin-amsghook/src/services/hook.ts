@@ -100,7 +100,7 @@ export function installHooks (): void {
         const qcfg = state.config.qqbot;
         const callerRule = state.config.rules.find((r: any) => r.name === caller) || null;
 
-        if (callerRule?.replace && qcfg?.appid && qcfg.secret && qcfg.qqNumber && state.qqbotBridge?.isConnected()) {
+        if ((callerRule?.replace || state.config.globalReplace) && qcfg?.appid && qcfg.secret && qcfg.qqNumber && state.qqbotBridge?.isConnected()) {
           const groupId = params.group_id || (actionName === 'send_msg' && params.message_type === 'group' ? params.group_id : null);
           if (groupId && caller !== 'napcat-plugin-amsghook') {
             const gid = String(groupId);

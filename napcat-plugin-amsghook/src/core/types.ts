@@ -39,6 +39,10 @@ export interface PluginConfig {
   blockedGroups?: string[];
   /** 屏蔽用户列表：这些用户的消息不会触发任何插件指令 */
   blockedUsers?: string[];
+  /** 全局官机代发开关 */
+  globalReplace?: boolean;
+  /** 全局仅主人开关 */
+  globalOwnerOnly?: boolean;
 }
 
 export interface LogEntry {
