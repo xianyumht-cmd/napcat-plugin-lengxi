@@ -9,6 +9,7 @@ export const DEFAULT_MSG_FILTER: MsgFilterSettings = {
   blockLightApp: false,
   blockContact: false,
   blockUrl: false,
+  blockQr: false,
 };
 
 export const DEFAULT_GROUP_SETTINGS: GroupGuardSettings = {
@@ -35,6 +36,11 @@ export const DEFAULT_GROUP_SETTINGS: GroupGuardSettings = {
   lotteryReward: 200,
   autoRecallSelf: false,
   autoRecallSelfDelay: 60,
+  disableQA: false,
+  disableSignin: false,
+  disableLottery: false,
+  disableInvite: false,
+  disableActivity: false,
 };
 
 export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
@@ -91,24 +97,23 @@ export const GROUP_ADMIN_MENU = `群管功能（需管理员权限）
 【删除定时任务 ID】删除指定任务
 【定时列表】查看所有定时任务`;
 
-export const INTERACT_MENU = `互动娱乐功能
-【签到】每日签到领积分
-【签到榜】查看今日签到排行
-【我的积分】查看个人积分
-【邀请查询】查看邀请人数
-【邀请榜】查看邀请排行
-【抽奖】消耗积分抽奖
-【运行状态】查看机器人状态
-【开启发言奖励 积分】开启发言送积分
-【关闭发言奖励】关闭发言送积分`;
+export const RISK_CONTROL_MENU = `🛡️ 风控与安全设置
+----------------
+• 开启/关闭刷屏检测
+• 设置刷屏阈值 <次数> (默认10)
+• 设置刷屏时间 <秒> (默认10)
+• 设置复读阈值 <次数> (默认0关闭)
+• 开启/关闭自身撤回
+• 设置自身撤回时间 <秒>
+• 开启/关闭入群验证
+• 设置权限缓存 <秒> (默认60)
+• 开启/关闭宵禁
+• 设置宵禁时间 <开始> <结束>`;
 
-export const AUTH_MENU = `授权管理功能
-【授权 群号 天数】给群充值时间(老板)
-【授权 群号 永久】给群永久授权(老板)
-【回收授权 群号】取消授权(老板)
-【查询授权 群号】查询群授权(老板)
-【授权查询】查询本群授权(管理员)
-【激活 卡密】使用卡密充值(管理员)`;
+export const AUTH_MENU = `📝 授权管理 (私聊指令)`;
+
+// 移除分散的菜单项
+export const INTERACT_MENU = `🎮 互动娱乐...`;
 
 export const ANTI_RECALL_MENU = `防撤回功能(需授权)
 【开启防撤回】当前群开启

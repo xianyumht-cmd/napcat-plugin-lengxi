@@ -16,6 +16,8 @@ export interface MsgFilterSettings {
   blockContact: boolean;
   /** 自动撤回含链接消息 */
   blockUrl: boolean;
+  /** 自动撤回二维码图片 */
+  blockQr: boolean;
 }
 
 export interface PluginConfig {
@@ -83,6 +85,10 @@ export interface GroupGuardSettings {
   spamThreshold?: number;
   /** 刷屏禁言时长（分钟） */
   spamBanMinutes?: number;
+  /** 复读检测阈值（连续N条相同消息） */
+  repeatThreshold?: number;
+  /** 权限缓存时间 (秒)，0为关闭 */
+  adminCacheSeconds?: number;
   /** 群独立消息类型过滤 */
   msgFilter?: MsgFilterSettings;
   /** 群独立问答列表 */
@@ -115,6 +121,17 @@ export interface GroupGuardSettings {
   autoRecallSelf?: boolean;
   /** 自动撤回延迟（秒） */
   autoRecallSelfDelay?: number;
+  // 新增开关
+  /** 是否禁用问答 */
+  disableQA?: boolean;
+  /** 是否禁用签到 */
+  disableSignin?: boolean;
+  /** 是否禁用抽奖 */
+  disableLottery?: boolean;
+  /** 是否禁用邀请统计 */
+  disableInvite?: boolean;
+  /** 是否禁用活跃统计 */
+  disableActivity?: boolean;
 }
 
 export interface ScheduledTask {

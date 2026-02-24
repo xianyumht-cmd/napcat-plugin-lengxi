@@ -7,12 +7,14 @@ import type { PluginConfig } from './types';
 import { DEFAULT_PLUGIN_CONFIG } from './config';
 import { pluginState } from './state';
 import { authManager } from './auth';
+import { initDB, dbQuery } from './db';
 import { createVerifySession, handleVerifyAnswer, clearAllSessions } from './verify';
 import {
   handleCommand, handleAntiRecall, cacheMessage, handleEmojiReact,
   handleCardLockCheck, handleCardLockOnMessage, handleAutoRecall,
   handleBlacklist, handleFilterKeywords, handleSpamDetect,
   sendWelcomeMessage, saveConfig, handleMsgTypeFilter, handleQA,
+  recordActivity
 } from './commands';
 
 export let plugin_config_ui: PluginConfigSchema = [];
@@ -47,40 +49,45 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     ctx.NapCatConfig.boolean('debug', '调试模式', false, '显示详细日志'),
   );
 
-  // 加载配置
+  // 设置配置目录
+  if (ctx.configPath) {
+    pluginState.configDir = path.dirname(ctx.configPath);
+    initDB(pluginState.configDir);
+  }
+
+  // 加载主配置
   if (fs.existsSync(ctx.configPath)) {
     try {
       const raw = JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8'));
       pluginState.config = { ...JSON.parse(JSON.stringify(DEFAULT_PLUGIN_CONFIG)), ...raw };
+      
+      // 迁移旧的分群配置到独立文件
+      if (pluginState.config.groups && Object.keys(pluginState.config.groups).length > 0) {
+        pluginState.log('info', '正在迁移旧的分群配置...');
+        const groupsDir = path.join(pluginState.configDir, 'groups');
+        if (!fs.existsSync(groupsDir)) fs.mkdirSync(groupsDir, { recursive: true });
+        
+        for (const [gid, cfg] of Object.entries(pluginState.config.groups)) {
+          fs.writeFileSync(path.join(groupsDir, `${gid}.json`), JSON.stringify(cfg, null, 2), 'utf-8');
+        }
+        
+        // 清空主配置文件中的 groups，减小体积
+        pluginState.config.groups = {};
+        fs.writeFileSync(ctx.configPath, JSON.stringify(pluginState.config, null, 2), 'utf-8');
+        pluginState.log('info', '分群配置迁移完成');
+      }
     } catch { /* ignore */ }
   }
 
   // 初始化授权
   authManager.init();
 
-  // 加载活跃统计（独立文件）
-  pluginState.activityPath = path.join(path.dirname(ctx.configPath), 'activity.json');
-  pluginState.loadActivity();
-  
-  // 加载签到与邀请数据
-  try {
-    const signinPath = path.join(path.dirname(ctx.configPath), 'signin.json');
-    if (fs.existsSync(signinPath)) pluginState.signinData = JSON.parse(fs.readFileSync(signinPath, 'utf-8'));
-    const invitePath = path.join(path.dirname(ctx.configPath), 'invite.json');
-    if (fs.existsSync(invitePath)) pluginState.inviteData = JSON.parse(fs.readFileSync(invitePath, 'utf-8'));
-  } catch { /* ignore */ }
-
-  // 定时保存（配置每5分钟，活跃统计每2分钟）
-  setInterval(() => saveConfig(ctx), 300000);
+  // 定时保存任务 (5分钟一次，减少 I/O)
   setInterval(() => {
-    pluginState.saveActivity();
-    // 保存签到与邀请数据
-    try {
-        const dir = path.dirname(ctx.configPath);
-        fs.writeFileSync(path.join(dir, 'signin.json'), JSON.stringify(pluginState.signinData), 'utf-8');
-        fs.writeFileSync(path.join(dir, 'invite.json'), JSON.stringify(pluginState.inviteData), 'utf-8');
-    } catch { /* ignore */ }
-  }, 120000);
+    saveConfig(ctx);
+    // 顺便清理缓存
+    if (pluginState.cleanCache) pluginState.cleanCache();
+  }, 300000);
 
   registerRoutes(ctx);
 
@@ -106,23 +113,20 @@ function registerRoutes (ctx: NapCatPluginContext): void {
   }
 
   router.getNoAuth('/config', (_req: any, res: any) => {
+    // 合并内存中的 groups，确保前端拿到完整数据
     res.json({ code: 0, data: pluginState.config, version: pluginState.version });
   });
 
   router.postNoAuth('/config', (req: any, res: any) => {
     try {
       const body = req.body || {};
-      pluginState.config = { ...pluginState.config, ...body };
+      const newConfig = { ...pluginState.config, ...body };
       
-      // 更新授权状态
-      if (body.licenseKey !== undefined) {
-        // authManager.validateLicense(pluginState.config.licenseKey || '', pluginState.config.ownerQQs);
-      }
+      // 更新内存
+      pluginState.config = newConfig;
 
       if (ctx?.configPath) {
-        const dir = path.dirname(ctx.configPath);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(ctx.configPath, JSON.stringify(pluginState.config, null, 2), 'utf-8');
+        saveConfig(ctx);
       }
       res.json({ code: 0, message: '配置已保存' });
     } catch (e) { res.status(500).json({ code: -1, message: String(e) }); }
@@ -213,12 +217,27 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   const selfId = String((event as any).self_id || '');
   const messageSegments = (event as any).message || [];
 
-  // 白名单用户跳过所有检查（除了指令）
-  const isWhite = pluginState.isWhitelisted(userId);
+  // 0. 授权检查：未授权群完全静默，不处理任何群内指令或被动功能
+  const license = authManager.getGroupLicense(groupId);
+  if (!license) {
+    return;
+  }
 
-  // 0. 名片锁定被动检查
-  const senderCard = (event as any).sender?.card || '';
-  await handleCardLockOnMessage(groupId, userId, senderCard);
+  // 0.1 自身消息处理：如果是机器人自己发的消息，跳过大部分检查，仅处理撤回
+  if (userId === selfId) {
+    // 自身消息撤回逻辑
+    const settings = pluginState.getGroupSettings(groupId);
+    if (settings.autoRecallSelf) {
+      const delay = (settings.autoRecallSelfDelay || 60) * 1000;
+      setTimeout(() => {
+        pluginState.callApi('delete_msg', { message_id: messageId }).catch(() => {});
+      }, delay);
+    }
+    return;
+  }
+
+  // 0.2 白名单用户检查
+  const isWhite = pluginState.isWhitelisted(userId);
 
   // 1. 黑名单检查（白名单豁免）
   if (!isWhite) {
@@ -258,11 +277,11 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
 
   // 5. 刷屏检测（白名单豁免）
   if (!isWhite) {
-    await handleSpamDetect(groupId, userId);
+    await handleSpamDetect(groupId, userId, raw);
   }
 
   // 6. 记录活跃统计
-  pluginState.recordActivity(groupId, userId);
+  recordActivity(groupId, userId);
 
   // 7. 缓存消息（防撤回）
   cacheMessage(messageId, userId, groupId, raw, messageSegments);
@@ -283,6 +302,11 @@ const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx: NapCatPluginC
     group_id?: number | string; user_id?: number | string; operator_id?: number | string;
     message_id?: number | string; card_new?: string; flag?: string; comment?: string;
   };
+
+  const groupId = String(e.group_id);
+  // 授权检查：未授权群忽略所有事件
+  const license = authManager.getGroupLicense(groupId);
+  if (!license && groupId !== 'undefined') return;
 
   // 入群申请处理
   if (e.post_type === 'request' && e.request_type === 'group' && e.sub_type === 'add') {
@@ -349,22 +373,30 @@ const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx: NapCatPluginC
 
     // 邀请统计
     if (operatorId && operatorId !== userId && operatorId !== pluginState.botId) {
-      if (!pluginState.inviteData[groupId]) pluginState.inviteData[groupId] = {};
-      const inviterData = pluginState.inviteData[groupId][operatorId] || { inviterId: operatorId, inviteCount: 0, invitedUsers: [] };
-      if (!inviterData.invitedUsers.includes(userId)) {
-        inviterData.inviteCount++;
-        inviterData.invitedUsers.push(userId);
-        pluginState.inviteData[groupId][operatorId] = inviterData;
-        
-        // 邀请奖励
-        const settings = pluginState.getGroupSettings(groupId);
-        if (settings.invitePoints && settings.invitePoints > 0) {
-          if (!pluginState.signinData[groupId]) pluginState.signinData[groupId] = {};
-          const inviterSignin = pluginState.signinData[groupId][operatorId] || { lastSigninTime: 0, streak: 0, points: 0 };
-          inviterSignin.points += settings.invitePoints;
-          pluginState.signinData[groupId][operatorId] = inviterSignin;
-          pluginState.log('info', `邀请奖励: 用户 ${operatorId} 邀请 ${userId} 进群，获得 ${settings.invitePoints} 积分`);
-        }
+      // 检查被邀请人是否已有记录（防止重复刷分）
+      const inviteeRecord = dbQuery.getInvite(groupId, userId);
+      // 如果没有inviter_id，说明是首次被邀请记录
+      if (!inviteeRecord || !inviteeRecord.inviterId) {
+          // 1. 更新被邀请人的记录，设置邀请人
+          const newInviteeRecord = inviteeRecord || { inviteCount: 0, joinTime: Date.now() };
+          newInviteeRecord.inviterId = operatorId;
+          dbQuery.updateInvite(groupId, userId, newInviteeRecord);
+          
+          // 2. 更新邀请人的统计
+          let inviterRecord = dbQuery.getInvite(groupId, operatorId);
+          if (!inviterRecord) inviterRecord = { inviteCount: 0, joinTime: 0 };
+          inviterRecord.inviteCount++;
+          dbQuery.updateInvite(groupId, operatorId, inviterRecord);
+          
+          // 3. 邀请奖励
+          const settings = pluginState.getGroupSettings(groupId);
+          if (settings.invitePoints && settings.invitePoints > 0) {
+              let inviterSignin = dbQuery.getSignin(groupId, operatorId);
+              if (!inviterSignin) inviterSignin = { lastSignin: 0, days: 0, points: 0 };
+              inviterSignin.points += settings.invitePoints;
+              dbQuery.updateSignin(groupId, operatorId, inviterSignin);
+              pluginState.log('info', `邀请奖励: 用户 ${operatorId} 邀请 ${userId} 进群，获得 ${settings.invitePoints} 积分`);
+          }
       }
     }
 

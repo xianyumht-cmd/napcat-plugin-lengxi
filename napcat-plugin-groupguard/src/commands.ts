@@ -2,10 +2,12 @@
 import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import { pluginState } from './state';
+import { dbQuery } from './db';
 import { authManager } from './auth';
-import { GROUP_ADMIN_MENU, ANTI_RECALL_MENU, EMOJI_REACT_MENU, TARGET_MENU, BLACKWHITE_MENU, FILTER_MENU, QA_MENU, REJECT_KW_MENU, AUTH_MENU, INTERACT_MENU } from './config';
+import { GROUP_ADMIN_MENU, ANTI_RECALL_MENU, EMOJI_REACT_MENU, TARGET_MENU, BLACKWHITE_MENU, FILTER_MENU, QA_MENU, REJECT_KW_MENU, AUTH_MENU, INTERACT_MENU, RISK_CONTROL_MENU } from './config';
 import fs from 'fs';
 import path from 'path';
+import { detectQrCode } from './qr';
 
 /** 从消息中提取 @的QQ号 */
 function extractAt (raw: string): string | null {
@@ -27,17 +29,45 @@ function getTarget (raw: string, textAfterCmd: string): string | null {
 /** 检查是否是管理员或主人 */
 async function isAdminOrOwner (groupId: string, userId: string): Promise<boolean> {
   if (pluginState.isOwner(userId)) return true;
+  
+  const key = `${groupId}:${userId}`;
+  const settings = pluginState.getGroupSettings(groupId);
+  const cacheSeconds = settings.adminCacheSeconds !== undefined ? settings.adminCacheSeconds : 60; // 默认60秒缓存
+  
+  if (cacheSeconds > 0) {
+      const cached = pluginState.adminCache.get(key);
+      if (cached && Date.now() < cached.expire) {
+          return cached.role === 'admin' || cached.role === 'owner';
+      }
+  }
+
   const info = await pluginState.callApi('get_group_member_info', { group_id: groupId, user_id: userId }) as any;
-  return info?.role === 'admin' || info?.role === 'owner';
+  const role = info?.role || 'member';
+  
+  if (cacheSeconds > 0) {
+      pluginState.adminCache.set(key, { role, expire: Date.now() + cacheSeconds * 1000 });
+  }
+  
+  return role === 'admin' || role === 'owner';
 }
 
 /** 保存配置到文件 */
 export function saveConfig (ctx: NapCatPluginContext): void {
   try {
     if (ctx?.configPath) {
-      const dir = path.dirname(ctx.configPath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(ctx.configPath, JSON.stringify(pluginState.config, null, 2), 'utf-8');
+      // 1. 保存主配置（不包含 groups）
+      const mainConfig = { ...pluginState.config, groups: {} };
+      fs.writeFileSync(ctx.configPath, JSON.stringify(mainConfig, null, 2), 'utf-8');
+      
+      // 2. 保存分群配置
+      const groupsDir = path.join(path.dirname(ctx.configPath), 'groups');
+      if (!fs.existsSync(groupsDir)) fs.mkdirSync(groupsDir, { recursive: true });
+      
+      for (const [gid, cfg] of Object.entries(pluginState.config.groups)) {
+        if (cfg) {
+          fs.writeFileSync(path.join(groupsDir, `${gid}.json`), JSON.stringify(cfg, null, 2), 'utf-8');
+        }
+      }
     }
   } catch { /* ignore */ }
 }
@@ -46,71 +76,112 @@ export function saveConfig (ctx: NapCatPluginContext): void {
 export async function handleCommand (event: OB11Message, ctx: NapCatPluginContext): Promise<boolean> {
   const raw = event.raw_message || '';
   const text = raw.replace(/\[CQ:[^\]]+\]/g, '').trim();
-  const groupId = String(event.group_id);
   const userId = String(event.user_id);
+  const selfId = String(event.self_id);
+
+  // 处理私聊命令（仅限主人）
+  if (event.message_type === 'private') {
+    if (!pluginState.isOwner(userId)) return false;
+
+    if (text.startsWith('授权 ')) {
+      const parts = text.split(' ');
+      if (parts.length < 3) {
+        await pluginState.sendPrivateMsg(userId, '格式错误：授权 <群号> <天数>');
+        return true;
+      }
+      const targetGroup = parts[1];
+      const duration = parts[2];
+      const days = duration === '永久' ? -1 : parseInt(duration);
+      if (!/^\d+$/.test(targetGroup)) {
+        await pluginState.sendPrivateMsg(userId, '群号格式错误');
+        return true;
+      }
+      // 永久授权默认为企业版，限时默认为专业版
+      authManager.grantLicense(targetGroup, days, days === -1 ? 'enterprise' : 'pro');
+      saveConfig(ctx);
+      await pluginState.sendPrivateMsg(userId, `已授权群 ${targetGroup} ${duration === '永久' ? '永久' : days + '天'}`);
+      return true;
+    }
+    if (text.startsWith('回收授权 ')) {
+      const targetGroup = text.split(' ')[1];
+      if (!targetGroup) return true;
+      authManager.revokeLicense(targetGroup);
+      await pluginState.sendPrivateMsg(userId, `已回收群 ${targetGroup} 授权`);
+      return true;
+    }
+    if (text.startsWith('查询授权 ')) {
+      const targetGroup = text.split(' ')[1];
+      if (!targetGroup) return true;
+      const license = authManager.getGroupLicense(targetGroup);
+      if (!license) {
+        await pluginState.sendPrivateMsg(userId, `群 ${targetGroup} 未授权`);
+      } else {
+        const remaining = license.expireTime === -1 ? '永久' : Math.ceil((license.expireTime - Date.now()) / 86400000) + '天';
+        await pluginState.sendPrivateMsg(userId, `群 ${targetGroup} (${license.level})\n剩余时间: ${remaining}`);
+      }
+      return true;
+    }
+    if (text === '帮助' || text === '菜单') {
+        const menu = `🛡️ GroupGuard 私聊管理面板\n` +
+                     `--------------------------\n` +
+                     `📝 授权管理:\n` +
+                     `• 授权 <群号> <天数/永久> (默认专业版/企业版)\n` +
+                     `• 回收授权 <群号>\n` +
+                     `• 查询授权 <群号>\n` +
+                     `\n` +
+                     `⚙️ 全局设置:\n` +
+                     `• 全局黑名单 <QQ> (跨群封禁)\n` +
+                     `• 全局白名单 <QQ> (豁免检测)\n` +
+                     `• 开启/关闭全局防撤回 (私聊接收撤回消息)\n` +
+                     `--------------------------\n` +
+                     `当前版本: ${pluginState.version}`;
+        await pluginState.sendPrivateMsg(userId, menu);
+        return true;
+    }
+    return false;
+  }
+
+  const groupId = String(event.group_id);
+
+  // 检查授权状态：未授权群仅允许执行授权相关指令，其余指令静默忽略
+  const license = authManager.getGroupLicense(groupId);
+  // 群内不再响应授权指令，改为仅支持私聊授权
+  if (!license) {
+    return false;
+  }
 
   // ===== 帮助 =====
+  // 移除群内帮助指令响应
   if (text === '群管帮助' || text === '群管菜单') {
-    const selfId = String((event as any).self_id || '');
-    const nodes = [
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: GROUP_ADMIN_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: TARGET_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: BLACKWHITE_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: FILTER_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: ANTI_RECALL_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: EMOJI_REACT_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: QA_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: REJECT_KW_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: INTERACT_MENU } }] } },
-      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: AUTH_MENU } }] } },
-    ];
-    await pluginState.callApi('send_group_forward_msg', { group_id: groupId, messages: nodes });
-    return true;
-  }
-
-  // ===== 授权管理 (老板/管理员) =====
-  if (text.startsWith('授权 ') && !text.startsWith('授权查询')) {
-    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要老板权限'); return true; }
-    const parts = text.split(/\s+/);
-    if (parts.length < 3) { await pluginState.sendGroupText(groupId, '格式：授权 群号 天数(永久)'); return true; }
-    const targetGroup = parts[1];
-    const duration = parts[2];
-    const days = duration === '永久' ? -1 : parseInt(duration);
-    if (isNaN(days)) { await pluginState.sendGroupText(groupId, '天数必须是数字或“永久”'); return true; }
-    
-    authManager.grantLicense(targetGroup, days);
-    saveConfig(ctx);
-    await pluginState.sendGroupText(groupId, `已给群 ${targetGroup} 授权 ${duration === '永久' ? '永久' : days + '天'}`);
-    return true;
+    return false;
   }
   
-  if (text.startsWith('回收授权')) {
-    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要老板权限'); return true; }
-    const targetGroup = text.slice(4).trim();
-    if (!targetGroup) { await pluginState.sendGroupText(groupId, '请指定群号'); return true; }
-    
-    authManager.revokeLicense(targetGroup);
-    saveConfig(ctx);
-    await pluginState.sendGroupText(groupId, `已回收群 ${targetGroup} 的授权`);
-    return true;
+  // 新增风控菜单
+  if (text === '风控设置' || text === '安全设置') {
+      const selfId = String((event as any).self_id || '');
+      const nodes = [
+          { type: 'node', data: { nickname: '🛡️ 风控配置', user_id: selfId, content: [{ type: 'text', data: { text: RISK_CONTROL_MENU } }] } }
+      ];
+      await pluginState.callApi('send_group_forward_msg', { group_id: groupId, messages: nodes });
+      return true;
   }
 
-  if (text.startsWith('查询授权')) {
-    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要老板权限'); return true; }
-    const targetGroup = text.slice(4).trim();
-    const license = authManager.getGroupLicense(targetGroup);
-    if (!license) { await pluginState.sendGroupText(groupId, `群 ${targetGroup} 当前无授权（免费版）`); return true; }
-    const expireStr = license.expireTime === 0 ? '永久' : new Date(license.expireTime).toLocaleString();
-    await pluginState.sendGroupText(groupId, `群 ${targetGroup} 授权信息：\n等级：${license.level}\n过期时间：${expireStr}`);
-    return true;
+  // ===== 权限缓存设置 =====
+  if (text.startsWith('设置权限缓存 ')) {
+      if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+      const seconds = parseInt(text.slice(7));
+      if (isNaN(seconds) || seconds < 0) { await pluginState.sendGroupText(groupId, '请输入有效的秒数 (0=关闭)'); return true; }
+      
+      if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+      pluginState.config.groups[groupId].adminCacheSeconds = seconds;
+      saveConfig(ctx);
+      await pluginState.sendGroupText(groupId, `已设置管理员权限缓存时间为 ${seconds} 秒`);
+      return true;
   }
 
-  if (text === '授权查询') {
-    const license = authManager.getGroupLicense(groupId);
-    if (!license) { await pluginState.sendGroupText(groupId, '本群当前为免费版，部分高级功能不可用。请联系老板购买授权。'); return true; }
-    const expireStr = license.expireTime === 0 ? '永久' : new Date(license.expireTime).toLocaleString();
-    await pluginState.sendGroupText(groupId, `本群已获得授权！\n等级：${license.level}\n过期时间：${expireStr}`);
-    return true;
+  // ===== 授权管理 (群内不再响应，仅支持私聊) =====
+  if (text.startsWith('授权 ') || text.startsWith('回收授权') || text.startsWith('查询授权') || text === '授权查询') {
+    return false;
   }
 
   // ===== 警告系统 =====
@@ -120,15 +191,14 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     const target = getTarget(raw, rest);
     if (!target) { await pluginState.sendGroupText(groupId, '请指定目标：警告@某人'); return true; }
     
-    if (!pluginState.warnings[groupId]) pluginState.warnings[groupId] = {};
-    const count = (pluginState.warnings[groupId][target] || 0) + 1;
-    pluginState.warnings[groupId][target] = count;
+    const count = (dbQuery.getWarning(groupId, target) || 0) + 1;
+    dbQuery.setWarning(groupId, target, count);
     
     const settings = pluginState.getGroupSettings(groupId);
     const limit = settings.warningLimit || 3;
     
     if (count >= limit) {
-        delete pluginState.warnings[groupId][target];
+        dbQuery.setWarning(groupId, target, 0);
         if (settings.warningAction === 'kick') {
             await pluginState.callApi('set_group_kick', { group_id: groupId, user_id: target, reject_add_request: false });
             await pluginState.sendGroupText(groupId, `用户 ${target} 警告次数达到上限 (${count}/${limit})，已被踢出。`);
@@ -147,8 +217,9 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     const target = getTarget(raw, text.slice(5).trim());
     if (!target) { await pluginState.sendGroupText(groupId, '请指定目标'); return true; }
-    if (pluginState.warnings[groupId] && pluginState.warnings[groupId][target]) {
-        delete pluginState.warnings[groupId][target];
+    const count = dbQuery.getWarning(groupId, target);
+    if (count > 0) {
+        dbQuery.setWarning(groupId, target, 0);
         await pluginState.sendGroupText(groupId, `已清除用户 ${target} 的警告记录`);
     } else {
         await pluginState.sendGroupText(groupId, `该用户无警告记录`);
@@ -160,7 +231,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     const target = getTarget(raw, text.slice(5).trim());
     if (!target) { await pluginState.sendGroupText(groupId, '请指定目标'); return true; }
-    const count = (pluginState.warnings[groupId] && pluginState.warnings[groupId][target]) || 0;
+    const count = dbQuery.getWarning(groupId, target);
     const settings = pluginState.getGroupSettings(groupId);
     await pluginState.sendGroupText(groupId, `用户 ${target} 当前警告次数：${count}/${settings.warningLimit || 3}`);
     return true;
@@ -264,13 +335,17 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // ===== 签到系统 =====
   if (text === '签到') {
-    if (!pluginState.signinData[groupId]) pluginState.signinData[groupId] = {};
-    const userSignin = pluginState.signinData[groupId][userId] || { lastSigninTime: 0, streak: 0, points: 0 };
+    if (pluginState.getGroupSettings(groupId).disableSignin) { await pluginState.sendGroupText(groupId, '本群签到功能已关闭'); return true; }
+    
+    let userSignin = dbQuery.getSignin(groupId, userId);
+    if (!userSignin) {
+        userSignin = { lastSignin: 0, days: 0, points: 0 };
+    }
     
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
-    if (userSignin.lastSigninTime >= today) {
+    if (userSignin.lastSignin >= today) {
         await pluginState.sendGroupMsg(groupId, [
             { type: 'at', data: { qq: userId } },
             { type: 'text', data: { text: ' 你今天已经签到过了，明天再来吧！' } }
@@ -280,10 +355,10 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     
     // 检查连续签到
     const yesterday = today - 86400000;
-    if (userSignin.lastSigninTime >= yesterday && userSignin.lastSigninTime < today) {
-        userSignin.streak++;
+    if (userSignin.lastSignin >= yesterday && userSignin.lastSignin < today) {
+        userSignin.days++;
     } else {
-        userSignin.streak = 1;
+        userSignin.days = 1;
     }
     
     // 计算积分 (配置范围 + 连签奖励)
@@ -291,37 +366,36 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     const min = settings.signinMin || 10;
     const max = settings.signinMax || 50;
     const base = Math.floor(Math.random() * (max - min + 1)) + min;
-    const bonus = Math.min(userSignin.streak, 10);
+    const bonus = Math.min(userSignin.days, 10);
     const points = base + bonus;
     userSignin.points += points;
-    userSignin.lastSigninTime = Date.now();
+    userSignin.lastSignin = Date.now();
     
-    pluginState.signinData[groupId][userId] = userSignin;
-    // 触发保存逻辑在 index.ts 的定时器中
+    dbQuery.updateSignin(groupId, userId, userSignin);
     
     await pluginState.sendGroupMsg(groupId, [
         { type: 'at', data: { qq: userId } },
-        { type: 'text', data: { text: ` 签到成功！\n获得积分：${points}\n当前积分：${userSignin.points}\n连续签到：${userSignin.streak}天` } }
+        { type: 'text', data: { text: ` 签到成功！\n获得积分：${points}\n当前积分：${userSignin.points}\n连续签到：${userSignin.days}天` } }
     ]);
     return true;
   }
   
   if (text === '签到榜') {
-    const data = pluginState.signinData[groupId];
-    if (!data) { await pluginState.sendGroupText(groupId, '本群暂无签到数据'); return true; }
+    const data = dbQuery.getAllSignin(groupId);
+    if (!Object.keys(data).length) { await pluginState.sendGroupText(groupId, '本群暂无签到数据'); return true; }
     
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
     const list = Object.entries(data)
-        .filter(([_, v]) => v.lastSigninTime >= today)
-        .sort((a, b) => b[1].lastSigninTime - a[1].lastSigninTime) // 按时间倒序
+        .filter(([_, v]) => v.lastSignin >= today)
+        .sort((a, b) => b[1].lastSignin - a[1].lastSignin) // 按时间倒序
         .slice(0, 10);
         
     if (!list.length) { await pluginState.sendGroupText(groupId, '今天还没有人签到哦'); return true; }
     
     const content = list.map((item, i) => {
-        const time = new Date(item[1].lastSigninTime).toLocaleTimeString();
+        const time = new Date(item[1].lastSignin).toLocaleTimeString();
         return `${i + 1}. ${item[0]} (${time})`;
     }).join('\n');
     
@@ -330,7 +404,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   }
   
   if (text === '我的积分') {
-    const data = pluginState.signinData[groupId]?.[userId];
+    const data = dbQuery.getSignin(groupId, userId);
     const points = data ? data.points : 0;
     await pluginState.sendGroupMsg(groupId, [
         { type: 'at', data: { qq: userId } },
@@ -341,7 +415,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // ===== 邀请统计 =====
   if (text === '邀请查询') {
-    const data = pluginState.inviteData[groupId]?.[userId];
+    const data = dbQuery.getInvite(groupId, userId);
     const count = data ? data.inviteCount : 0;
     await pluginState.sendGroupMsg(groupId, [
         { type: 'at', data: { qq: userId } },
@@ -351,8 +425,8 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   }
   
   if (text === '邀请榜') {
-    const data = pluginState.inviteData[groupId];
-    if (!data) { await pluginState.sendGroupText(groupId, '本群暂无邀请数据'); return true; }
+    const data = dbQuery.getAllInvites(groupId);
+    if (!Object.keys(data).length) { await pluginState.sendGroupText(groupId, '本群暂无邀请数据'); return true; }
     
     const list = Object.entries(data)
         .sort((a, b) => b[1].inviteCount - a[1].inviteCount)
@@ -392,10 +466,14 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     const rss = (mem.rss / 1024 / 1024).toFixed(2);
     const heap = (mem.heapUsed / 1024 / 1024).toFixed(2);
     
+    // 缓存统计
+    const cacheStats = `Msg: ${pluginState.msgCache.size} | Spam: ${pluginState.spamCache.size} | Admin: ${pluginState.adminCache.size}`;
+    
     const status = `🤖 运行状态
 ⏱️ 运行时长：${h}小时${m}分${s}秒
 📨 处理消息：${pluginState.msgCount} 条
 💾 内存占用：RSS ${rss}MB / Heap ${heap}MB
+📦 缓存对象：${cacheStats}
 🛡️ 当前版本：v${pluginState.version}
 👥 授权群数：${Object.keys(pluginState.config.licenses || {}).length}`;
     await pluginState.sendGroupText(groupId, status);
@@ -404,8 +482,10 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // ===== 抽奖系统 =====
   if (text === '抽奖') {
-    if (!pluginState.signinData[groupId]) pluginState.signinData[groupId] = {};
-    const userSignin = pluginState.signinData[groupId][userId];
+    if (pluginState.getGroupSettings(groupId).disableLottery) { await pluginState.sendGroupText(groupId, '本群抽奖功能已关闭'); return true; }
+    
+    let userSignin = dbQuery.getSignin(groupId, userId);
+    
     const settings = pluginState.getGroupSettings(groupId);
     const cost = settings.lotteryCost || 20;
     const maxReward = settings.lotteryReward || 100;
@@ -430,7 +510,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     else { prize = '谢谢参与'; bonus = 0; }
     
     userSignin.points += bonus;
-    pluginState.signinData[groupId][userId] = userSignin;
+    dbQuery.updateSignin(groupId, userId, userSignin);
     
     await pluginState.sendGroupMsg(groupId, [
         { type: 'at', data: { qq: userId } },
@@ -826,19 +906,30 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   if (text.startsWith('添加问答 ') || text.startsWith('添加模糊问答 ') || text.startsWith('添加正则问答 ')) {
     if (!pluginState.isOwner(userId) && !await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     let mode: 'exact' | 'contains' | 'regex' = 'exact';
+  // ===== 问答设置 =====
+  // 语法：模糊问XX答YY | 精确问XX答YY
+  if (text.startsWith('模糊问') || text.startsWith('精确问')) {
+    if (!pluginState.isOwner(userId) && !await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    
+    let mode = 'contains';
     let rest = '';
-    if (text.startsWith('添加正则问答 ')) {
-      if (!authManager.checkFeature(groupId, 'regex_qa')) { await pluginState.sendGroupText(groupId, '正则问答仅限专业版/企业版使用，请购买授权。'); return true; }
-      mode = 'regex';
-      rest = text.slice(7).trim();
+    
+    if (text.startsWith('模糊问')) {
+        mode = 'contains';
+        rest = text.slice(3);
+    } else if (text.startsWith('精确问')) {
+        mode = 'exact';
+        rest = text.slice(3);
     }
-    else if (text.startsWith('添加模糊问答 ')) { mode = 'contains'; rest = text.slice(7).trim(); }
-    else { rest = text.slice(5).trim(); }
-    const sep = rest.indexOf('|');
-    if (sep < 1) { await pluginState.sendGroupText(groupId, '格式：添加问答 关键词|回复内容'); return true; }
+    
+    const sep = rest.indexOf('答');
+    if (sep < 1) { await pluginState.sendGroupText(groupId, '格式错误，示例：模糊问你好答在的 | 精确问帮助答请看菜单'); return true; }
+    
     const keyword = rest.slice(0, sep).trim();
     const reply = rest.slice(sep + 1).trim();
+    
     if (!keyword || !reply) { await pluginState.sendGroupText(groupId, '关键词和回复不能为空'); return true; }
+    
     // 判断当前编辑的是群级还是全局
     const isGroupCustom = pluginState.config.groups[groupId] && !pluginState.config.groups[groupId].useGlobal;
     if (isGroupCustom) {
@@ -846,13 +937,35 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
       if (!gs.qaList) gs.qaList = [];
       gs.qaList.push({ keyword, reply, mode });
     } else {
-      if (!pluginState.config.qaList) pluginState.config.qaList = [];
-      pluginState.config.qaList.push({ keyword, reply, mode });
+      // 默认创建群独立配置
+      if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId), useGlobal: false, qaList: [] };
+      if (!pluginState.config.groups[groupId].qaList) pluginState.config.groups[groupId].qaList = [];
+      pluginState.config.groups[groupId].qaList!.push({ keyword, reply, mode });
     }
     saveConfig(ctx);
     const modeMap: Record<string, string> = { exact: '精确', contains: '模糊', regex: '正则' };
     await pluginState.sendGroupText(groupId, `已添加${modeMap[mode]}问答：${keyword} → ${reply}`);
     return true;
+  }
+
+  // 兼容旧指令
+  if (text.startsWith('添加正则问答 ')) {
+      const rest = text.slice(7).trim();
+      const sep = rest.indexOf('|');
+      if (sep < 1) { await pluginState.sendGroupText(groupId, '格式：添加正则问答 表达式|回复'); return true; }
+      const keyword = rest.slice(0, sep).trim();
+      const reply = rest.slice(sep + 1).trim();
+      if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId), useGlobal: false, qaList: [] };
+      if (!pluginState.config.groups[groupId].qaList) pluginState.config.groups[groupId].qaList = [];
+      pluginState.config.groups[groupId].qaList!.push({ keyword, reply, mode: 'regex' });
+      saveConfig(ctx);
+      await pluginState.sendGroupText(groupId, `已添加正则问答：${keyword} → ${reply}`);
+      return true;
+  }
+  
+  if (text.startsWith('添加问答 ') || text.startsWith('添加模糊问答 ')) {
+     await pluginState.sendGroupText(groupId, '指令已更新，请使用：精确问XX答YY / 模糊问XX答YY');
+     return true;
   }
   if (text.startsWith('删除问答 ')) {
     if (!pluginState.isOwner(userId) && !await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
@@ -876,15 +989,19 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // ===== 活跃统计 =====
   if (text.startsWith('活跃统计')) {
+    if (pluginState.getGroupSettings(groupId).disableActivity) { await pluginState.sendGroupText(groupId, '本群活跃统计已关闭'); return true; }
     if (!authManager.checkFeature(groupId, 'analytics_detail')) { await pluginState.sendGroupText(groupId, '活跃统计仅限专业版/企业版使用，请购买授权。'); return true; }
-    const stats = pluginState.activityStats[groupId];
-    if (!stats || !Object.keys(stats).length) { await pluginState.sendGroupText(groupId, '本群暂无活跃统计数据'); return true; }
+    
+    const stats = dbQuery.getAllActivity(groupId);
+    if (!Object.keys(stats).length) { await pluginState.sendGroupText(groupId, '本群暂无活跃统计数据'); return true; }
+    
     const selfId = String((event as any).self_id || '');
     const entries = Object.entries(stats).sort((a, b) => b[1].msgCount - a[1].msgCount);
     const today = new Date().toISOString().slice(0, 10);
     const totalMsg = entries.reduce((s, [, r]) => s + r.msgCount, 0);
-    const todayMsg = entries.reduce((s, [, r]) => s + (r.todayDate === today ? r.todayCount : 0), 0);
+    const todayMsg = entries.reduce((s, [, r]) => s + (r.lastActiveDay === today ? r.msgCountToday : 0), 0);
     const summary = `📊 本群活跃统计\n总消息数：${totalMsg}\n今日消息：${todayMsg}\n统计人数：${entries.length}`;
+    
     // 分页，每页15人
     const pages: string[] = [];
     const pageSize = 15;
@@ -892,7 +1009,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
       const chunk = entries.slice(i, i + pageSize);
       const lines = chunk.map(([uid, r], idx) => {
         const rank = i + idx + 1;
-        const todayC = r.todayDate === today ? r.todayCount : 0;
+        const todayC = r.lastActiveDay === today ? r.msgCountToday : 0;
         const lastTime = new Date(r.lastActive).toLocaleString('zh-CN', { hour12: false });
         return `${rank}. ${uid}\n   总消息：${r.msgCount} | 今日：${todayC}\n   最后活跃：${lastTime}`;
       });
@@ -905,126 +1022,125 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     return true;
   }
 
-  return false;
-}
-export async function handleBlacklist (groupId: string, userId: string, messageId: string): Promise<boolean> {
-  const isGlobalBlack = pluginState.isBlacklisted(userId);
-  const settings = pluginState.getGroupSettings(groupId);
-  const isGroupBlack = (settings.groupBlacklist || []).includes(userId);
-  if (!isGlobalBlack && !isGroupBlack) return false;
-  await pluginState.callApi('delete_msg', { message_id: messageId });
-  await pluginState.callApi('set_group_kick', { group_id: groupId, user_id: userId, reject_add_request: false });
-  pluginState.log('info', `黑名单用户 ${userId} 在群 ${groupId} 发言，已撤回并踢出（${isGlobalBlack ? '全局' : '群独立'}黑名单）`);
-  return true;
-}
-
-/** 处理违禁词过滤 */
-export async function handleFilterKeywords (groupId: string, userId: string, messageId: string, raw: string, ctx: NapCatPluginContext): Promise<boolean> {
-  const settings = pluginState.getGroupSettings(groupId);
-  // 群独立违禁词优先，没有则用全局
-  const groupKw = settings.filterKeywords;
-  const keywords = (groupKw && groupKw.length) ? groupKw : (pluginState.config.filterKeywords || []);
-  if (!keywords.length) return false;
-  const matched = keywords.find(k => raw.includes(k));
-  if (!matched) return false;
-
-  const level = (groupKw && groupKw.length) ? (settings.filterPunishLevel || 1) : (pluginState.config.filterPunishLevel || 1);
-  pluginState.log('info', `违禁词触发: 群 ${groupId} 用户 ${userId} 触发「${matched}」，惩罚等级 ${level}`);
-
-  // 脱敏：只显示首尾字符
-  const masked = matched.length <= 2 ? '*'.repeat(matched.length) : matched[0] + '*'.repeat(matched.length - 2) + matched[matched.length - 1];
-
-  // 等级1+：撤回
-  await pluginState.callApi('delete_msg', { message_id: messageId });
-
-  if (level === 1) {
-    await pluginState.sendGroupText(groupId, `⚠️ ${userId} 消息已撤回，原因：触发违禁词「${masked}」`);
-  }
-
-  if (level >= 2) {
-    const banMin = (groupKw && groupKw.length) ? (settings.filterBanMinutes || 10) : (pluginState.config.filterBanMinutes || 10);
-    await pluginState.callApi('set_group_ban', { group_id: groupId, user_id: userId, duration: banMin * 60 });
-    await pluginState.sendGroupText(groupId, `⚠️ ${userId} 消息已撤回并禁言 ${banMin} 分钟，原因：触发违禁词「${masked}」`);
-  }
-
-  if (level >= 3) {
-    setTimeout(() => pluginState.callApi('set_group_kick', { group_id: groupId, user_id: userId, reject_add_request: false }), 1000);
-    await pluginState.sendGroupText(groupId, `⚠️ ${userId} 已被移出群聊，原因：触发违禁词「${masked}」`);
-  }
-
-  if (level >= 4) {
-    if (!pluginState.config.blacklist) pluginState.config.blacklist = [];
-    if (!pluginState.config.blacklist.includes(userId)) {
-      pluginState.config.blacklist.push(userId);
-      saveConfig(ctx);
-    }
-    await pluginState.sendGroupText(groupId, `⚠️ ${userId} 已被加入黑名单，原因：触发违禁词「${masked}」`);
-  }
-
-  return true;
-}
-
-/** 处理刷屏检测 */
-export async function handleSpamDetect (groupId: string, userId: string): Promise<boolean> {
-  const settings = pluginState.getGroupSettings(groupId);
-  const spamOn = settings.spamDetect !== undefined ? settings.spamDetect : pluginState.config.spamDetect;
-  if (!spamOn) return false;
-  const windowMs = ((settings.spamWindow !== undefined ? settings.spamWindow : pluginState.config.spamWindow) || 10) * 1000;
-  const threshold = (settings.spamThreshold !== undefined ? settings.spamThreshold : pluginState.config.spamThreshold) || 10;
-  const key = `${groupId}:${userId}`;
-  const now = Date.now();
-
-  let timestamps = pluginState.spamCache.get(key) || [];
-  timestamps.push(now);
-  timestamps = timestamps.filter(t => now - t < windowMs);
-  pluginState.spamCache.set(key, timestamps);
-
-  if (timestamps.length >= threshold) {
-    const banMin = (settings.spamBanMinutes !== undefined ? settings.spamBanMinutes : pluginState.config.spamBanMinutes) || 5;
-    await pluginState.callApi('set_group_ban', { group_id: groupId, user_id: userId, duration: banMin * 60 });
-    await pluginState.sendGroupText(groupId, `⚠️ ${userId} 刷屏检测触发，已禁言 ${banMin} 分钟`);
-    pluginState.spamCache.delete(key);
-    pluginState.log('info', `刷屏检测: 群 ${groupId} 用户 ${userId} 在 ${windowMs / 1000}s 内发送 ${threshold} 条消息`);
+  // ===== 更多开关 (入群/自动审批/刷屏/退群拉黑/二维码/媒体过滤) =====
+  if (text === '开启入群验证') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].enableVerify = true;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已开启入群验证');
     return true;
   }
+  if (text === '关闭入群验证') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].enableVerify = false;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已关闭入群验证');
+    return true;
+  }
+
+  if (text === '开启自动审批') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].autoApprove = true;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已开启自动审批');
+    return true;
+  }
+  if (text === '关闭自动审批') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].autoApprove = false;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已关闭自动审批');
+    return true;
+  }
+
+  if (text === '开启刷屏检测') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].spamDetect = true;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已开启刷屏检测');
+    return true;
+  }
+  if (text === '关闭刷屏检测') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].spamDetect = false;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已关闭刷屏检测');
+    return true;
+  }
+
+  if (text === '开启退群拉黑') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].leaveBlacklist = true;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已开启退群拉黑');
+    return true;
+  }
+  if (text === '关闭退群拉黑') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].leaveBlacklist = false;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已关闭退群拉黑');
+    return true;
+  }
+
+  if (text === '开启二维码撤回') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    if (!pluginState.config.groups[groupId].msgFilter) pluginState.config.groups[groupId].msgFilter = { ...pluginState.config.global.msgFilter };
+    pluginState.config.groups[groupId].msgFilter!.blockQr = true;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已开启二维码撤回');
+    return true;
+  }
+  if (text === '关闭二维码撤回') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (pluginState.config.groups[groupId]) {
+        if (!pluginState.config.groups[groupId].msgFilter) pluginState.config.groups[groupId].msgFilter = { ...pluginState.config.global.msgFilter };
+        pluginState.config.groups[groupId].msgFilter!.blockQr = false;
+        saveConfig(ctx);
+    }
+    await pluginState.sendGroupText(groupId, '已关闭二维码撤回');
+    return true;
+  }
+
   return false;
 }
 
-/** 处理防撤回事件 */
-export async function handleAntiRecall (groupId: string, messageId: string, userId: string): Promise<void> {
-  const isGroupMode = pluginState.config.antiRecallGroups.includes(groupId);
-  const isGlobalMode = pluginState.config.globalAntiRecall;
-  if (!isGroupMode && !isGlobalMode) return;
+/** 处理撤回（针对/黑名单/违禁词/刷屏） */
+export async function handleAntiRecall (groupId: string, messageId: string, operatorId: string): Promise<void> {
+  // 不处理自己撤回
+  if (operatorId === pluginState.botId) return;
 
+  // 1. 检查是否开启防撤回
+  if (!pluginState.config.antiRecallGroups.includes(groupId) && !pluginState.config.globalAntiRecall) return;
+
+  // 2. 查找消息缓存
   const cached = pluginState.msgCache.get(messageId);
   if (!cached) return;
-  pluginState.msgCache.delete(messageId);
 
-  // 构建撤回内容：优先使用原始消息段（图片/语音等可正常显示），降级为 raw 文本
-  const contentSegments: any[] = cached.segments.length > 0
-    ? cached.segments
-    : [{ type: 'text', data: { text: cached.raw } }];
-
-  if (isGroupMode) {
-    await pluginState.sendGroupMsg(groupId, [
-      { type: 'text', data: { text: `🔔 防撤回 - 用户 ${userId} 撤回了消息：\n` } },
-      ...contentSegments,
-    ]);
-  }
-
-  if (isGlobalMode) {
-    const now = new Date();
-    const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-    const owners = pluginState.config.ownerQQs.split(',').map(s => s.trim()).filter(Boolean);
-    for (const owner of owners) {
-      await pluginState.callApi('send_private_msg', {
-        user_id: owner,
-        message: [
-          { type: 'text', data: { text: `🔔 防撤回通知\n群号：${groupId}\nQQ号：${userId}\n时间：${timeStr}\n撤回内容：\n` } },
-          ...contentSegments,
-        ],
-      });
-    }
+  // 3. 重新发送
+  const contentSegments = cached.segments.length ? cached.segments : [{ type: 'text', data: { text: cached.raw } }];
+  
+  // 加上提示
+  const now = new Date();
+  const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+  const owners = pluginState.config.ownerQQs.split(',').map(s => s.trim()).filter(Boolean);
+  for (const owner of owners) {
+    await pluginState.callApi('send_private_msg', {
+      user_id: owner,
+      message: [
+        { type: 'text', data: { text: `🔔 防撤回通知\n群号：${groupId}\nQQ号：${cached.userId}\n时间：${timeStr}\n撤回内容：\n` } },
+        ...contentSegments,
+      ],
+    });
   }
 }
 
@@ -1098,7 +1214,7 @@ export async function sendWelcomeMessage (groupId: string, userId: string): Prom
   ]);
 }
 
-/** 处理消息类型过滤（视频/图片/语音/转发/小程序/名片/链接） */
+/** 处理消息类型过滤（视频/图片/语音/转发/小程序/名片/链接/二维码） */
 export async function handleMsgTypeFilter (groupId: string, userId: string, messageId: string, raw: string, messageSegments: any[]): Promise<boolean> {
   const settings = pluginState.getGroupSettings(groupId);
   const filter = settings.msgFilter || pluginState.config.msgFilter;
@@ -1112,14 +1228,33 @@ export async function handleMsgTypeFilter (groupId: string, userId: string, mess
   else if (filter.blockImage && types.includes('image')) { blocked = true; reason = '图片'; }
   else if (filter.blockRecord && types.includes('record')) { blocked = true; reason = '语音'; }
   else if (filter.blockForward && types.includes('forward')) { blocked = true; reason = '合并转发'; }
-  else if (filter.blockLightApp && raw.includes('[CQ:json,')) { blocked = true; reason = '小程序卡片'; }
-  else if (filter.blockContact && (raw.includes('"app":"com.tencent.contact.lua"') || raw.includes('"app":"com.tencent.qq.checkin"'))) { blocked = true; reason = '名片分享'; }
+  else if (filter.blockLightApp && (raw.includes('[CQ:json,') || raw.includes('[CQ:xml,'))) { blocked = true; reason = '小程序卡片'; }
+  else if (filter.blockContact && (raw.includes('"app":"com.tencent.contact.lua"') || raw.includes('"app":"com.tencent.qq.checkin"') || types.includes('contact'))) { blocked = true; reason = '名片分享'; }
   else if (filter.blockUrl) {
-    // 剥离 CQ 码后再检测链接，避免图片/视频等 CQ 码中自带的 URL 被误判
     const plainText = raw.replace(/\[CQ:[^\]]+\]/g, '');
-    // 匹配: http(s)://xxx | www.xxx | 域名.常见后缀（如 baidu.com、google.cn）
     const urlPattern = /https?:\/\/\S+|www\.\S+|[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.(?:com|cn|net|org|io|cc|co|me|top|xyz|info|dev|app|site|vip|pro|tech|cloud|link|fun|icu|club|ltd|live|tv|asia|biz|wang|mobi|online|shop|store|work)\b/i;
     if (urlPattern.test(plainText)) { blocked = true; reason = '链接'; }
+  }
+
+  // 二维码检查 (如果未被图片拦截且开启了二维码拦截)
+  if (!blocked && filter.blockQr) {
+    const images = messageSegments.filter((s: any) => s.type === 'image');
+    for (const img of images) {
+        // NapCat/OneBot11 image segment usually has 'url' or 'file'
+        const url = img.url || img.file; 
+        if (url && (url.startsWith('http') || url.startsWith('file://'))) {
+            try {
+                const hasQr = await detectQrCode(url);
+                if (hasQr) {
+                    blocked = true;
+                    reason = '二维码';
+                    break;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
   }
 
   if (!blocked) return false;
@@ -1128,9 +1263,122 @@ export async function handleMsgTypeFilter (groupId: string, userId: string, mess
   return true;
 }
 
+/** 黑名单处理 */
+export async function handleBlacklist (groupId: string, userId: string, messageId: string): Promise<boolean> {
+  const settings = pluginState.getGroupSettings(groupId);
+  const isGlobalBlack = pluginState.isBlacklisted(userId);
+  const isGroupBlack = (settings.groupBlacklist || []).includes(userId);
+
+  if (isGlobalBlack || isGroupBlack) {
+      await pluginState.callApi('delete_msg', { message_id: messageId });
+      pluginState.debug(`黑名单拦截: 群 ${groupId} 用户 ${userId} 消息 ${messageId}`);
+      return true;
+  }
+  return false;
+}
+
+/** 违禁词过滤 */
+export async function handleFilterKeywords (groupId: string, userId: string, messageId: string, raw: string, ctx: NapCatPluginContext): Promise<boolean> {
+  const settings = pluginState.getGroupSettings(groupId);
+  const groupKw = settings.filterKeywords || [];
+  const globalKw = pluginState.config.filterKeywords || [];
+  const allKw = [...new Set([...groupKw, ...globalKw])];
+
+  if (!allKw.length) return false;
+
+  const matched = allKw.find(k => raw.includes(k));
+  if (matched) {
+    const masked = matched.length > 1 ? matched[0] + '*'.repeat(matched.length - 1) : '*';
+    await pluginState.callApi('delete_msg', { message_id: messageId });
+    pluginState.log('info', `违禁词拦截: 群 ${groupId} 用户 ${userId} 触发「${matched}」`);
+
+    // 惩罚机制
+    // level 1: 仅撤回
+    // level 2: 撤回 + 禁言
+    // level 3: 撤回 + 踢出
+    // level 4: 撤回 + 拉黑
+    const level = settings.filterLevel || 1;
+
+    if (level >= 2) {
+      const banMin = (groupKw && groupKw.length) ? (settings.filterBanMinutes || 10) : (pluginState.config.filterBanMinutes || 10);
+      await pluginState.callApi('set_group_ban', { group_id: groupId, user_id: userId, duration: banMin * 60 });
+      await pluginState.sendGroupText(groupId, `⚠️ ${userId} 消息已撤回并禁言 ${banMin} 分钟，原因：触发违禁词「${masked}」`);
+    }
+
+    if (level >= 3) {
+      setTimeout(() => pluginState.callApi('set_group_kick', { group_id: groupId, user_id: userId, reject_add_request: false }), 1000);
+      await pluginState.sendGroupText(groupId, `⚠️ ${userId} 已被移出群聊，原因：触发违禁词「${masked}」`);
+    }
+
+    if (level >= 4) {
+      if (!pluginState.config.blacklist) pluginState.config.blacklist = [];
+      if (!pluginState.config.blacklist.includes(userId)) {
+        pluginState.config.blacklist.push(userId);
+        saveConfig(ctx);
+      }
+      await pluginState.sendGroupText(groupId, `⚠️ ${userId} 已被加入黑名单，原因：触发违禁词「${masked}」`);
+    }
+
+    return true;
+  }
+  return false;
+}
+
+/** 处理刷屏检测（频率 + 复读） */
+export async function handleSpamDetect (groupId: string, userId: string, raw: string = ''): Promise<boolean> {
+  const settings = pluginState.getGroupSettings(groupId);
+  const spamOn = settings.spamDetect !== undefined ? settings.spamDetect : pluginState.config.spamDetect;
+  if (!spamOn) return false;
+  const windowMs = ((settings.spamWindow !== undefined ? settings.spamWindow : pluginState.config.spamWindow) || 10) * 1000;
+  const threshold = (settings.spamThreshold !== undefined ? settings.spamThreshold : pluginState.config.spamThreshold) || 10;
+  const key = `${groupId}:${userId}`;
+  const now = Date.now();
+
+  // 1. 频率检测
+  let timestamps = pluginState.spamCache.get(key) || [];
+  timestamps.push(now);
+  timestamps = timestamps.filter(t => now - t < windowMs);
+  pluginState.spamCache.set(key, timestamps);
+
+  if (timestamps.length >= threshold) {
+    const banMin = (settings.spamBanMinutes !== undefined ? settings.spamBanMinutes : pluginState.config.spamBanMinutes) || 5;
+    await pluginState.callApi('set_group_ban', { group_id: groupId, user_id: userId, duration: banMin * 60 });
+    await pluginState.sendGroupText(groupId, `⚠️ ${userId} 刷屏检测触发（频率），已禁言 ${banMin} 分钟`);
+    pluginState.spamCache.delete(key);
+    pluginState.repeatCache.delete(key);
+    pluginState.log('info', `刷屏检测: 群 ${groupId} 用户 ${userId} 在 ${windowMs / 1000}s 内发送 ${threshold} 条消息`);
+    return true;
+  }
+
+  // 2. 复读检测 (新增)
+  const repeatLimit = settings.repeatThreshold || 0;
+  if (repeatLimit > 0 && raw) {
+      const repeatKey = `${groupId}:${userId}`;
+      const lastMsg = pluginState.repeatCache.get(repeatKey);
+      
+      if (lastMsg && lastMsg.content === raw) {
+          lastMsg.count++;
+          if (lastMsg.count >= repeatLimit) {
+              const banMin = (settings.spamBanMinutes || 5);
+              await pluginState.callApi('set_group_ban', { group_id: groupId, user_id: userId, duration: banMin * 60 });
+              await pluginState.sendGroupText(groupId, `⚠️ ${userId} 刷屏检测触发（复读），已禁言 ${banMin} 分钟`);
+              pluginState.repeatCache.delete(repeatKey);
+              return true;
+          }
+      } else {
+          pluginState.repeatCache.set(repeatKey, { content: raw, count: 1 });
+      }
+  }
+  
+  return false;
+}
+
 /** 问答自动回复 */
 export async function handleQA (groupId: string, userId: string, raw: string): Promise<boolean> {
   const settings = pluginState.getGroupSettings(groupId);
+  // 检查是否开启问答功能（新增开关）
+  if (settings.disableQA) return false;
+
   const isGroupCustom = pluginState.config.groups[groupId] && !pluginState.config.groups[groupId].useGlobal;
   const qaList = isGroupCustom ? (settings.qaList || []) : (pluginState.config.qaList || []);
   if (!qaList.length) return false;
@@ -1143,10 +1391,46 @@ export async function handleQA (groupId: string, userId: string, raw: string): P
     else if (qa.mode === 'regex') { try { matched = new RegExp(qa.keyword).test(text); } catch { /* ignore */ } }
     if (matched) {
       const reply = qa.reply.replace(/\{user\}/g, userId).replace(/\{group\}/g, groupId);
-      await pluginState.sendGroupText(groupId, reply);
+      // 修复：如果回复包含 CQ 码（如图片），需要解析发送
+      if (reply.includes('[CQ:')) {
+         // 简单处理：作为纯文本发送，OneBot 11 实现通常会自动解析 text 中的 CQ 码
+         // 但更稳妥的方式是构造 message array，这里 NapCat 支持直接发送含 CQ 码的字符串
+         await pluginState.sendGroupMsg(groupId, [{ type: 'text', data: { text: reply } }]);
+      } else {
+         await pluginState.sendGroupText(groupId, reply);
+      }
       pluginState.debug(`问答触发: 群 ${groupId} 用户 ${userId} 匹配 [${qa.mode}]${qa.keyword}`);
       return true;
     }
   }
   return false;
+}
+
+/** 记录活跃统计 */
+export function recordActivity(groupId: string, userId: string): void {
+    const today = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    
+    let activity = dbQuery.getActivity(groupId, userId);
+    if (!activity) {
+        activity = {
+            msgCount: 0,
+            lastActive: 0,
+            role: 'member', 
+            msgCountToday: 0,
+            lastActiveDay: today
+        };
+    }
+    
+    activity.msgCount++;
+    activity.lastActive = now;
+    
+    if (activity.lastActiveDay !== today) {
+        activity.lastActiveDay = today;
+        activity.msgCountToday = 1;
+    } else {
+        activity.msgCountToday++;
+    }
+    
+    dbQuery.updateActivity(groupId, userId, activity);
 }

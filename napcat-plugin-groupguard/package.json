@@ -14,6 +14,9 @@
     "minVersion": "4.14.0"
   },
   "dependencies": {
+    "jimp": "^1.6.0",
+    "jsqr": "^1.4.0",
+    "better-sqlite3": "^9.0.0",
     "napcat-types": "0.0.9"
   },
   "devDependencies": {
