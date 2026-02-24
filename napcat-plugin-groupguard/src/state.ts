@@ -107,6 +107,68 @@ class PluginState {
     const owners = this.config.ownerQQs.split(',').map(s => s.trim()).filter(s => s);
     return owners.includes(userId);
   }
+
+  // ===== 辅助方法 =====
+  /** 发送群消息 (Text) */
+  async sendGroupText (groupId: string, content: string): Promise<void> {
+    if (!this.actions || !this.networkConfig) return;
+    try {
+      await this.actions.call('send_group_msg', {
+        group_id: groupId,
+        message: [{ type: 'text', data: { text: content } }]
+      } as never, this.adapterName, this.networkConfig);
+    } catch (e) {
+      this.log('error', `发送群消息失败: ${e}`);
+    }
+  }
+
+  /** 发送群消息 (Array) */
+  async sendGroupMsg (groupId: string, message: any[]): Promise<void> {
+    if (!this.actions || !this.networkConfig) return;
+    try {
+      await this.actions.call('send_group_msg', {
+        group_id: groupId,
+        message
+      } as never, this.adapterName, this.networkConfig);
+    } catch (e) {
+      this.log('error', `发送群消息失败: ${e}`);
+    }
+  }
+
+  /** 发送私聊消息 (Text) */
+  async sendPrivateMsg (userId: string, content: string): Promise<void> {
+    if (!this.actions || !this.networkConfig) return;
+    try {
+      await this.actions.call('send_private_msg', {
+        user_id: userId,
+        message: [{ type: 'text', data: { text: content } }]
+      } as never, this.adapterName, this.networkConfig);
+    } catch (e) {
+      this.log('error', `发送私聊消息失败: ${e}`);
+    }
+  }
+
+  /** 调用 API */
+  async callApi (action: string, params: any): Promise<any> {
+    if (!this.actions || !this.networkConfig) return;
+    try {
+      return await this.actions.call(action, params as never, this.adapterName, this.networkConfig);
+    } catch (e) {
+      this.log('error', `API调用失败 [${action}]: ${e}`);
+      return null;
+    }
+  }
+
+  /** 检查机器人是否为管理员 */
+  async isBotAdmin (groupId: string): Promise<boolean> {
+    if (!this.botId) return false;
+    try {
+      const info = await this.callApi('get_group_member_info', { group_id: groupId, user_id: this.botId }) as any;
+      return info?.role === 'admin' || info?.role === 'owner';
+    } catch {
+      return false;
+    }
+  }
 }
 
 export const pluginState = new PluginState();
