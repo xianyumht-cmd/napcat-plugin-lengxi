@@ -903,9 +903,6 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     await pluginState.sendGroupText(groupId, `${label}问答列表：\n${txt}`);
     return true;
   }
-  if (text.startsWith('添加问答 ') || text.startsWith('添加模糊问答 ') || text.startsWith('添加正则问答 ')) {
-    if (!pluginState.isOwner(userId) && !await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
-    let mode: 'exact' | 'contains' | 'regex' = 'exact';
   // ===== 问答设置 =====
   // 语法：模糊问XX答YY | 精确问XX答YY
   if (text.startsWith('模糊问') || text.startsWith('精确问')) {
