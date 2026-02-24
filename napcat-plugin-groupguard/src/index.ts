@@ -160,13 +160,13 @@ function registerRoutes (ctx: NapCatPluginContext): void {
   });
 
   // 活跃统计 API
-  router.getNoAuth('/activity', (req: any, res: any) => {
+  router.getNoAuth('/activity', async (req: any, res: any) => {
     const groupId = req.query?.group_id || '';
-    const stats = pluginState.activityStats || {};
     if (groupId) {
-      res.json({ code: 0, data: stats[groupId] || {} });
+      const stats = await dbQuery.getAllActivity(groupId);
+      res.json({ code: 0, data: stats || {} });
     } else {
-      res.json({ code: 0, data: stats });
+      res.json({ code: 0, data: {} });
     }
   });
 
@@ -204,7 +204,6 @@ export const plugin_set_config = async (ctx: NapCatPluginContext, config: Plugin
 // ========== 插件清理 ==========
 const plugin_cleanup: PluginModule['plugin_cleanup'] = async () => {
   pluginState.log('info', '群管插件正在卸载...');
-  pluginState.saveActivity();
   clearAllSessions();
 };
 

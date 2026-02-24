@@ -87,6 +87,10 @@ class PluginState {
     this.pushLog(level, msg);
   }
 
+  clearLogs(): void {
+    this.logBuffer = [];
+  }
+
   debug (msg: string): void {
     if (this.config.debug) {
       this.logger?.info(`[GroupGuard][Debug] ${msg}`);

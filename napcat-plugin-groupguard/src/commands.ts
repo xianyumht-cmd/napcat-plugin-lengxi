@@ -83,60 +83,67 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   if (event.message_type === 'private') {
     if (!pluginState.isOwner(userId)) return false;
 
-    if (text.startsWith('授权 ')) {
-      const parts = text.split(' ');
-      if (parts.length < 3) {
-        await pluginState.sendPrivateMsg(userId, '格式错误：授权 <群号> <天数>');
+    try {
+      if (text.startsWith('授权 ')) {
+        const parts = text.split(' ');
+        if (parts.length < 3) {
+          await pluginState.sendPrivateMsg(userId, '格式错误：授权 <群号> <天数>');
+          return true;
+        }
+        const targetGroup = parts[1];
+        const duration = parts[2];
+        const days = duration === '永久' ? -1 : parseInt(duration);
+        if (!/^\d+$/.test(targetGroup)) {
+          await pluginState.sendPrivateMsg(userId, '群号格式错误');
+          return true;
+        }
+        // 永久授权默认为企业版，限时默认为专业版
+        authManager.grantLicense(targetGroup, days, days === -1 ? 'enterprise' : 'pro');
+        saveConfig(ctx);
+        await pluginState.sendPrivateMsg(userId, `已授权群 ${targetGroup} ${duration === '永久' ? '永久' : days + '天'}`);
         return true;
       }
-      const targetGroup = parts[1];
-      const duration = parts[2];
-      const days = duration === '永久' ? -1 : parseInt(duration);
-      if (!/^\d+$/.test(targetGroup)) {
-        await pluginState.sendPrivateMsg(userId, '群号格式错误');
+      if (text.startsWith('回收授权 ')) {
+        const targetGroup = text.split(' ')[1];
+        if (!targetGroup) return true;
+        authManager.revokeLicense(targetGroup);
+        saveConfig(ctx);
+        await pluginState.sendPrivateMsg(userId, `已回收群 ${targetGroup} 授权`);
         return true;
       }
-      // 永久授权默认为企业版，限时默认为专业版
-      authManager.grantLicense(targetGroup, days, days === -1 ? 'enterprise' : 'pro');
-      saveConfig(ctx);
-      await pluginState.sendPrivateMsg(userId, `已授权群 ${targetGroup} ${duration === '永久' ? '永久' : days + '天'}`);
-      return true;
-    }
-    if (text.startsWith('回收授权 ')) {
-      const targetGroup = text.split(' ')[1];
-      if (!targetGroup) return true;
-      authManager.revokeLicense(targetGroup);
-      await pluginState.sendPrivateMsg(userId, `已回收群 ${targetGroup} 授权`);
-      return true;
-    }
-    if (text.startsWith('查询授权 ')) {
-      const targetGroup = text.split(' ')[1];
-      if (!targetGroup) return true;
-      const license = authManager.getGroupLicense(targetGroup);
-      if (!license) {
-        await pluginState.sendPrivateMsg(userId, `群 ${targetGroup} 未授权`);
-      } else {
-        const remaining = license.expireTime === -1 ? '永久' : Math.ceil((license.expireTime - Date.now()) / 86400000) + '天';
-        await pluginState.sendPrivateMsg(userId, `群 ${targetGroup} (${license.level})\n剩余时间: ${remaining}`);
-      }
-      return true;
-    }
-    if (text === '帮助' || text === '菜单') {
-        const menu = `🛡️ GroupGuard 私聊管理面板\n` +
-                     `--------------------------\n` +
-                     `📝 授权管理:\n` +
-                     `• 授权 <群号> <天数/永久> (默认专业版/企业版)\n` +
-                     `• 回收授权 <群号>\n` +
-                     `• 查询授权 <群号>\n` +
-                     `\n` +
-                     `⚙️ 全局设置:\n` +
-                     `• 全局黑名单 <QQ> (跨群封禁)\n` +
-                     `• 全局白名单 <QQ> (豁免检测)\n` +
-                     `• 开启/关闭全局防撤回 (私聊接收撤回消息)\n` +
-                     `--------------------------\n` +
-                     `当前版本: ${pluginState.version}`;
-        await pluginState.sendPrivateMsg(userId, menu);
+      if (text.startsWith('查询授权 ')) {
+        const targetGroup = text.split(' ')[1];
+        if (!targetGroup) return true;
+        const license = authManager.getGroupLicense(targetGroup);
+        if (!license) {
+          await pluginState.sendPrivateMsg(userId, `群 ${targetGroup} 未授权`);
+        } else {
+          const remaining = license.expireTime === -1 ? '永久' : Math.ceil((license.expireTime - Date.now()) / 86400000) + '天';
+          await pluginState.sendPrivateMsg(userId, `群 ${targetGroup} (${license.level})\n剩余时间: ${remaining}`);
+        }
         return true;
+      }
+      if (text === '帮助' || text === '菜单') {
+          const menu = `🛡️ GroupGuard 私聊管理面板\n` +
+                       `--------------------------\n` +
+                       `📝 授权管理:\n` +
+                       `• 授权 <群号> <天数/永久> (默认专业版/企业版)\n` +
+                       `• 回收授权 <群号>\n` +
+                       `• 查询授权 <群号>\n` +
+                       `\n` +
+                       `⚙️ 全局设置:\n` +
+                       `• 全局黑名单 <QQ> (跨群封禁)\n` +
+                       `• 全局白名单 <QQ> (豁免检测)\n` +
+                       `• 开启/关闭全局防撤回 (私聊接收撤回消息)\n` +
+                       `--------------------------\n` +
+                       `当前版本: ${pluginState.version}`;
+          await pluginState.sendPrivateMsg(userId, menu);
+          return true;
+      }
+    } catch (e) {
+      pluginState.log('error', `处理私聊指令出错: ${e}`);
+      await pluginState.sendPrivateMsg(userId, `指令执行出错: ${e}`);
+      return true;
     }
     return false;
   }
