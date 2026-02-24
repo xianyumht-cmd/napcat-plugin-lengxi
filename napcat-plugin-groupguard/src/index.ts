@@ -374,6 +374,8 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   }
 };
 
+import { GroupJoinVerifier } from './join_verifier';
+
 // ========== 事件处理 ==========
 const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx: NapCatPluginContext, event: unknown) => {
   const e = event as {
@@ -387,60 +389,20 @@ const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx: NapCatPluginC
   const license = authManager.getGroupLicense(groupId);
   if (!license && groupId !== 'undefined') return;
 
-  // 入群申请处理
+  // 入群申请处理 (重构：使用 GroupJoinVerifier)
   if (e.post_type === 'request' && e.request_type === 'group' && e.sub_type === 'add') {
-    const groupId = String(e.group_id);
-    const userId = String(e.user_id);
-
-    // 黑名单用户自动拒绝（全局+群独立）
-    if (pluginState.isBlacklisted(userId)) {
-      pluginState.log('info', `黑名单用户 ${userId} 申请加入群 ${groupId}，自动拒绝（全局黑名单）`);
-      if (pluginState.actions && pluginState.networkConfig && e.flag) {
-        await pluginState.actions.call('set_group_add_request', {
-          flag: e.flag, sub_type: 'add', approve: false, reason: '你已被列入黑名单',
-        } as never, pluginState.adapterName, pluginState.networkConfig).catch(() => { });
-      }
-      return;
-    }
-    const joinSettings = pluginState.getGroupSettings(groupId);
-    if ((joinSettings.groupBlacklist || []).includes(userId)) {
-      pluginState.log('info', `黑名单用户 ${userId} 申请加入群 ${groupId}，自动拒绝（群独立黑名单）`);
-      if (pluginState.actions && pluginState.networkConfig && e.flag) {
-        await pluginState.actions.call('set_group_add_request', {
-          flag: e.flag, sub_type: 'add', approve: false, reason: '你已被列入黑名单',
-        } as never, pluginState.adapterName, pluginState.networkConfig).catch(() => { });
-      }
-      return;
-    }
-
-    const settings = pluginState.getGroupSettings(groupId);
-    if (!settings.autoApprove) return;
-
-    // 拒绝关键词检查（群级优先，没有则用全局）
-    const rejectKw = (settings.rejectKeywords?.length ? settings.rejectKeywords : pluginState.config.rejectKeywords) || [];
-    if (rejectKw.length && e.comment) {
-      const commentText = e.comment.replace(/^问题：/, '').replace(/\s*答案：/, ' ');
-      const matched = rejectKw.find(k => commentText.includes(k));
-      if (matched) {
-        pluginState.log('info', `入群审核拒绝: 用户 ${userId} 申请加入群 ${groupId}，验证信息包含拒绝关键词「${matched}」`);
-        if (pluginState.actions && pluginState.networkConfig && e.flag) {
-          await pluginState.actions.call('set_group_add_request', {
-            flag: e.flag, sub_type: 'add', approve: false, reason: `验证信息包含拒绝关键词`,
-          } as never, pluginState.adapterName, pluginState.networkConfig).catch(() => { });
-        }
-        return;
-      }
-    }
-
-    if (e.comment) pluginState.pendingComments.set(`${groupId}:${userId}`, e.comment);
-    pluginState.log('info', `自动通过入群申请: 用户 ${userId} 申请加入群 ${groupId}`);
-    if (pluginState.actions && pluginState.networkConfig && e.flag) {
-      await pluginState.actions.call('set_group_add_request', {
-        flag: e.flag, sub_type: 'add', approve: true,
-      } as never, pluginState.adapterName, pluginState.networkConfig).catch(err => {
-        pluginState.log('error', `自动通过入群申请失败: ${err}`);
-      });
-    }
+    const handled = await GroupJoinVerifier.handleJoinRequest(ctx, {
+      group_id: groupId,
+      user_id: String(e.user_id),
+      comment: e.comment,
+      flag: e.flag || '',
+      sub_type: e.sub_type
+    });
+    
+    if (handled) return;
+    
+    // 如果 Verifier 返回 false，说明没有触发任何自动规则（如暗号关闭且回落关闭），
+    // 此时保留申请，等待管理员手动处理。
     return;
   }
 

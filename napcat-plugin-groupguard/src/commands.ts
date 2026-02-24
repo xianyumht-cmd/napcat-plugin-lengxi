@@ -900,51 +900,131 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // ===== 违禁词管理 =====
   if (text.startsWith('添加违禁词')) {
-    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要主人权限'); return true; }
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     const word = text.slice(5).trim();
     if (!word) { await pluginState.sendGroupText(groupId, '请指定违禁词：添加违禁词 词语'); return true; }
-    if (!pluginState.config.filterKeywords) pluginState.config.filterKeywords = [];
-    if (!pluginState.config.filterKeywords.includes(word)) { pluginState.config.filterKeywords.push(word); saveConfig(ctx); }
-    await pluginState.sendGroupText(groupId, `已添加违禁词：${word}`);
+    
+    // 初始化群配置
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    const gs = pluginState.config.groups[groupId];
+    if (!gs.filterKeywords) gs.filterKeywords = [];
+    
+    if (!gs.filterKeywords.includes(word)) { 
+        gs.filterKeywords.push(word); 
+        saveConfig(ctx); 
+    }
+    await pluginState.sendGroupText(groupId, `已将「${word}」加入本群违禁词`);
     return true;
   }
-  if (text.startsWith('删除违禁词')) {
+  if (text.startsWith('添加全局违禁词')) {
     if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要主人权限'); return true; }
+    const word = text.slice(7).trim();
+    if (!word) { await pluginState.sendGroupText(groupId, '请指定违禁词'); return true; }
+    if (!pluginState.config.filterKeywords) pluginState.config.filterKeywords = [];
+    if (!pluginState.config.filterKeywords.includes(word)) { pluginState.config.filterKeywords.push(word); saveConfig(ctx); }
+    await pluginState.sendGroupText(groupId, `已将「${word}」加入全局违禁词`);
+    return true;
+  }
+
+  if (text.startsWith('删除违禁词')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     const word = text.slice(5).trim();
+    if (!word) { await pluginState.sendGroupText(groupId, '请指定违禁词'); return true; }
+    
+    if (pluginState.config.groups[groupId]) {
+        const gs = pluginState.config.groups[groupId];
+        if (gs.filterKeywords) {
+            gs.filterKeywords = gs.filterKeywords.filter(w => w !== word);
+            saveConfig(ctx);
+        }
+    }
+    await pluginState.sendGroupText(groupId, `已从本群违禁词中移除：${word}`);
+    return true;
+  }
+  if (text.startsWith('删除全局违禁词')) {
+    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要主人权限'); return true; }
+    const word = text.slice(7).trim();
     if (!word) { await pluginState.sendGroupText(groupId, '请指定违禁词'); return true; }
     pluginState.config.filterKeywords = (pluginState.config.filterKeywords || []).filter(w => w !== word);
     saveConfig(ctx);
-    await pluginState.sendGroupText(groupId, `已删除违禁词：${word}`);
+    await pluginState.sendGroupText(groupId, `已从全局违禁词中移除：${word}`);
     return true;
   }
+
   if (text === '违禁词列表') {
-    const list = pluginState.config.filterKeywords || [];
-    await pluginState.sendGroupText(groupId, list.length ? `违禁词列表：\n${list.join('、')}` : '违禁词列表为空');
+    const settings = pluginState.getGroupSettings(groupId);
+    const groupKw = settings.filterKeywords || [];
+    const globalKw = pluginState.config.filterKeywords || [];
+    let msg = '🚫 违禁词列表\n';
+    if (groupKw.length) msg += `【本群】：${groupKw.join('、')}\n`;
+    if (globalKw.length) msg += `【全局】：${globalKw.join('、')}`;
+    if (!groupKw.length && !globalKw.length) msg += '暂无违禁词';
+    await pluginState.sendGroupText(groupId, msg);
     return true;
   }
 
   // ===== 入群审核拒绝关键词 =====
   if (text.startsWith('添加拒绝词')) {
-    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要主人权限'); return true; }
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     const word = text.slice(5).trim();
     if (!word) { await pluginState.sendGroupText(groupId, '请指定关键词：添加拒绝词 词语'); return true; }
-    if (!pluginState.config.rejectKeywords) pluginState.config.rejectKeywords = [];
-    if (!pluginState.config.rejectKeywords.includes(word)) { pluginState.config.rejectKeywords.push(word); saveConfig(ctx); }
-    await pluginState.sendGroupText(groupId, `已添加入群拒绝关键词：${word}`);
+    
+    // 初始化群配置
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    const gs = pluginState.config.groups[groupId];
+    if (!gs.rejectKeywords) gs.rejectKeywords = [];
+    
+    if (!gs.rejectKeywords.includes(word)) { 
+        gs.rejectKeywords.push(word); 
+        saveConfig(ctx); 
+    }
+    await pluginState.sendGroupText(groupId, `已将「${word}」加入本群入群拒绝词`);
     return true;
   }
-  if (text.startsWith('删除拒绝词')) {
+  if (text.startsWith('添加全局拒绝词')) {
     if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要主人权限'); return true; }
+    const word = text.slice(7).trim();
+    if (!word) { await pluginState.sendGroupText(groupId, '请指定关键词'); return true; }
+    if (!pluginState.config.rejectKeywords) pluginState.config.rejectKeywords = [];
+    if (!pluginState.config.rejectKeywords.includes(word)) { pluginState.config.rejectKeywords.push(word); saveConfig(ctx); }
+    await pluginState.sendGroupText(groupId, `已将「${word}」加入全局入群拒绝词`);
+    return true;
+  }
+
+  if (text.startsWith('删除拒绝词')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     const word = text.slice(5).trim();
+    if (!word) { await pluginState.sendGroupText(groupId, '请指定关键词'); return true; }
+    
+    if (pluginState.config.groups[groupId]) {
+        const gs = pluginState.config.groups[groupId];
+        if (gs.rejectKeywords) {
+            gs.rejectKeywords = gs.rejectKeywords.filter(w => w !== word);
+            saveConfig(ctx);
+        }
+    }
+    await pluginState.sendGroupText(groupId, `已从本群入群拒绝词中移除：${word}`);
+    return true;
+  }
+  if (text.startsWith('删除全局拒绝词')) {
+    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要主人权限'); return true; }
+    const word = text.slice(7).trim();
     if (!word) { await pluginState.sendGroupText(groupId, '请指定关键词'); return true; }
     pluginState.config.rejectKeywords = (pluginState.config.rejectKeywords || []).filter(w => w !== word);
     saveConfig(ctx);
-    await pluginState.sendGroupText(groupId, `已删除入群拒绝关键词：${word}`);
+    await pluginState.sendGroupText(groupId, `已从全局入群拒绝词中移除：${word}`);
     return true;
   }
+
   if (text === '拒绝词列表') {
-    const list = pluginState.config.rejectKeywords || [];
-    await pluginState.sendGroupText(groupId, list.length ? `入群拒绝关键词列表：\n${list.join('、')}` : '拒绝关键词列表为空');
+    const settings = pluginState.getGroupSettings(groupId);
+    const groupKw = settings.rejectKeywords || [];
+    const globalKw = pluginState.config.rejectKeywords || [];
+    let msg = '🚫 入群拒绝词列表\n';
+    if (groupKw.length) msg += `【本群】：${groupKw.join('、')}\n`;
+    if (globalKw.length) msg += `【全局】：${globalKw.join('、')}`;
+    if (!groupKw.length && !globalKw.length) msg += '暂无拒绝词';
+    await pluginState.sendGroupText(groupId, msg);
     return true;
   }
 
@@ -1154,6 +1234,78 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     pluginState.config.groups[groupId].leaveBlacklist = false;
     saveConfig(ctx);
     await pluginState.sendGroupText(groupId, '已关闭退群拉黑');
+    return true;
+  }
+
+  // ===== 商用入群验证指令 =====
+  if (text.startsWith('设置入群暗号 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const passphrase = text.slice(7).trim();
+    if (!passphrase) { await pluginState.sendGroupText(groupId, '暗号不能为空'); return true; }
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].entryPassphrase = passphrase;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已设置入群暗号为：「${passphrase}」`);
+    return true;
+  }
+
+  if (text === '关闭入群暗号') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (pluginState.config.groups[groupId]) {
+        pluginState.config.groups[groupId].entryPassphrase = '';
+        saveConfig(ctx);
+    }
+    await pluginState.sendGroupText(groupId, '已关闭入群暗号');
+    return true;
+  }
+
+  if (text === '开启暗号回落') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].enableAutoApproveAfterPassphraseOff = true;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已开启暗号回落（关闭暗号后将使用自动同意规则）');
+    return true;
+  }
+
+  if (text === '关闭暗号回落') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].enableAutoApproveAfterPassphraseOff = false;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '已关闭暗号回落（关闭暗号后将不再自动处理申请）');
+    return true;
+  }
+
+  if (text === '清空群配置') {
+    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '此操作仅限机器人主人执行'); return true; }
+    // 需要二次确认，这里简单实现：要求输入 "确认清空群配置"
+    await pluginState.sendGroupText(groupId, '⚠️ 警告：此操作将清空本群所有配置和数据（包括问答、违禁词、日志等），且不可恢复！\n请发送「确认清空群配置」以执行。');
+    return true;
+  }
+
+  if (text === '确认清空群配置') {
+    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '此操作仅限机器人主人执行'); return true; }
+    
+    try {
+        const groupDir = path.join(pluginState.configDir, 'data', 'groups', groupId);
+        if (fs.existsSync(groupDir)) {
+            // 删除整个目录
+            fs.rmSync(groupDir, { recursive: true, force: true });
+            // 重新创建空目录
+            fs.mkdirSync(groupDir, { recursive: true });
+        }
+        // 清除内存配置
+        delete pluginState.config.groups[groupId];
+        // 保存主配置
+        saveConfig(ctx);
+        
+        await pluginState.sendGroupText(groupId, '✅ 已清空本群所有配置和数据');
+        pluginState.log('warn', `主人 ${userId} 清空了群 ${groupId} 的所有数据`);
+    } catch (e) {
+        await pluginState.sendGroupText(groupId, `清空失败: ${e}`);
+    }
     return true;
   }
 

@@ -132,6 +132,27 @@ export interface GroupGuardSettings {
   disableInvite?: boolean;
   /** 是否禁用活跃统计 */
   disableActivity?: boolean;
+
+  // ===== 商用入群验证 =====
+  /** 入群暗号（为空则关闭） */
+  entryPassphrase?: string;
+  /** 暗号关闭后是否回落到自动同意（默认开启） */
+  enableAutoApproveAfterPassphraseOff?: boolean;
+}
+
+/** 入群验证日志 */
+export interface JoinLogEntry {
+  groupId: string;
+  userId: string;
+  /** 匹配到的验证信息 */
+  answer: string;
+  /** 是否匹配暗号 */
+  passphraseMatched: boolean;
+  /** 执行动作：approve | reject */
+  action: 'approve' | 'reject';
+  /** 详情/理由 */
+  reason: string;
+  timestamp: number;
 }
 
 export interface ScheduledTask {
