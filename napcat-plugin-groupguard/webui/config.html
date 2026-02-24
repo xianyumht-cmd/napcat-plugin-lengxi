@@ -586,6 +586,21 @@
                 </div>
               </div>
               <div class="cfg-sec">
+                <div class="sec-t">权限与安全</div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500">管理员权限缓存 (秒)</label>
+                    <input type="number" id="c-acs" class="ipt" value="60">
+                    <div class="text-[10px] text-slate-400 mt-1">减少API调用，0=关闭缓存</div>
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">复读检测阈值</label>
+                    <input type="number" id="c-rt" class="ipt" value="0">
+                    <div class="text-[10px] text-slate-400 mt-1">连续N条相同消息禁言，0=关闭</div>
+                  </div>
+                </div>
+              </div>
+              <div class="cfg-sec">
                 <div class="sec-t">针对用户 (自动撤回)</div>
                 <input type="text" id="c-tu" class="ipt" placeholder="QQ号，多个用逗号分隔">
               </div>
@@ -809,6 +824,8 @@
       renderQA(g.qaList || []);
       // New fields
       sv('c-wl', (g.warningLimit || 3));
+      sv('c-acs', g.adminCacheSeconds !== undefined ? g.adminCacheSeconds : 60);
+      sv('c-rt', g.repeatThreshold || 0);
       $('c-wa').value = g.warningAction || 'ban';
       stg('c-ec', g.enableCurfew);
       sv('c-cs', g.curfewStart || '00:00'); sv('c-ce', g.curfewEnd || '06:00');
@@ -861,6 +878,7 @@
         msgFilter: { blockVideo: gtg('c-mf-v'), blockImage: gtg('c-mf-i'), blockRecord: gtg('c-mf-r'), blockForward: gtg('c-mf-f'), blockLightApp: gtg('c-mf-l'), blockContact: gtg('c-mf-c'), blockUrl: gtg('c-mf-u') },
         qaList: collectQA(),
         // New fields
+        adminCacheSeconds: gn('c-acs', 60), repeatThreshold: gn('c-rt', 0),
         warningLimit: gn('c-wl', 3), warningAction: $('c-wa')?.value || 'ban',
         enableCurfew: gtg('c-ec'), curfewStart: $('c-cs')?.value || '00:00', curfewEnd: $('c-ce')?.value || '06:00',
         autoRecallSelf: gtg('c-ars'), autoRecallSelfDelay: gn('c-arsd', 60),
