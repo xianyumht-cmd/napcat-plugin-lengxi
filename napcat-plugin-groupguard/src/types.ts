@@ -52,6 +52,14 @@ export interface PluginConfig {
   rejectKeywords: string[];
   /** 预设配置列表 */
   presets: PresetConfig[];
+  /** MySQL 连接配置 */
+  mysql?: {
+    host: string;
+    port: number;
+    user: string;
+    password?: string;
+    database: string;
+  };
 }
 
 export interface GroupGuardSettings {

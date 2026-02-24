@@ -191,14 +191,14 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     const target = getTarget(raw, rest);
     if (!target) { await pluginState.sendGroupText(groupId, '请指定目标：警告@某人'); return true; }
     
-    const count = (dbQuery.getWarning(groupId, target) || 0) + 1;
-    dbQuery.setWarning(groupId, target, count);
+    const count = ((await dbQuery.getWarning(groupId, target)) || 0) + 1;
+    await dbQuery.setWarning(groupId, target, count);
     
     const settings = pluginState.getGroupSettings(groupId);
     const limit = settings.warningLimit || 3;
     
     if (count >= limit) {
-        dbQuery.setWarning(groupId, target, 0);
+        await dbQuery.setWarning(groupId, target, 0);
         if (settings.warningAction === 'kick') {
             await pluginState.callApi('set_group_kick', { group_id: groupId, user_id: target, reject_add_request: false });
             await pluginState.sendGroupText(groupId, `用户 ${target} 警告次数达到上限 (${count}/${limit})，已被踢出。`);
@@ -217,9 +217,9 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     const target = getTarget(raw, text.slice(5).trim());
     if (!target) { await pluginState.sendGroupText(groupId, '请指定目标'); return true; }
-    const count = dbQuery.getWarning(groupId, target);
+    const count = await dbQuery.getWarning(groupId, target);
     if (count > 0) {
-        dbQuery.setWarning(groupId, target, 0);
+        await dbQuery.setWarning(groupId, target, 0);
         await pluginState.sendGroupText(groupId, `已清除用户 ${target} 的警告记录`);
     } else {
         await pluginState.sendGroupText(groupId, `该用户无警告记录`);
@@ -231,7 +231,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     const target = getTarget(raw, text.slice(5).trim());
     if (!target) { await pluginState.sendGroupText(groupId, '请指定目标'); return true; }
-    const count = dbQuery.getWarning(groupId, target);
+    const count = await dbQuery.getWarning(groupId, target);
     const settings = pluginState.getGroupSettings(groupId);
     await pluginState.sendGroupText(groupId, `用户 ${target} 当前警告次数：${count}/${settings.warningLimit || 3}`);
     return true;
@@ -337,7 +337,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   if (text === '签到') {
     if (pluginState.getGroupSettings(groupId).disableSignin) { await pluginState.sendGroupText(groupId, '本群签到功能已关闭'); return true; }
     
-    let userSignin = dbQuery.getSignin(groupId, userId);
+    let userSignin = await dbQuery.getSignin(groupId, userId);
     if (!userSignin) {
         userSignin = { lastSignin: 0, days: 0, points: 0 };
     }
@@ -371,7 +371,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     userSignin.points += points;
     userSignin.lastSignin = Date.now();
     
-    dbQuery.updateSignin(groupId, userId, userSignin);
+    await dbQuery.updateSignin(groupId, userId, userSignin);
     
     await pluginState.sendGroupMsg(groupId, [
         { type: 'at', data: { qq: userId } },
@@ -381,7 +381,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   }
   
   if (text === '签到榜') {
-    const data = dbQuery.getAllSignin(groupId);
+    const data = await dbQuery.getAllSignin(groupId);
     if (!Object.keys(data).length) { await pluginState.sendGroupText(groupId, '本群暂无签到数据'); return true; }
     
     const now = new Date();
@@ -404,7 +404,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   }
   
   if (text === '我的积分') {
-    const data = dbQuery.getSignin(groupId, userId);
+    const data = await dbQuery.getSignin(groupId, userId);
     const points = data ? data.points : 0;
     await pluginState.sendGroupMsg(groupId, [
         { type: 'at', data: { qq: userId } },
@@ -415,7 +415,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // ===== 邀请统计 =====
   if (text === '邀请查询') {
-    const data = dbQuery.getInvite(groupId, userId);
+    const data = await dbQuery.getInvite(groupId, userId);
     const count = data ? data.inviteCount : 0;
     await pluginState.sendGroupMsg(groupId, [
         { type: 'at', data: { qq: userId } },
@@ -425,7 +425,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   }
   
   if (text === '邀请榜') {
-    const data = dbQuery.getAllInvites(groupId);
+    const data = await dbQuery.getAllInvites(groupId);
     if (!Object.keys(data).length) { await pluginState.sendGroupText(groupId, '本群暂无邀请数据'); return true; }
     
     const list = Object.entries(data)
@@ -484,7 +484,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   if (text === '抽奖') {
     if (pluginState.getGroupSettings(groupId).disableLottery) { await pluginState.sendGroupText(groupId, '本群抽奖功能已关闭'); return true; }
     
-    let userSignin = dbQuery.getSignin(groupId, userId);
+    let userSignin = await dbQuery.getSignin(groupId, userId);
     
     const settings = pluginState.getGroupSettings(groupId);
     const cost = settings.lotteryCost || 20;
@@ -510,7 +510,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     else { prize = '谢谢参与'; bonus = 0; }
     
     userSignin.points += bonus;
-    dbQuery.updateSignin(groupId, userId, userSignin);
+    await dbQuery.updateSignin(groupId, userId, userSignin);
     
     await pluginState.sendGroupMsg(groupId, [
         { type: 'at', data: { qq: userId } },
@@ -989,7 +989,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     if (pluginState.getGroupSettings(groupId).disableActivity) { await pluginState.sendGroupText(groupId, '本群活跃统计已关闭'); return true; }
     if (!authManager.checkFeature(groupId, 'analytics_detail')) { await pluginState.sendGroupText(groupId, '活跃统计仅限专业版/企业版使用，请购买授权。'); return true; }
     
-    const stats = dbQuery.getAllActivity(groupId);
+    const stats = await dbQuery.getAllActivity(groupId);
     if (!Object.keys(stats).length) { await pluginState.sendGroupText(groupId, '本群暂无活跃统计数据'); return true; }
     
     const selfId = String((event as any).self_id || '');
@@ -1404,11 +1404,11 @@ export async function handleQA (groupId: string, userId: string, raw: string): P
 }
 
 /** 记录活跃统计 */
-export function recordActivity(groupId: string, userId: string): void {
+export async function recordActivity(groupId: string, userId: string): Promise<void> {
     const today = new Date().toISOString().slice(0, 10);
     const now = Date.now();
     
-    let activity = dbQuery.getActivity(groupId, userId);
+    let activity = await dbQuery.getActivityAsync(groupId, userId);
     if (!activity) {
         activity = {
             msgCount: 0,
@@ -1429,5 +1429,5 @@ export function recordActivity(groupId: string, userId: string): void {
         activity.msgCountToday++;
     }
     
-    dbQuery.updateActivity(groupId, userId, activity);
+    await dbQuery.updateActivity(groupId, userId, activity);
 }

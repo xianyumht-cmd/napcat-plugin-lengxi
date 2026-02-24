@@ -52,7 +52,6 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
   // 设置配置目录
   if (ctx.configPath) {
     pluginState.configDir = path.dirname(ctx.configPath);
-    initDB(pluginState.configDir);
   }
 
   // 加载主配置
@@ -78,6 +77,9 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
       }
     } catch { /* ignore */ }
   }
+
+  // 初始化数据库
+  await initDB();
 
   // 初始化授权
   authManager.init();
@@ -374,27 +376,27 @@ const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx: NapCatPluginC
     // 邀请统计
     if (operatorId && operatorId !== userId && operatorId !== pluginState.botId) {
       // 检查被邀请人是否已有记录（防止重复刷分）
-      const inviteeRecord = dbQuery.getInvite(groupId, userId);
+      const inviteeRecord = await dbQuery.getInvite(groupId, userId);
       // 如果没有inviter_id，说明是首次被邀请记录
       if (!inviteeRecord || !inviteeRecord.inviterId) {
           // 1. 更新被邀请人的记录，设置邀请人
-          const newInviteeRecord = inviteeRecord || { inviteCount: 0, joinTime: Date.now() };
+          const newInviteeRecord = inviteeRecord || { inviteCount: 0, joinTime: Date.now(), inviterId: '' };
           newInviteeRecord.inviterId = operatorId;
-          dbQuery.updateInvite(groupId, userId, newInviteeRecord);
+          await dbQuery.updateInvite(groupId, userId, newInviteeRecord);
           
           // 2. 更新邀请人的统计
-          let inviterRecord = dbQuery.getInvite(groupId, operatorId);
-          if (!inviterRecord) inviterRecord = { inviteCount: 0, joinTime: 0 };
+          let inviterRecord = await dbQuery.getInvite(groupId, operatorId);
+          if (!inviterRecord) inviterRecord = { inviteCount: 0, joinTime: 0, inviterId: '' };
           inviterRecord.inviteCount++;
-          dbQuery.updateInvite(groupId, operatorId, inviterRecord);
+          await dbQuery.updateInvite(groupId, operatorId, inviterRecord);
           
           // 3. 邀请奖励
           const settings = pluginState.getGroupSettings(groupId);
           if (settings.invitePoints && settings.invitePoints > 0) {
-              let inviterSignin = dbQuery.getSignin(groupId, operatorId);
+              let inviterSignin = await dbQuery.getSignin(groupId, operatorId);
               if (!inviterSignin) inviterSignin = { lastSignin: 0, days: 0, points: 0 };
               inviterSignin.points += settings.invitePoints;
-              dbQuery.updateSignin(groupId, operatorId, inviterSignin);
+              await dbQuery.updateSignin(groupId, operatorId, inviterSignin);
               pluginState.log('info', `邀请奖励: 用户 ${operatorId} 邀请 ${userId} 进群，获得 ${settings.invitePoints} 积分`);
           }
       }

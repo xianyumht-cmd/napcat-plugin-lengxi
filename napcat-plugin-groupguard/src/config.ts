@@ -70,6 +70,13 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   qaList: [],
   rejectKeywords: [],
   presets: [],
+  mysql: {
+    host: '127.0.0.1',
+    port: 3306,
+    user: 'root',
+    password: '',
+    database: 'napcat_groupguard'
+  }
 };
 
 // 帮助菜单

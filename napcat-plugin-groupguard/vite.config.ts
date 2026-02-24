@@ -17,7 +17,7 @@ export default defineConfig({
       fileName: () => 'index.mjs',
     },
     rollupOptions: { 
-      external: [...nodeModules, 'better-sqlite3', 'jimp', 'jsqr'],
+      external: [...nodeModules, 'mysql2', 'mysql2/promise', 'jimp', 'jsqr'],
     },
     outDir: 'dist',
     emptyDirBeforeWrite: true,
