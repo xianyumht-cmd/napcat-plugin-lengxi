@@ -286,6 +286,10 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
     return;
   }
 
+  // 2. 群管指令处理 (优先于黑名单，确保主人在黑名单中也能解除)
+  const handled = await handleCommand(event, ctx);
+  if (handled) return;
+
   // 0.2 白名单用户检查
   const isWhite = pluginState.isWhitelisted(userId);
 
@@ -294,10 +298,6 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
     const blacklisted = await handleBlacklist(groupId, userId, messageId);
     if (blacklisted) return;
   }
-
-  // 2. 群管指令处理
-  const handled = await handleCommand(event, ctx);
-  if (handled) return;
 
   // 2.5 问答自动回复
   const qaHandled = await handleQA(groupId, userId, raw);

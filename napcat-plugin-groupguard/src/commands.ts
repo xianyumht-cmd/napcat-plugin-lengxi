@@ -113,9 +113,11 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     }
 
     // 敏感指令严格检查 Owner 权限
-    if (!pluginState.isOwner(userId)) {
-        pluginState.debug(`非主人用户 ${userId} 尝试执行私聊管理指令被拦截`);
-        return false;
+    const isOwner = pluginState.isOwner(userId);
+    if (!isOwner) {
+        pluginState.log('warn', `非主人用户 ${userId} 尝试执行私聊管理指令 [${text}] 被拦截`);
+        await pluginState.sendPrivateMsg(userId, '权限不足：该指令仅限机器人主人使用。');
+        return true; // 返回 true 表示已处理（拦截），不再继续
     }
 
     try {

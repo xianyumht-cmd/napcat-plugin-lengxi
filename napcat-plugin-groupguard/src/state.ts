@@ -115,8 +115,17 @@ class PluginState {
   }
 
   isOwner (userId: string): boolean {
-    const owners = this.config.ownerQQs.split(',').map(s => s.trim()).filter(s => s);
-    return owners.includes(userId);
+    // 强制转换为字符串并分割，防止配置格式错误
+    const ownersStr = String(this.config.ownerQQs || '');
+    const configOwners = ownersStr.split(/[,，]/).map(s => s.trim()).filter(s => s);
+    const target = String(userId);
+    const isMatch = configOwners.includes(target);
+    
+    // 调试日志：输出详细比对信息
+    if (this.config.debug) {
+         this.log('info', `[AuthCheck] User: "${target}", Config: "${ownersStr}", Parsed: ${JSON.stringify(configOwners)}, Result: ${isMatch}`);
+    }
+    return isMatch;
   }
 
   // ===== 辅助方法 =====
