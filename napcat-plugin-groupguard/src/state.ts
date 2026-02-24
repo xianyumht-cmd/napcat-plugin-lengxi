@@ -87,6 +87,13 @@ class PluginState {
     this.pushLog(level, msg);
   }
 
+  debug (msg: string): void {
+    if (this.config.debug) {
+      this.logger?.info(`[GroupGuard][Debug] ${msg}`);
+      this.pushLog('info', `[Debug] ${msg}`);
+    }
+  }
+
   getGroupSettings (groupId: string): GroupGuardSettings {
     if (this.config.groups[groupId]) {
       if (this.config.groups[groupId].useGlobal) return this.config.global;
