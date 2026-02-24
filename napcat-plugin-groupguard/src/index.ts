@@ -254,8 +254,8 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   // 2.5 问答自动回复
   const qaHandled = await handleQA(groupId, userId, raw);
   if (qaHandled) {
-    pluginState.recordActivity(groupId, userId);
-    cacheMessage(messageId, userId, groupId, raw);
+    await recordActivity(groupId, userId);
+    cacheMessage(messageId, userId, groupId, raw, messageSegments);
     return;
   }
 
@@ -283,7 +283,7 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
   }
 
   // 6. 记录活跃统计
-  recordActivity(groupId, userId);
+  await recordActivity(groupId, userId);
 
   // 7. 缓存消息（防撤回）
   cacheMessage(messageId, userId, groupId, raw, messageSegments);
