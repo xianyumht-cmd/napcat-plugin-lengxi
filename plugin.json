@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updateTime": "2026-02-24T15:31:10Z",
+  "updateTime": "2026-02-24T15:41:17Z",
   "plugins": [
     {
       "id": "napcat-plugin-aicat",
@@ -88,7 +88,7 @@
     {
       "id": "napcat-plugin-groupguard",
       "name": "群管插件",
-      "version": "1.0.12",
+      "version": "1.0.13",
       "description": "群管插件：自动通过入群申请，新成员数学验证，超时或答错踢出",
       "author": "冷曦",
       "homepage": "",
