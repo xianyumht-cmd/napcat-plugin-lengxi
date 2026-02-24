@@ -554,18 +554,35 @@
                   <div><label class="text-xs text-slate-500">结束时间 (HH:mm)</label><input type="text" id="c-ce" class="ipt" placeholder="06:00"></div>
                 </div>
               </div>
-              <div class="cfg-sec">
-                <div class="sec-t">机器人自身消息管理</div>
+                <div class="cfg-sec" id="sec-antirisk">
+                <div class="sec-t">防风控设置</div>
                 <div class="cfg-row">
                   <div>
                     <div class="text-sm font-medium">自动撤回自身消息</div>
-                    <div class="text-xs text-slate-400">机器人发送消息后自动撤回</div>
+                    <div class="text-xs text-slate-400">机器人发送消息后自动撤回 (全局生效)</div>
                   </div>
                   <div class="tgl" id="c-ars" onclick="tg(this)"></div>
                 </div>
-                <div class="mt-2">
+                <div class="mt-2 mb-3">
                   <label class="text-xs text-slate-500">撤回延迟（秒）</label>
                   <input type="number" id="c-arsd" class="ipt" value="60">
+                </div>
+
+                <div class="cfg-row">
+                  <div>
+                    <div class="text-sm font-medium">消息随机后缀</div>
+                    <div class="text-xs text-slate-400">在消息末尾添加随机不可见字符 (全局生效)</div>
+                  </div>
+                  <div class="tgl" id="c-rs" onclick="tg(this)"></div>
+                </div>
+                
+                <div class="mt-2">
+                  <label class="text-xs text-slate-500">随机发送延迟 (毫秒)</label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <input type="number" id="c-rdn" class="ipt" placeholder="最小 (ms)" value="0">
+                    <input type="number" id="c-rdx" class="ipt" placeholder="最大 (ms)" value="0">
+                  </div>
+                  <div class="text-[10px] text-slate-400 mt-1">全局生效，建议范围 500-1500</div>
                 </div>
               </div>
               <div class="cfg-sec">
@@ -797,6 +814,9 @@
       sv('c-cs', g.curfewStart || '00:00'); sv('c-ce', g.curfewEnd || '06:00');
       stg('c-ars', g.autoRecallSelf);
       sv('c-arsd', g.autoRecallSelfDelay || 60);
+      stg('c-rs', g.randomSuffix);
+      sv('c-rdn', g.randomDelayMin || 0);
+      sv('c-rdx', g.randomDelayMax || 0);
       sv('i-smin', g.signinMin || 10); sv('i-smax', g.signinMax || 50);
       sv('i-inv', g.invitePoints || 20);
       sv('i-msg', g.messageReward || 0);
@@ -844,6 +864,7 @@
         warningLimit: gn('c-wl', 3), warningAction: $('c-wa')?.value || 'ban',
         enableCurfew: gtg('c-ec'), curfewStart: $('c-cs')?.value || '00:00', curfewEnd: $('c-ce')?.value || '06:00',
         autoRecallSelf: gtg('c-ars'), autoRecallSelfDelay: gn('c-arsd', 60),
+        randomSuffix: gtg('c-rs'), randomDelayMin: gn('c-rdn', 0), randomDelayMax: gn('c-rdx', 0),
         signinMin: gn('i-smin', 10), signinMax: gn('i-smax', 50),
         invitePoints: gn('i-inv', 20), messageReward: gn('i-msg', 0),
         lotteryCost: gn('i-lc', 50), lotteryReward: gn('i-lr', 200)
@@ -874,13 +895,22 @@
     function onGrp () {
       if (editMode) collectGroup(editMode); else collectGlobal();
       const gid = $('grpSel').value;
-      if (!gid) { editMode = ''; $('grpUgWrap').style.display = 'none'; fillGlobal(); setFormDisabled(false); return; }
+      if (!gid) { 
+        editMode = ''; $('grpUgWrap').style.display = 'none'; fillGlobal(); setFormDisabled(false); 
+        // Show Anti-Risk for Global
+        const ar = $('sec-antirisk'); if(ar) { ar.style.display = ''; ar.style.opacity = ''; ar.style.pointerEvents = ''; }
+        return; 
+      }
       editMode = gid;
       const gs = (C.groups || {})[gid];
       const isGlobal = !gs || gs.useGlobal !== false;
       $('grpUgWrap').style.display = 'flex';
       stg('grp-ug', isGlobal);
       if (isGlobal) { fillGlobal(); setFormDisabled(true); } else { fillGroup(gid); setFormDisabled(false); }
+      
+      // Hide Anti-Risk for Group Mode (since it's global only)
+      const ar = $('sec-antirisk');
+      if (ar) { ar.style.display = 'none'; }
     }
     function onGrpToggle () { const gid = editMode; if (!gid) return; const useG = gtg('grp-ug'); if (useG) { C.groups = C.groups || {}; C.groups[gid] = { useGlobal: true }; fillGlobal(); setFormDisabled(true); } else { fillGroup(gid); setFormDisabled(false); } }
     function setFormDisabled (off) {

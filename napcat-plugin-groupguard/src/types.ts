@@ -121,6 +121,11 @@ export interface GroupGuardSettings {
   autoRecallSelf?: boolean;
   /** 自动撤回延迟（秒） */
   autoRecallSelfDelay?: number;
+  /** 随机后缀（防复读风控） */
+  randomSuffix?: boolean;
+  /** 随机延迟发送（毫秒） */
+  randomDelayMin?: number;
+  randomDelayMax?: number;
   // 新增开关
   /** 是否禁用问答 */
   disableQA?: boolean;

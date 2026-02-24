@@ -129,13 +129,54 @@ class PluginState {
   }
 
   // ===== 辅助方法 =====
+  /** 生成随机后缀 */
+  private getRandomSuffix(groupId?: string): string {
+    // 强制使用全局配置，防风控策略统一管理
+    const settings = this.config.global;
+    if (!settings.randomSuffix) return '';
+    
+    // 生成一个不可见字符或随机短字符串
+    // 为了更好的防风控效果，使用随机的零宽字符组合或常见的末尾标点变体
+    const chars = ['\u200b', '\u200c', '\u200d', '\u2060', ' ', '.', '..', '~'];
+    const len = Math.floor(Math.random() * 3) + 1;
+    let suffix = '';
+    for (let i = 0; i < len; i++) {
+      suffix += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return suffix;
+  }
+
+  /** 随机延迟 */
+  private async randomSleep(groupId?: string): Promise<void> {
+    // 强制使用全局配置，防风控策略统一管理
+    const settings = this.config.global;
+    const min = settings.randomDelayMin || 0;
+    const max = settings.randomDelayMax || 0;
+    
+    if (max > min && max > 0) {
+      const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+      if (delay > 0) {
+        if (this.config.debug) this.log('info', `[AntiRisk] 随机延迟: ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
   /** 发送群消息 (Text) */
   async sendGroupText (groupId: string, content: string): Promise<void> {
     if (!this.actions || !this.networkConfig) return;
+    
+    // 应用随机延迟
+    await this.randomSleep(groupId);
+    
+    // 应用随机后缀
+    const suffix = this.getRandomSuffix(groupId);
+    const finalContent = content + suffix;
+
     try {
       await this.actions.call('send_group_msg', {
         group_id: groupId,
-        message: [{ type: 'text', data: { text: content } }]
+        message: [{ type: 'text', data: { text: finalContent } }]
       } as never, this.adapterName, this.networkConfig);
     } catch (e) {
       this.log('error', `发送群消息失败: ${e}`);
@@ -145,6 +186,22 @@ class PluginState {
   /** 发送群消息 (Array) */
   async sendGroupMsg (groupId: string, message: any[]): Promise<void> {
     if (!this.actions || !this.networkConfig) return;
+
+    // 应用随机延迟
+    await this.randomSleep(groupId);
+
+    // 应用随机后缀
+    const suffix = this.getRandomSuffix(groupId);
+    if (suffix && Array.isArray(message)) {
+      // 尝试追加到最后一个文本节点，或者新增一个文本节点
+      const lastNode = message[message.length - 1];
+      if (lastNode && lastNode.type === 'text' && lastNode.data) {
+        lastNode.data.text += suffix;
+      } else {
+        message.push({ type: 'text', data: { text: suffix } });
+      }
+    }
+
     try {
       await this.actions.call('send_group_msg', {
         group_id: groupId,
@@ -158,10 +215,18 @@ class PluginState {
   /** 发送私聊消息 (Text) */
   async sendPrivateMsg (userId: string, content: string): Promise<void> {
     if (!this.actions || !this.networkConfig) return;
+
+    // 应用随机延迟
+    await this.randomSleep();
+
+    // 应用随机后缀
+    const suffix = this.getRandomSuffix();
+    const finalContent = content + suffix;
+
     try {
       await this.actions.call('send_private_msg', {
         user_id: userId,
-        message: [{ type: 'text', data: { text: content } }]
+        message: [{ type: 'text', data: { text: finalContent } }]
       } as never, this.adapterName, this.networkConfig);
     } catch (e) {
       this.log('error', `发送私聊消息失败: ${e}`);
