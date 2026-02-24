@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updateTime": "2026-02-21T18:39:34Z",
+  "updateTime": "2026-02-24T08:33:05Z",
   "plugins": [
     {
       "id": "napcat-plugin-aicat",
@@ -9,7 +9,7 @@
       "description": "智能AI猫娘助手插件，AI 对话帮助你群管理、自定义指令、定时任务等功能",
       "author": "冷曦",
       "homepage": "https://github.com/lengxi-root/napcat-plugin-aicat",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-aicat.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-aicat.zip",
       "tags": [
         "AI",
         "娱乐"
@@ -23,7 +23,7 @@
       "description": "让所有插件与Onebot的消息通过官机Markdown发送，也可以修改其他插件预发送的内容",
       "author": "冷曦",
       "homepage": "",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-amsghook.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-amsghook.zip",
       "tags": [
         "工具"
       ],
@@ -36,7 +36,7 @@
       "description": "NapCat 插件自动更新管理器，定时检查已安装插件的最新版本并自动更新或提醒",
       "author": "冷曦",
       "homepage": "https://github.com/lengxi-root/napcat-plugin-autoupdate",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-autoupdate.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-autoupdate.zip",
       "tags": [
         "工具",
         "管理"
@@ -50,7 +50,7 @@
       "description": "三角洲行动游戏数据查询插件 - 基于 NapCat 框架",
       "author": "冷曦",
       "homepage": "https://github.com/Entropy-Increase-Team/napcat-plugin-delta-force",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-delta-force.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-delta-force.zip",
       "tags": [
         "游戏",
         "工具"
@@ -64,7 +64,7 @@
       "description": "GitHub 仓库订阅推送插件，监控 Commits / Issues / Pull Requests 并渲染图片推送",
       "author": "冷曦",
       "homepage": "https://github.com/lengxi-root/napcat-plugin-github-sub",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-github-sub.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-github-sub.zip",
       "tags": [
         "工具",
         "订阅"
@@ -78,7 +78,7 @@
       "description": "自动抢红包插件：监听红包消息自动领取，支持口令红包、黑白名单、随机延迟、防检测等功能",
       "author": "3122662728",
       "homepage": "https://github.com/lengxi-root/napcat-plugin-grabredbag",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-grabredbag.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-grabredbag.zip",
       "tags": [
         "工具",
         "红包"
@@ -92,7 +92,7 @@
       "description": "群管插件：自动通过入群申请，新成员数学验证，超时或答错踢出",
       "author": "冷曦",
       "homepage": "",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-groupguard.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-groupguard.zip",
       "tags": [
         "群管",
         "工具"
@@ -106,7 +106,7 @@
       "description": "娱乐插件，meme表情包，点歌，哈基米制作。",
       "author": "冷曦",
       "homepage": "https://github.com/lengxi-root/napcat-plugin-play",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-play.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-play.zip",
       "tags": [
         "娱乐",
         "AI"
@@ -120,7 +120,7 @@
       "description": "NapCat Puppeteer 渲染服务插件 - 提供 HTML/模板截图渲染 API，供其他插件调用",
       "author": "AQiaoYo",
       "homepage": "https://github.com/AQiaoYo/napcat-plugin-puppeteer",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-puppeteer.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-puppeteer.zip",
       "tags": [
         "工具",
         "渲染"
@@ -134,7 +134,7 @@
       "description": "AI可视化工作流插件 - 创建自动化流程与定时任务",
       "author": "冷曦",
       "homepage": "https://github.com/lengxi-root/napcat-plugin-workflow",
-      "downloadUrl": "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-workflow.zip",
+      "downloadUrl": "https://github.com/xianyumht-cmd/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-workflow.zip",
       "tags": [
         "工具",
         "自动化"
