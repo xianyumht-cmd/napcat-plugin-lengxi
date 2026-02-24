@@ -20,16 +20,15 @@ let dataDir = '';
 
 export async function initDB() {
     // 确保数据目录存在
+    // 新结构：data/groups/{groupId}/{type}.json
     dataDir = path.join(pluginState.configDir, 'data');
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-
-    // 确保子目录存在
-    ['activity', 'signin', 'invites', 'warnings'].forEach(sub => {
-        const dir = path.join(dataDir, sub);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    });
     
-    console.log('JSON DB v2.0 initialized at', dataDir);
+    // 确保 groups 目录存在
+    const groupsDir = path.join(dataDir, 'groups');
+    if (!fs.existsSync(groupsDir)) fs.mkdirSync(groupsDir, { recursive: true });
+    
+    console.log('JSON DB v3.0 (Per-Group Folder) initialized at', dataDir);
 }
 
 // 通用加载函数 (带缓存)
@@ -39,7 +38,11 @@ function loadData<T>(type: keyof typeof cache, groupId: string): Record<string, 
         return cache[type].get(groupId) as Record<string, T>;
     }
 
-    const filePath = path.join(dataDir, type, `${groupId}.json`);
+    // 新路径：data/groups/{groupId}/{type}.json
+    // 例如：data/groups/123456/activity.json
+    const groupDir = path.join(dataDir, 'groups', groupId);
+    const filePath = path.join(groupDir, `${type}.json`);
+    
     try {
         if (fs.existsSync(filePath)) {
             const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -80,12 +83,15 @@ function flushWrites() {
         const data = cache[type].get(groupId);
         if (!data) continue;
 
-        const filePath = path.join(dataDir, type, `${groupId}.json`);
+        const groupDir = path.join(dataDir, 'groups', groupId);
+        if (!fs.existsSync(groupDir)) fs.mkdirSync(groupDir, { recursive: true });
+
+        const filePath = path.join(groupDir, `${type}.json`);
         const tempPath = `${filePath}.tmp`;
 
         try {
             fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
-            fs.renameSync(tempPath, filePath); // 原子重命名，防止写入中断导致文件损坏
+            fs.renameSync(tempPath, filePath); // 原子重命名
         } catch (e) {
             console.error(`Failed to write ${type} data for group ${groupId}:`, e);
         }
@@ -98,8 +104,6 @@ setInterval(flushWrites, 60000);
 export const dbQuery = {
     // Activity
     getActivity: (groupId: string, userId: string): ActivityRecord | undefined => {
-        // 兼容异步接口，虽然这里是同步的，但为了不改 commands.ts 太多
-        // 实际上 v2.0 JSON 是内存操作，速度极快
         return undefined as any; 
     },
     

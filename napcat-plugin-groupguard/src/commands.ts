@@ -81,7 +81,37 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // 处理私聊命令（仅限主人）
   if (event.message_type === 'private') {
-    if (!pluginState.isOwner(userId)) return false;
+    // 日志记录私聊尝试，方便调试
+    pluginState.debug(`收到私聊指令: [${userId}] ${text}`);
+
+    // 帮助菜单允许所有用户查看，但会提示权限差异
+    if (text === '帮助' || text === '菜单') {
+        const isOwner = pluginState.isOwner(userId);
+        let menu = `🛡️ GroupGuard 私聊管理面板\n--------------------------\n`;
+        
+        if (isOwner) {
+            menu += `📝 授权管理 (主人权限):\n` +
+                    `• 授权 <群号> <天数/永久> (默认专业版/企业版)\n` +
+                    `• 回收授权 <群号>\n` +
+                    `• 查询授权 <群号>\n\n` +
+                    `⚙️ 全局设置 (主人权限):\n` +
+                    `• 全局黑名单 <QQ> (跨群封禁)\n` +
+                    `• 全局白名单 <QQ> (豁免检测)\n` +
+                    `• 开启/关闭全局防撤回 (私聊接收撤回消息)\n`;
+        } else {
+            menu += `您当前仅有普通用户权限，无法执行管理指令。\n如需授权群组，请联系机器人主人。`;
+        }
+        
+        menu += `\n--------------------------\n当前版本: ${pluginState.version}`;
+        await pluginState.sendPrivateMsg(userId, menu);
+        return true;
+    }
+
+    // 敏感指令严格检查 Owner 权限
+    if (!pluginState.isOwner(userId)) {
+        pluginState.debug(`非主人用户 ${userId} 尝试执行私聊管理指令被拦截`);
+        return false;
+    }
 
     try {
       if (text.startsWith('授权 ')) {
@@ -124,20 +154,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
         return true;
       }
       if (text === '帮助' || text === '菜单') {
-          const menu = `🛡️ GroupGuard 私聊管理面板\n` +
-                       `--------------------------\n` +
-                       `📝 授权管理:\n` +
-                       `• 授权 <群号> <天数/永久> (默认专业版/企业版)\n` +
-                       `• 回收授权 <群号>\n` +
-                       `• 查询授权 <群号>\n` +
-                       `\n` +
-                       `⚙️ 全局设置:\n` +
-                       `• 全局黑名单 <QQ> (跨群封禁)\n` +
-                       `• 全局白名单 <QQ> (豁免检测)\n` +
-                       `• 开启/关闭全局防撤回 (私聊接收撤回消息)\n` +
-                       `--------------------------\n` +
-                       `当前版本: ${pluginState.version}`;
-          await pluginState.sendPrivateMsg(userId, menu);
+          // 已在上文处理，此处逻辑保留但实际上不会走到
           return true;
       }
     } catch (e) {
