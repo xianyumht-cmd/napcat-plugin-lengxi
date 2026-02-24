@@ -17,7 +17,7 @@ export default defineConfig({
       fileName: () => 'index.mjs',
     },
     rollupOptions: { 
-      external: [...nodeModules, 'jimp', 'jsqr'],
+      external: [...nodeModules],
     },
     outDir: 'dist',
     emptyDirBeforeWrite: true,
