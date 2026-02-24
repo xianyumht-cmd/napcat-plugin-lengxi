@@ -188,6 +188,83 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
           return true;
       }
 
+      // ===== 全局风控指令 (仅限主人私聊) =====
+      if (text === '开启随机后缀') {
+          pluginState.config.global.randomSuffix = true;
+          saveConfig(ctx);
+          await pluginState.sendPrivateMsg(userId, '全局随机后缀已开启');
+          return true;
+      }
+      if (text === '关闭随机后缀') {
+          pluginState.config.global.randomSuffix = false;
+          saveConfig(ctx);
+          await pluginState.sendPrivateMsg(userId, '全局随机后缀已关闭');
+          return true;
+      }
+      if (text.startsWith('设置随机延迟 ')) {
+          const parts = text.split(/\s+/);
+          if (parts.length < 3) { await pluginState.sendPrivateMsg(userId, '格式：设置随机延迟 <最小ms> <最大ms>'); return true; }
+          const min = parseInt(parts[1]);
+          const max = parseInt(parts[2]);
+          if (isNaN(min) || isNaN(max)) { await pluginState.sendPrivateMsg(userId, '请输入有效的数字'); return true; }
+          pluginState.config.global.randomDelayMin = min;
+          pluginState.config.global.randomDelayMax = max;
+          saveConfig(ctx);
+          await pluginState.sendPrivateMsg(userId, `全局随机延迟已设置为 ${min}-${max}ms`);
+          return true;
+      }
+      if (text === '开启全局自身撤回') {
+          pluginState.config.global.autoRecallSelf = true;
+          saveConfig(ctx);
+          await pluginState.sendPrivateMsg(userId, '全局自身撤回已开启');
+          return true;
+      }
+      if (text === '关闭全局自身撤回') {
+          pluginState.config.global.autoRecallSelf = false;
+          saveConfig(ctx);
+          await pluginState.sendPrivateMsg(userId, '全局自身撤回已关闭');
+          return true;
+      }
+
+      // ===== 多群广播 (仅限主人私聊) =====
+      if (text.startsWith('多群广播 ')) {
+          const content = text.slice(5).trim();
+          if (!content) { await pluginState.sendPrivateMsg(userId, '请输入广播内容'); return true; }
+          
+          await pluginState.sendPrivateMsg(userId, '开始广播，请稍候...');
+          
+          // 获取所有群列表
+          let groups: any[] = [];
+          try {
+              groups = await pluginState.callApi('get_group_list', {}) as any[] || [];
+          } catch (e) {
+              await pluginState.sendPrivateMsg(userId, `获取群列表失败: ${e}`);
+              return true;
+          }
+          
+          let success = 0;
+          let fail = 0;
+          
+          for (const group of groups) {
+              const gid = String(group.group_id);
+              // 跳过未授权群 (可选，这里假设广播是给所有已连接群的通知，或者仅给授权群？为了安全，仅给授权群广播)
+              const license = authManager.getGroupLicense(gid);
+              if (!license) continue;
+              
+              try {
+                  await pluginState.sendGroupText(gid, `【全员通知】\n${content}`);
+                  success++;
+                  // 延时防风控 (1-2秒)
+                  await new Promise(r => setTimeout(r, 1500));
+              } catch {
+                  fail++;
+              }
+          }
+          
+          await pluginState.sendPrivateMsg(userId, `广播完成。\n成功: ${success}\n失败: ${fail}`);
+          return true;
+      }
+
       // 未匹配到任何指令
       pluginState.log('warn', `主人私聊发送了未知指令: [${text}]`);
       await pluginState.sendPrivateMsg(userId, `未知指令: ${text}\n请发送“菜单”查看可用指令。`);
@@ -321,6 +398,82 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     }
     await pluginState.sendGroupText(groupId, '已关闭宵禁');
     return true;
+  }
+
+  // ===== 功能开关 (互动/验证/管理) =====
+  if (text.startsWith('开启功能 ') || text.startsWith('关闭功能 ')) {
+      if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+      const isEnable = text.startsWith('开启功能 ');
+      const feature = text.slice(5).trim();
+      
+      if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+      const gs = pluginState.config.groups[groupId];
+      
+      switch (feature) {
+          case '问答': gs.disableQA = !isEnable; break;
+          case '签到': gs.disableSignin = !isEnable; break;
+          case '抽奖': gs.disableLottery = !isEnable; break;
+          case '邀请统计': gs.disableInvite = !isEnable; break;
+          case '活跃统计': gs.disableActivity = !isEnable; break;
+          case '自动同意': gs.autoApprove = isEnable; break;
+          case '入群验证': gs.enableVerify = isEnable; break;
+          case '刷屏检测': gs.spamDetect = isEnable; break;
+          case '退群拉黑': gs.leaveBlacklist = isEnable; break;
+          case '暗号回落': gs.enableAutoApproveAfterPassphraseOff = isEnable; break;
+          default:
+              await pluginState.sendGroupText(groupId, '未知功能。支持：问答、签到、抽奖、邀请统计、活跃统计、自动同意、入群验证、刷屏检测、退群拉黑、暗号回落');
+              return true;
+      }
+      saveConfig(ctx);
+      await pluginState.sendGroupText(groupId, `已${isEnable ? '开启' : '关闭'}功能：${feature}`);
+      return true;
+  }
+
+  // ===== 入群暗号设置 =====
+  if (text.startsWith('设置暗号 ')) {
+      if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+      const passphrase = text.slice(5).trim();
+      
+      if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+      const gs = pluginState.config.groups[groupId];
+      
+      if (passphrase === '关闭' || passphrase === '无') {
+          gs.entryPassphrase = '';
+          await pluginState.sendGroupText(groupId, '已关闭入群暗号验证');
+      } else {
+          gs.entryPassphrase = passphrase;
+          await pluginState.sendGroupText(groupId, `已设置入群暗号为：${passphrase}`);
+      }
+      saveConfig(ctx);
+      return true;
+  }
+
+  // ===== 消息过滤开关 =====
+  if (text.startsWith('屏蔽 ') || text.startsWith('取消屏蔽 ')) {
+      if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+      const isBlock = text.startsWith('屏蔽 ');
+      const type = text.slice(isBlock ? 3 : 5).trim();
+      
+      if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+      const gs = pluginState.config.groups[groupId];
+      if (!gs.msgFilter) gs.msgFilter = { ...pluginState.config.global.msgFilter }; // 初始化
+      
+      switch (type) {
+          case '图片': gs.msgFilter.blockImage = isBlock; break;
+          case '视频': gs.msgFilter.blockVideo = isBlock; break;
+          case '语音': gs.msgFilter.blockRecord = isBlock; break;
+          case '链接': gs.msgFilter.blockUrl = isBlock; break;
+          case '二维码': gs.msgFilter.blockQr = isBlock; break;
+          case '名片': gs.msgFilter.blockContact = isBlock; break;
+          case '小程序': gs.msgFilter.blockLightApp = isBlock; break;
+          case '转发': gs.msgFilter.blockForward = isBlock; break;
+          default:
+              await pluginState.sendGroupText(groupId, '未知类型。支持：图片、视频、语音、链接、二维码、名片、小程序、转发');
+              return true;
+      }
+      saveConfig(ctx);
+      await pluginState.sendGroupText(groupId, `已${isBlock ? '屏蔽' : '取消屏蔽'}：${type}`);
+      return true;
   }
 
   // ===== 欢迎词设置 =====
@@ -576,6 +729,89 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
         { type: 'text', data: { text: ` 消耗${cost}积分抽奖...\n🎉 ${prize}\n当前积分：${userSignin.points}` } }
     ]);
     return true;
+  }
+  
+  // ===== 积分商城 =====
+  if (text === '积分商城' || text === '商城') {
+      if (pluginState.getGroupSettings(groupId).disableLottery) { await pluginState.sendGroupText(groupId, '本群积分功能已关闭'); return true; }
+      
+      const menu = `🛒 积分商城
+----------------
+1. 免死金牌 (清除警告) - 100积分
+   指令：兑换 免死金牌
+2. 自定义头衔 (永久) - 500积分
+   指令：兑换 头衔 <内容>
+3. 解除禁言 (自己) - 200积分
+   指令：兑换 解禁
+----------------
+发送“我的积分”查看余额`;
+      await pluginState.sendGroupText(groupId, menu);
+      return true;
+  }
+
+  if (text.startsWith('兑换 ')) {
+      if (pluginState.getGroupSettings(groupId).disableLottery) { return true; }
+      
+      const args = text.slice(3).trim().split(/\s+/);
+      const item = args[0];
+      const param = args.slice(1).join(' ');
+      
+      let userSignin = await dbQuery.getSignin(groupId, userId);
+      if (!userSignin) userSignin = { lastSignin: 0, days: 0, points: 0 };
+      
+      if (item === '免死金牌') {
+          const cost = 100;
+          if (userSignin.points < cost) { await pluginState.sendGroupText(groupId, `积分不足，需要 ${cost} 积分`); return true; }
+          
+          const warnings = await dbQuery.getWarning(groupId, userId);
+          if (warnings <= 0) { await pluginState.sendGroupText(groupId, '你当前没有警告记录，无需使用免死金牌'); return true; }
+          
+          userSignin.points -= cost;
+          await dbQuery.updateSignin(groupId, userId, userSignin);
+          await dbQuery.setWarning(groupId, userId, 0);
+          await pluginState.sendGroupText(groupId, `兑换成功！已清除所有警告记录。\n剩余积分：${userSignin.points}`);
+          return true;
+      }
+      
+      if (item === '头衔') {
+          const cost = 500;
+          if (userSignin.points < cost) { await pluginState.sendGroupText(groupId, `积分不足，需要 ${cost} 积分`); return true; }
+          if (!param) { await pluginState.sendGroupText(groupId, '请指定头衔内容：兑换 头衔 <内容>'); return true; }
+          
+          // 检查机器人权限
+          if (!await pluginState.isBotAdmin(groupId)) { await pluginState.sendGroupText(groupId, '兑换失败：机器人非管理员，无法设置头衔'); return true; }
+          
+          userSignin.points -= cost;
+          await dbQuery.updateSignin(groupId, userId, userSignin);
+          await pluginState.callApi('set_group_special_title', { group_id: groupId, user_id: userId, special_title: param });
+          await pluginState.sendGroupText(groupId, `兑换成功！头衔已设置为：${param}\n剩余积分：${userSignin.points}`);
+          return true;
+      }
+      
+      if (item === '解禁') {
+          const cost = 200;
+          // 注意：被禁言后无法发送消息，除非是私聊机器人或在其他未禁言群操作（跨群操作暂不支持，这里假设用户刚解禁想买个防身，或者通过临时会话？）
+          // 实际上被禁言无法发群消息。这个功能只能是“预防”或者“通过私聊触发（需支持私聊路由到群）”。
+          // 由于 handleCommand 目前逻辑：私聊只能主人用，群聊才能触发群功能。
+          // 所以这个“兑换 解禁”在群里发出来的前提是没被禁言... 逻辑有点悖论。
+          // 除非是“解除刚才的误封”或者“帮别人解禁”？
+          // 改为“帮解禁”：兑换 解禁 @某人
+          
+          const target = getTarget(raw, param) || userId; // 默认为自己
+          if (userSignin.points < cost) { await pluginState.sendGroupText(groupId, `积分不足，需要 ${cost} 积分`); return true; }
+          
+          // 检查机器人权限
+          if (!await pluginState.isBotAdmin(groupId)) { await pluginState.sendGroupText(groupId, '机器人非管理员'); return true; }
+
+          userSignin.points -= cost;
+          await dbQuery.updateSignin(groupId, userId, userSignin);
+          await pluginState.callApi('set_group_ban', { group_id: groupId, user_id: target, duration: 0 });
+          await pluginState.sendGroupText(groupId, `兑换成功！已解除 ${target} 的禁言。\n剩余积分：${userSignin.points}`);
+          return true;
+      }
+      
+      await pluginState.sendGroupText(groupId, '未知商品。请发送“积分商城”查看列表。');
+      return true;
   }
   
   // ===== 发言奖励 =====

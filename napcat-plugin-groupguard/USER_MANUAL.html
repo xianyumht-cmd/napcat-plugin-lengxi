@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GroupGuard 用户手册 (租户版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#10B981',
+                        secondary: '#475569',
+                        bg: '#F3F4F6',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .cmd-box { background: #F1F5F9; border-left: 4px solid #10B981; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; }
+        .cmd-title { font-weight: bold; color: #1E293B; margin-bottom: 0.5rem; display: block; }
+        .cmd-code { font-family: 'Fira Code', monospace; color: #059669; font-size: 0.95em; }
+        .tag { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+        .tag-free { background: #E2E8F0; color: #64748B; }
+        .tag-pro { background: #DBEAFE; color: #2563EB; }
+    </style>
+</head>
+<body class="bg-gray-100 text-slate-800">
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8 text-center bg-white rounded-2xl shadow-sm p-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500 rounded-2xl shadow-lg mb-4 text-white text-3xl">
+                🛡️
+            </div>
+            <h1 class="text-3xl font-bold text-slate-900">群管机器人使用手册</h1>
+            <p class="text-slate-500 mt-2">高效 · 稳定 · 全能</p>
+        </header>
+
+        <!-- Navigation -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <a href="#activate" class="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition text-center font-medium text-emerald-600">激活授权</a>
+            <a href="#verify" class="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition text-center font-medium text-emerald-600">入群验证</a>
+            <a href="#manage" class="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition text-center font-medium text-emerald-600">群员管理</a>
+            <a href="#interact" class="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition text-center font-medium text-emerald-600">互动娱乐</a>
+        </div>
+
+        <!-- Content -->
+        <div class="space-y-8">
+
+            <!-- Activation -->
+            <section id="activate" class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">1. 激活与授权</h2>
+                <div class="cmd-box">
+                    <span class="cmd-title">激活授权</span>
+                    <p class="text-sm text-slate-500 mb-2">如果您拥有激活码，请在群内发送：</p>
+                    <div class="cmd-code">激活 &lt;激活码&gt;</div>
+                </div>
+                <div class="cmd-box">
+                    <span class="cmd-title">查询授权</span>
+                    <p class="text-sm text-slate-500 mb-2">查看当前群的授权状态及剩余时间：</p>
+                    <div class="cmd-code">查询授权</div>
+                </div>
+            </section>
+
+            <!-- Verification -->
+            <section id="verify" class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">2. 入群验证系统 <span class="tag tag-pro">专业版</span></h2>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-2">基础开关</h3>
+                        <ul class="space-y-2 text-sm">
+                            <li><code class="cmd-code">开启功能 入群验证</code></li>
+                            <li><code class="cmd-code">关闭功能 入群验证</code></li>
+                            <li><code class="cmd-code">开启功能 自动同意</code> (无需验证直接进群)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-2">进阶设置</h3>
+                        <ul class="space-y-2 text-sm">
+                            <li><code class="cmd-code">设置暗号 &lt;内容&gt;</code> (入群答案必须匹配)</li>
+                            <li><code class="cmd-code">设置暗号 关闭</code></li>
+                            <li><code class="cmd-code">开启功能 暗号回落</code> (暗号未启用时自动同意)</li>
+                            <li><code class="cmd-code">设置欢迎词 &lt;内容&gt;</code> (支持 {user})</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Management -->
+            <section id="manage" class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">3. 群员管理指令</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-2">常规操作</h3>
+                        <div class="space-y-2">
+                            <div class="cmd-code">踢出 @某人</div>
+                            <div class="cmd-code">禁言 @某人 &lt;分钟&gt;</div>
+                            <div class="cmd-code">解禁 @某人</div>
+                            <div class="cmd-code">全体禁言 / 全体解禁</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-2">警告系统</h3>
+                        <div class="space-y-2">
+                            <div class="cmd-code">警告 @某人</div>
+                            <p class="text-xs text-slate-500">累计3次自动踢出/禁言</p>
+                            <div class="cmd-code">查看警告 @某人</div>
+                            <div class="cmd-code">清除警告 @某人</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-2">黑名单管理</h3>
+                        <div class="space-y-2">
+                            <div class="cmd-code">群拉黑 @某人</div>
+                            <div class="cmd-code">群取消拉黑 @某人</div>
+                            <div class="cmd-code">群黑名单列表</div>
+                            <div class="cmd-code">开启功能 退群拉黑</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-2">内容过滤</h3>
+                        <div class="space-y-2">
+                            <div class="cmd-code">添加违禁词 &lt;词&gt;</div>
+                            <div class="cmd-code">删除违禁词 &lt;词&gt;</div>
+                            <div class="cmd-code">屏蔽 图片/视频/链接/小程序</div>
+                            <div class="cmd-code">取消屏蔽 图片/视频...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Interaction -->
+            <section id="interact" class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">4. 互动娱乐功能</h2>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-lg">
+                        <h3 class="font-bold text-slate-700 mb-2">签到系统</h3>
+                        <div class="space-y-1 text-sm">
+                            <div><code class="cmd-code">签到</code></div>
+                            <div><code class="cmd-code">签到榜</code></div>
+                            <div><code class="cmd-code">我的积分</code></div>
+                            <div class="mt-2 text-xs text-slate-400">开关: 开启功能 签到</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg">
+                        <h3 class="font-bold text-slate-700 mb-2">抽奖系统</h3>
+                        <div class="space-y-1 text-sm">
+                            <div><code class="cmd-code">抽奖</code></div>
+                            <p class="text-xs text-slate-500">消耗积分抽取大奖</p>
+                            <div class="mt-2 text-xs text-slate-400">开关: 开启功能 抽奖</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg">
+                        <h3 class="font-bold text-slate-700 mb-2">问答系统</h3>
+                        <div class="space-y-1 text-sm">
+                            <div><code class="cmd-code">问 &lt;问题&gt; 答 &lt;内容&gt;</code></div>
+                            <div><code class="cmd-code">删问 &lt;问题&gt;</code></div>
+                            <div><code class="cmd-code">问答列表</code></div>
+                            <div class="mt-2 text-xs text-slate-400">开关: 开启功能 问答</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 bg-slate-50 p-4 rounded-lg">
+                    <h3 class="font-bold text-slate-700 mb-2">🛍️ 积分商城</h3>
+                    <div class="grid md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <div class="cmd-code">积分商城</div>
+                            <p class="text-xs text-slate-500 mb-1">查看可兑换商品列表</p>
+                            <div class="cmd-code">兑换 免死金牌</div>
+                            <p class="text-xs text-slate-500">消耗积分清除警告记录</p>
+                        </div>
+                        <div>
+                            <div class="cmd-code">兑换 头衔 &lt;内容&gt;</div>
+                            <p class="text-xs text-slate-500 mb-1">自定义群头衔 (永久)</p>
+                            <div class="cmd-code">兑换 解禁</div>
+                            <p class="text-xs text-slate-500">消耗积分解除禁言</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">5. 其他高级功能</h2>
+                <div class="grid md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-bold text-slate-700">定时任务</span>
+                        <div class="cmd-code mt-1">定时任务 08:00 早安！</div>
+                        <div class="cmd-code">删除定时任务 &lt;ID&gt;</div>
+                        <div class="cmd-code">定时列表</div>
+                    </div>
+                    <div>
+                        <span class="font-bold text-slate-700">宵禁模式</span>
+                        <div class="cmd-code mt-1">开启宵禁 00:00 06:00</div>
+                        <div class="cmd-code">关闭宵禁</div>
+                    </div>
+                    <div>
+                        <span class="font-bold text-slate-700">刷屏检测</span>
+                        <div class="cmd-code mt-1">开启功能 刷屏检测</div>
+                        <p class="text-xs text-slate-500">自动禁言短时间内发送大量消息的用户</p>
+                    </div>
+                    <div>
+                        <span class="font-bold text-slate-700">防撤回</span>
+                        <div class="cmd-code mt-1">开启防撤回</div>
+                        <div class="cmd-code">关闭防撤回</div>
+                        <p class="text-xs text-slate-500">检测到撤回消息时自动重发</p>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+        
+        <footer class="mt-12 text-center text-slate-400 text-sm pb-8">
+            &copy; 2024 GroupGuard Plugin. 使用前请确保已获得授权。
+        </footer>
+    </div>
+
+</body>
+</html>

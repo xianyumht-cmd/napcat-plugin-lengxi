@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GroupGuard 开发者/老板手册</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#64748B',
+                        bg: '#F8FAFC',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .code-block { background: #1E293B; color: #E2E8F0; padding: 1rem; border-radius: 0.5rem; font-family: 'Fira Code', monospace; overflow-x: auto; }
+        .cmd-tag { background: #DBEAFE; color: #1E40AF; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.9em; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="max-w-5xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-10 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-lg mb-4">
+                <span class="text-3xl">🛡️</span>
+            </div>
+            <h1 class="text-3xl font-bold text-slate-900">GroupGuard 开发者手册</h1>
+            <p class="text-slate-500 mt-2">v1.0.19 | 商业版群管系统</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="flex justify-center gap-4 mb-8 sticky top-0 bg-slate-50/90 backdrop-blur py-4 z-10">
+            <a href="#deploy" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">部署运维</a>
+            <a href="#auth" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">授权管理</a>
+            <a href="#risk" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">全局风控</a>
+            <a href="#global" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">全局黑白名单</a>
+        </nav>
+
+        <!-- Content -->
+        <div class="grid gap-8">
+
+            <!-- Deployment -->
+            <section id="deploy" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-blue-600 rounded-full"></span>
+                    部署与运维
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="font-semibold text-slate-700 mb-2">1. 基础环境</h3>
+                        <p class="text-sm text-slate-500 mb-2">本插件基于 NapCat (OneBot11) 运行。推荐使用 Docker 部署。</p>
+                        <div class="code-block">
+                            docker run -d -e ACCOUNT=123456789 -p 3000:3000 -p 3001:3001 --name napcat mlikiowa/napcat-docker:latest
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-700 mb-2">2. 安装插件</h3>
+                        <p class="text-sm text-slate-500 mb-2">将编译好的 <code>napcat-plugin-groupguard.zip</code> 解压到 NapCat 的 <code>plugins</code> 目录。</p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-700 mb-2">3. 初始配置</h3>
+                        <p class="text-sm text-slate-500 mb-2">首次运行后，请修改 <code>config/napcat-plugin-groupguard/config.json</code> 或使用 WebUI。</p>
+                        <ul class="list-disc list-inside text-sm text-slate-600 ml-2">
+                            <li>设置 <code>ownerQQs</code>：您的QQ号（最高权限）。</li>
+                            <li>设置 <code>licenseKey</code>：商业授权密钥（可选）。</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Auth Management -->
+            <section id="auth" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-green-600 rounded-full"></span>
+                    商业授权管理
+                </h2>
+                <p class="text-sm text-slate-500 mb-4">所有授权指令仅限 <span class="font-bold text-slate-700">主人QQ</span> 通过 <span class="font-bold text-slate-700">私聊</span> 机器人执行。</p>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-500">
+                            <tr>
+                                <th class="px-4 py-2">指令</th>
+                                <th class="px-4 py-2">说明</th>
+                                <th class="px-4 py-2">示例</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-blue-600">授权 &lt;群号&gt; &lt;天数&gt;</td>
+                                <td class="px-4 py-3">为指定群开启授权（专业版）</td>
+                                <td class="px-4 py-3 text-slate-500">授权 123456 30</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-blue-600">授权 &lt;群号&gt; 永久</td>
+                                <td class="px-4 py-3">为指定群开启永久授权（企业版）</td>
+                                <td class="px-4 py-3 text-slate-500">授权 123456 永久</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-blue-600">回收授权 &lt;群号&gt;</td>
+                                <td class="px-4 py-3">立即停止指定群的服务</td>
+                                <td class="px-4 py-3 text-slate-500">回收授权 123456</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-blue-600">查询授权 &lt;群号&gt;</td>
+                                <td class="px-4 py-3">查看群授权状态及剩余时间</td>
+                                <td class="px-4 py-3 text-slate-500">查询授权 123456</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Risk Control -->
+            <section id="risk" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-red-600 rounded-full"></span>
+                    全局风控系统 (Anti-Ban)
+                </h2>
+                <p class="text-sm text-slate-500 mb-4">
+                    风控设置是 <span class="font-bold">全局生效</span> 的，所有群都会应用此策略。
+                    <br>仅限主人私聊设置。
+                </p>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="border rounded-lg p-4 bg-slate-50">
+                        <h3 class="font-bold text-slate-700 mb-2">随机后缀 (Random Suffix)</h3>
+                        <p class="text-xs text-slate-500 mb-2">在所有发出的消息末尾追加不可见字符，防止内容重复被检测。</p>
+                        <div class="space-y-1">
+                            <div class="cmd-tag">开启随机后缀</div>
+                            <div class="cmd-tag">关闭随机后缀</div>
+                        </div>
+                    </div>
+                    <div class="border rounded-lg p-4 bg-slate-50">
+                        <h3 class="font-bold text-slate-700 mb-2">随机延迟 (Random Delay)</h3>
+                        <p class="text-xs text-slate-500 mb-2">发送消息前随机等待一段时间，模拟真人操作。</p>
+                        <div class="space-y-1">
+                            <div class="cmd-tag">设置随机延迟 &lt;最小ms&gt; &lt;最大ms&gt;</div>
+                            <p class="text-xs text-slate-400">例: 设置随机延迟 500 1500</p>
+                        </div>
+                    </div>
+                    <div class="border rounded-lg p-4 bg-slate-50">
+                        <h3 class="font-bold text-slate-700 mb-2">自身撤回 (Auto Recall Self)</h3>
+                        <p class="text-xs text-slate-500 mb-2">机器人发出的消息在指定时间后自动撤回，减少历史记录留存。</p>
+                        <div class="space-y-1">
+                            <div class="cmd-tag">开启全局自身撤回</div>
+                            <div class="cmd-tag">关闭全局自身撤回</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Global Management -->
+            <section id="global" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-purple-600 rounded-full"></span>
+                    全局黑白名单
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <tbody class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-purple-600">拉黑 &lt;QQ&gt;</td>
+                                <td class="px-4 py-3">全局拉黑，该用户在所有群无法触发指令</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-purple-600">取消拉黑 &lt;QQ&gt;</td>
+                                <td class="px-4 py-3">解除全局拉黑</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-purple-600">白名单 &lt;QQ&gt;</td>
+                                <td class="px-4 py-3">全局白名单，豁免所有检测（刷屏、违禁词等）</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-purple-600">取消白名单 &lt;QQ&gt;</td>
+                                <td class="px-4 py-3">解除全局白名单</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-purple-600">添加全局违禁词 &lt;词&gt;</td>
+                                <td class="px-4 py-3">设置所有群通用的违禁词</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-purple-600">添加全局拒绝词 &lt;词&gt;</td>
+                                <td class="px-4 py-3">设置所有群通用的入群拒绝关键词</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Advanced Features -->
+            <section id="advanced" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-orange-600 rounded-full"></span>
+                    高级功能 (仅限主人)
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <tbody class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-orange-600">多群广播 &lt;内容&gt;</td>
+                                <td class="px-4 py-3">向所有已授权的群发送通知消息（自动延时防风控）</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-orange-600">开启/关闭调试</td>
+                                <td class="px-4 py-3">开启或关闭详细日志输出（Debug Mode）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+        
+        <footer class="mt-12 text-center text-slate-400 text-sm">
+            &copy; 2024 GroupGuard System. All Rights Reserved.
+        </footer>
+    </div>
+
+</body>
+</html>
