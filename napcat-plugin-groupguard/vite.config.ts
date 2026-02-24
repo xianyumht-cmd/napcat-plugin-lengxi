@@ -16,7 +16,9 @@ export default defineConfig({
       formats: ['es'],
       fileName: () => 'index.mjs',
     },
-    rollupOptions: { external: [...nodeModules] },
+    rollupOptions: { 
+      external: [...nodeModules, 'better-sqlite3', 'jimp', 'jsqr'],
+    },
     outDir: 'dist',
     emptyDirBeforeWrite: true,
   },
