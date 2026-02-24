@@ -1,231 +1,159 @@
-import mysql from 'mysql2/promise';
+import fs from 'fs';
+import path from 'path';
 import type { ActivityRecord, SigninData, InviteData } from './types';
 import { pluginState } from './state';
 
-let pool: mysql.Pool;
+// 内存缓存
+const cache = {
+    activity: new Map<string, Record<string, ActivityRecord>>(),
+    signin: new Map<string, Record<string, SigninData>>(),
+    invites: new Map<string, Record<string, InviteData>>(),
+    warnings: new Map<string, Record<string, number>>(),
+};
+
+// 写入队列 (去抖动)
+const writeQueue = new Set<string>();
+let writeTimer: NodeJS.Timeout | null = null;
+const WRITE_DELAY = 5000; // 5秒延迟写入
+
+let dataDir = '';
 
 export async function initDB() {
-  const config = pluginState.config.mysql;
-  if (!config) {
-      console.error('MySQL 配置缺失');
-      return;
-  }
+    // 确保数据目录存在
+    dataDir = path.join(pluginState.configDir, 'data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-  pool = mysql.createPool({
-    host: config.host || '127.0.0.1',
-    port: config.port || 3306,
-    user: config.user || 'root',
-    password: config.password || '',
-    database: config.database || 'napcat_groupguard',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
-  });
-
-  try {
-      // 检查连接
-      const conn = await pool.getConnection();
-      console.log('MySQL 连接成功');
-      conn.release();
-
-      // 初始化表结构
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS activity (
-          group_id VARCHAR(32),
-          user_id VARCHAR(32),
-          msg_count INT DEFAULT 0,
-          last_active BIGINT DEFAULT 0,
-          role VARCHAR(20) DEFAULT 'member',
-          msg_count_today INT DEFAULT 0,
-          last_active_day VARCHAR(20),
-          PRIMARY KEY (group_id, user_id)
-        )
-      `);
-
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS signin (
-          group_id VARCHAR(32),
-          user_id VARCHAR(32),
-          days INT DEFAULT 0,
-          last_signin BIGINT DEFAULT 0,
-          points INT DEFAULT 0,
-          PRIMARY KEY (group_id, user_id)
-        )
-      `);
-
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS invites (
-          group_id VARCHAR(32),
-          user_id VARCHAR(32),
-          inviter_id VARCHAR(32),
-          invite_count INT DEFAULT 0,
-          join_time BIGINT,
-          PRIMARY KEY (group_id, user_id)
-        )
-      `);
-      
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS warnings (
-            group_id VARCHAR(32),
-            user_id VARCHAR(32),
-            count INT DEFAULT 0,
-            PRIMARY KEY (group_id, user_id)
-        )
-      `);
-  } catch (err) {
-      console.error('MySQL 初始化失败:', err);
-  }
+    // 确保子目录存在
+    ['activity', 'signin', 'invites', 'warnings'].forEach(sub => {
+        const dir = path.join(dataDir, sub);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    });
+    
+    console.log('JSON DB v2.0 initialized at', dataDir);
 }
 
-// 辅助函数：执行查询并返回第一行
-async function getOne<T>(sql: string, params: any[]): Promise<T | undefined> {
+// 通用加载函数 (带缓存)
+function loadData<T>(type: keyof typeof cache, groupId: string): Record<string, T> {
+    const key = `${type}:${groupId}`;
+    if (cache[type].has(groupId)) {
+        return cache[type].get(groupId) as Record<string, T>;
+    }
+
+    const filePath = path.join(dataDir, type, `${groupId}.json`);
     try {
-        const [rows] = await pool.execute(sql, params);
-        return (rows as any[])[0] as T;
+        if (fs.existsSync(filePath)) {
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            cache[type].set(groupId, data);
+            return data;
+        }
     } catch (e) {
-        console.error('DB Error:', e);
-        return undefined;
+        console.error(`Failed to load ${type} data for group ${groupId}:`, e);
+    }
+
+    const empty = {};
+    cache[type].set(groupId, empty);
+    return empty;
+}
+
+// 触发写入 (原子操作 + 去抖动)
+function scheduleWrite(type: keyof typeof cache, groupId: string) {
+    const key = `${type}|${groupId}`;
+    writeQueue.add(key);
+
+    if (!writeTimer) {
+        writeTimer = setTimeout(flushWrites, WRITE_DELAY);
     }
 }
 
-// 辅助函数：执行写入
-async function execute(sql: string, params: any[]) {
-    try {
-        await pool.execute(sql, params);
-    } catch (e) {
-        console.error('DB Error:', e);
+// 立即写入所有挂起的数据
+function flushWrites() {
+    if (writeTimer) {
+        clearTimeout(writeTimer);
+        writeTimer = null;
+    }
+
+    const queue = Array.from(writeQueue);
+    writeQueue.clear();
+
+    for (const item of queue) {
+        const [type, groupId] = item.split('|') as [keyof typeof cache, string];
+        const data = cache[type].get(groupId);
+        if (!data) continue;
+
+        const filePath = path.join(dataDir, type, `${groupId}.json`);
+        const tempPath = `${filePath}.tmp`;
+
+        try {
+            fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
+            fs.renameSync(tempPath, filePath); // 原子重命名，防止写入中断导致文件损坏
+        } catch (e) {
+            console.error(`Failed to write ${type} data for group ${groupId}:`, e);
+        }
     }
 }
+
+// 定时保存 (双重保险)
+setInterval(flushWrites, 60000);
 
 export const dbQuery = {
     // Activity
     getActivity: (groupId: string, userId: string): ActivityRecord | undefined => {
-        // 同步方法无法直接调用 async DB，这里需要修改调用逻辑或使用缓存
-        // 鉴于架构变更较大，我们暂时使用 "Fire-and-Forget" 或 简单的 Promise 包装
-        // 但为了兼容旧代码同步调用，这里必须返回 Promise，或者重构 commands.ts 为全异步
-        // 修正：dbQuery 方法全部改为 async，并在 commands.ts 中 await
-        return undefined as any; // 占位，实际在 commands.ts 中并未严格要求同步，但部分逻辑可能需要调整
+        // 兼容异步接口，虽然这里是同步的，但为了不改 commands.ts 太多
+        // 实际上 v2.0 JSON 是内存操作，速度极快
+        return undefined as any; 
     },
     
-    // 实际的异步实现
     getActivityAsync: async (groupId: string, userId: string): Promise<ActivityRecord | undefined> => {
-        const row = await getOne<any>('SELECT * FROM activity WHERE group_id = ? AND user_id = ?', [groupId, userId]);
-        if (!row) return undefined;
-        return {
-            msgCount: row.msg_count,
-            lastActive: row.last_active,
-            role: row.role,
-            msgCountToday: row.msg_count_today,
-            lastActiveDay: row.last_active_day
-        };
+        const data = loadData<ActivityRecord>('activity', groupId);
+        return data[userId] ? { ...data[userId] } : undefined;
     },
 
     updateActivity: async (groupId: string, userId: string, data: ActivityRecord) => {
-        await execute(`
-            INSERT INTO activity (group_id, user_id, msg_count, last_active, role, msg_count_today, last_active_day)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-            msg_count = VALUES(msg_count),
-            last_active = VALUES(last_active),
-            role = VALUES(role),
-            msg_count_today = VALUES(msg_count_today),
-            last_active_day = VALUES(last_active_day)
-        `, [groupId, userId, data.msgCount, data.lastActive, data.role, data.msgCountToday || 0, data.lastActiveDay || '']);
+        const allData = loadData<ActivityRecord>('activity', groupId);
+        allData[userId] = data;
+        scheduleWrite('activity', groupId);
     },
 
     getAllActivity: async (groupId: string): Promise<Record<string, ActivityRecord>> => {
-        const [rows] = await pool.execute('SELECT * FROM activity WHERE group_id = ?', [groupId]);
-        const res: Record<string, ActivityRecord> = {};
-        for (const row of (rows as any[])) {
-            res[row.user_id] = {
-                msgCount: row.msg_count,
-                lastActive: row.last_active,
-                role: row.role,
-                msgCountToday: row.msg_count_today,
-                lastActiveDay: row.last_active_day
-            };
-        }
-        return res;
+        return { ...loadData<ActivityRecord>('activity', groupId) };
     },
 
     // Signin
     getSignin: async (groupId: string, userId: string): Promise<SigninData | undefined> => {
-        const row = await getOne<any>('SELECT * FROM signin WHERE group_id = ? AND user_id = ?', [groupId, userId]);
-        if (!row) return undefined;
-        return {
-            days: row.days,
-            lastSignin: row.last_signin,
-            points: row.points
-        };
+        const data = loadData<SigninData>('signin', groupId);
+        return data[userId] ? { ...data[userId] } : undefined;
     },
     updateSignin: async (groupId: string, userId: string, data: SigninData) => {
-        await execute(`
-            INSERT INTO signin (group_id, user_id, days, last_signin, points)
-            VALUES (?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-            days = VALUES(days),
-            last_signin = VALUES(last_signin),
-            points = VALUES(points)
-        `, [groupId, userId, data.days, data.lastSignin, data.points]);
+        const allData = loadData<SigninData>('signin', groupId);
+        allData[userId] = data;
+        scheduleWrite('signin', groupId);
     },
     getAllSignin: async (groupId: string): Promise<Record<string, SigninData>> => {
-        const [rows] = await pool.execute('SELECT * FROM signin WHERE group_id = ?', [groupId]);
-        const res: Record<string, SigninData> = {};
-        for (const row of (rows as any[])) {
-            res[row.user_id] = {
-                days: row.days,
-                lastSignin: row.last_signin,
-                points: row.points
-            };
-        }
-        return res;
+        return { ...loadData<SigninData>('signin', groupId) };
     },
 
     // Invites
     getInvite: async (groupId: string, userId: string): Promise<InviteData | undefined> => {
-        const row = await getOne<any>('SELECT * FROM invites WHERE group_id = ? AND user_id = ?', [groupId, userId]);
-        if (!row) return undefined;
-        return {
-            inviterId: row.inviter_id,
-            inviteCount: row.invite_count,
-            joinTime: row.join_time
-        };
+        const data = loadData<InviteData>('invites', groupId);
+        return data[userId] ? { ...data[userId] } : undefined;
     },
     updateInvite: async (groupId: string, userId: string, data: InviteData) => {
-        await execute(`
-            INSERT INTO invites (group_id, user_id, inviter_id, invite_count, join_time)
-            VALUES (?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-            inviter_id = VALUES(inviter_id),
-            invite_count = VALUES(invite_count),
-            join_time = VALUES(join_time)
-        `, [groupId, userId, data.inviterId || '', data.inviteCount, data.joinTime || 0]);
+        const allData = loadData<InviteData>('invites', groupId);
+        allData[userId] = data;
+        scheduleWrite('invites', groupId);
     },
     getAllInvites: async (groupId: string): Promise<Record<string, InviteData>> => {
-        const [rows] = await pool.execute('SELECT * FROM invites WHERE group_id = ?', [groupId]);
-        const res: Record<string, InviteData> = {};
-        for (const row of (rows as any[])) {
-            res[row.user_id] = {
-                inviterId: row.inviter_id,
-                inviteCount: row.invite_count,
-                joinTime: row.join_time
-            };
-        }
-        return res;
+        return { ...loadData<InviteData>('invites', groupId) };
     },
 
     // Warnings
     getWarning: async (groupId: string, userId: string): Promise<number> => {
-        const row = await getOne<any>('SELECT count FROM warnings WHERE group_id = ? AND user_id = ?', [groupId, userId]);
-        return row ? row.count : 0;
+        const data = loadData<number>('warnings', groupId);
+        return data[userId] || 0;
     },
     setWarning: async (groupId: string, userId: string, count: number) => {
-        await execute(`
-            INSERT INTO warnings (group_id, user_id, count)
-            VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE count = VALUES(count)
-        `, [groupId, userId, count]);
+        const allData = loadData<number>('warnings', groupId);
+        allData[userId] = count;
+        scheduleWrite('warnings', groupId);
     }
 };
