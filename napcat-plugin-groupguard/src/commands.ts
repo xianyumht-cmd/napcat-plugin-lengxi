@@ -59,17 +59,22 @@ export function saveConfig (ctx: NapCatPluginContext): void {
       const mainConfig = { ...pluginState.config, groups: {} };
       fs.writeFileSync(ctx.configPath, JSON.stringify(mainConfig, null, 2), 'utf-8');
       
-      // 2. 保存分群配置
-      const groupsDir = path.join(path.dirname(ctx.configPath), 'groups');
+      // 2. 保存分群配置到 data/groups/{gid}/config.json
+      const dataDir = path.join(path.dirname(ctx.configPath), 'data');
+      const groupsDir = path.join(dataDir, 'groups');
       if (!fs.existsSync(groupsDir)) fs.mkdirSync(groupsDir, { recursive: true });
       
       for (const [gid, cfg] of Object.entries(pluginState.config.groups)) {
         if (cfg) {
-          fs.writeFileSync(path.join(groupsDir, `${gid}.json`), JSON.stringify(cfg, null, 2), 'utf-8');
+          const groupDir = path.join(groupsDir, gid);
+          if (!fs.existsSync(groupDir)) fs.mkdirSync(groupDir, { recursive: true });
+          fs.writeFileSync(path.join(groupDir, 'config.json'), JSON.stringify(cfg, null, 2), 'utf-8');
         }
       }
     }
-  } catch { /* ignore */ }
+  } catch (e) {
+    pluginState.log('error', `保存配置失败: ${e}`);
+  }
 }
 
 /** 处理群管指令，返回 true 表示已处理 */

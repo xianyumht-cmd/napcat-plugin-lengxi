@@ -60,22 +60,71 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
       const raw = JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8'));
       pluginState.config = { ...JSON.parse(JSON.stringify(DEFAULT_PLUGIN_CONFIG)), ...raw };
       
-      // 迁移旧的分群配置到独立文件
-      if (pluginState.config.groups && Object.keys(pluginState.config.groups).length > 0) {
-        pluginState.log('info', '正在迁移旧的分群配置...');
-        const groupsDir = path.join(pluginState.configDir, 'groups');
-        if (!fs.existsSync(groupsDir)) fs.mkdirSync(groupsDir, { recursive: true });
-        
-        for (const [gid, cfg] of Object.entries(pluginState.config.groups)) {
-          fs.writeFileSync(path.join(groupsDir, `${gid}.json`), JSON.stringify(cfg, null, 2), 'utf-8');
+      // 确保 data 目录存在
+      const dataDir = path.join(pluginState.configDir, 'data');
+      const groupsDataDir = path.join(dataDir, 'groups');
+      if (!fs.existsSync(groupsDataDir)) fs.mkdirSync(groupsDataDir, { recursive: true });
+
+      // 迁移旧的分群配置 (groups/*.json -> data/groups/*/config.json)
+      const oldGroupsDir = path.join(pluginState.configDir, 'groups');
+      if (fs.existsSync(oldGroupsDir)) {
+        const files = fs.readdirSync(oldGroupsDir);
+        for (const file of files) {
+          if (file.endsWith('.json')) {
+            const gid = file.replace('.json', '');
+            const oldPath = path.join(oldGroupsDir, file);
+            const newGroupDir = path.join(groupsDataDir, gid);
+            if (!fs.existsSync(newGroupDir)) fs.mkdirSync(newGroupDir, { recursive: true });
+            
+            // 移动并重命名为 config.json
+            const newPath = path.join(newGroupDir, 'config.json');
+            if (!fs.existsSync(newPath)) {
+                fs.renameSync(oldPath, newPath);
+                pluginState.log('info', `已迁移群配置: ${gid}`);
+            } else {
+                // 如果新位置已有配置，保留新位置，删除旧文件
+                fs.unlinkSync(oldPath);
+            }
+          }
         }
-        
-        // 清空主配置文件中的 groups，减小体积
-        pluginState.config.groups = {};
-        fs.writeFileSync(ctx.configPath, JSON.stringify(pluginState.config, null, 2), 'utf-8');
-        pluginState.log('info', '分群配置迁移完成');
+        // 尝试删除空的旧目录
+        try { fs.rmdirSync(oldGroupsDir); } catch {}
       }
-    } catch { /* ignore */ }
+
+      // 从主配置迁移内嵌的 groups (针对首次从单文件迁移的情况)
+      if (pluginState.config.groups && Object.keys(pluginState.config.groups).length > 0) {
+        for (const [gid, cfg] of Object.entries(pluginState.config.groups)) {
+          const groupDir = path.join(groupsDataDir, gid);
+          if (!fs.existsSync(groupDir)) fs.mkdirSync(groupDir, { recursive: true });
+          fs.writeFileSync(path.join(groupDir, 'config.json'), JSON.stringify(cfg, null, 2), 'utf-8');
+        }
+        // 清空主配置文件中的 groups (保存时生效，内存中保留)
+        // 注意：这里不能清空 pluginState.config.groups，因为运行时需要用它！
+        // 我们只需确保 saveConfig 时不写入 groups 到主文件即可（saveConfig 已实现此逻辑）
+      }
+
+      // 加载所有分群配置到内存
+      if (fs.existsSync(groupsDataDir)) {
+          const groupDirs = fs.readdirSync(groupsDataDir);
+          for (const gid of groupDirs) {
+              const cfgPath = path.join(groupsDataDir, gid, 'config.json');
+              if (fs.existsSync(cfgPath)) {
+                  try {
+                      const groupCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+                      pluginState.config.groups[gid] = groupCfg;
+                  } catch (e) {
+                      pluginState.log('error', `加载群 ${gid} 配置失败: ${e}`);
+                  }
+              }
+          }
+      }
+
+      // 立即保存一次主配置以移除内嵌的 groups (如果之前有)
+      saveConfig(ctx);
+
+    } catch (e) {
+        pluginState.log('error', `加载配置出错: ${e}`);
+    }
   }
 
   // 初始化数据库
