@@ -59,7 +59,7 @@ export function saveConfig (ctx: NapCatPluginContext): void {
       const mainConfig = { ...pluginState.config, groups: {} };
       fs.writeFileSync(ctx.configPath, JSON.stringify(mainConfig, null, 2), 'utf-8');
       
-      // 2. 保存分群配置到 data/groups/{gid}/config.json
+      // 2. 保存分群配置到 data/groups/{gid}/
       const dataDir = path.join(path.dirname(ctx.configPath), 'data');
       const groupsDir = path.join(dataDir, 'groups');
       if (!fs.existsSync(groupsDir)) fs.mkdirSync(groupsDir, { recursive: true });
@@ -68,7 +68,17 @@ export function saveConfig (ctx: NapCatPluginContext): void {
         if (cfg) {
           const groupDir = path.join(groupsDir, gid);
           if (!fs.existsSync(groupDir)) fs.mkdirSync(groupDir, { recursive: true });
-          fs.writeFileSync(path.join(groupDir, 'config.json'), JSON.stringify(cfg, null, 2), 'utf-8');
+          
+          // 分离 QA 数据
+          const qaList = cfg.qaList || [];
+          const configToSave = { ...cfg };
+          delete configToSave.qaList;
+          
+          // 保存 config.json
+          fs.writeFileSync(path.join(groupDir, 'config.json'), JSON.stringify(configToSave, null, 2), 'utf-8');
+          
+          // 保存 qa.json
+          fs.writeFileSync(path.join(groupDir, 'qa.json'), JSON.stringify(qaList, null, 2), 'utf-8');
         }
       }
     }
@@ -164,12 +174,30 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
           // 已在上文处理，此处逻辑保留但实际上不会走到
           return true;
       }
+      
+      if (text === '开启调试') {
+          pluginState.config.debug = true;
+          saveConfig(ctx);
+          await pluginState.sendPrivateMsg(userId, '调试模式已开启');
+          return true;
+      }
+      if (text === '关闭调试') {
+          pluginState.config.debug = false;
+          saveConfig(ctx);
+          await pluginState.sendPrivateMsg(userId, '调试模式已关闭');
+          return true;
+      }
+
+      // 未匹配到任何指令
+      pluginState.log('warn', `主人私聊发送了未知指令: [${text}]`);
+      await pluginState.sendPrivateMsg(userId, `未知指令: ${text}\n请发送“菜单”查看可用指令。`);
+      return true;
+
     } catch (e) {
       pluginState.log('error', `处理私聊指令出错: ${e}`);
       await pluginState.sendPrivateMsg(userId, `指令执行出错: ${e}`);
       return true;
     }
-    return false;
   }
 
   const groupId = String(event.group_id);
@@ -937,7 +965,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   // ===== 问答设置 =====
   // 语法：模糊问XX答YY | 精确问XX答YY
   if (text.startsWith('模糊问') || text.startsWith('精确问')) {
-    if (!pluginState.isOwner(userId) && !await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     
     let mode = 'contains';
     let rest = '';
@@ -978,6 +1006,7 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // 兼容旧指令
   if (text.startsWith('添加正则问答 ')) {
+      if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
       const rest = text.slice(7).trim();
       const sep = rest.indexOf('|');
       if (sep < 1) { await pluginState.sendGroupText(groupId, '格式：添加正则问答 表达式|回复'); return true; }
@@ -995,23 +1024,32 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
      await pluginState.sendGroupText(groupId, '指令已更新，请使用：精确问XX答YY / 模糊问XX答YY');
      return true;
   }
-  if (text.startsWith('删除问答 ')) {
-    if (!pluginState.isOwner(userId) && !await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
-    const keyword = text.slice(5).trim();
-    if (!keyword) { await pluginState.sendGroupText(groupId, '请指定关键词：删除问答 关键词'); return true; }
+
+  if (text.startsWith('删除问答 ') || text.startsWith('删问')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    
+    const prefix = text.startsWith('删问') ? '删问' : '删除问答 ';
+    const keyword = text.slice(prefix.length).trim();
+    if (!keyword) { await pluginState.sendGroupText(groupId, '请指定关键词'); return true; }
+
     const isGroupCustom = pluginState.config.groups[groupId] && !pluginState.config.groups[groupId].useGlobal;
     if (isGroupCustom) {
-      const gs = pluginState.config.groups[groupId];
-      const before = (gs.qaList || []).length;
-      gs.qaList = (gs.qaList || []).filter(q => q.keyword !== keyword);
-      if (gs.qaList.length === before) { await pluginState.sendGroupText(groupId, `未找到问答：${keyword}`); return true; }
+        const gs = pluginState.config.groups[groupId];
+        if (gs.qaList) {
+            const before = gs.qaList.length;
+            gs.qaList = gs.qaList.filter(q => q.keyword !== keyword);
+            if (gs.qaList.length === before) {
+                 await pluginState.sendGroupText(groupId, `未找到问答：${keyword}`);
+            } else {
+                 saveConfig(ctx);
+                 await pluginState.sendGroupText(groupId, `已删除问答：${keyword}`);
+            }
+        } else {
+            await pluginState.sendGroupText(groupId, `未找到相关问答`);
+        }
     } else {
-      const before = (pluginState.config.qaList || []).length;
-      pluginState.config.qaList = (pluginState.config.qaList || []).filter(q => q.keyword !== keyword);
-      if (pluginState.config.qaList.length === before) { await pluginState.sendGroupText(groupId, `未找到问答：${keyword}`); return true; }
+        await pluginState.sendGroupText(groupId, '当前为全局配置模式，无法删除全局问答。请先开启分群独立配置。');
     }
-    saveConfig(ctx);
-    await pluginState.sendGroupText(groupId, `已删除问答：${keyword}`);
     return true;
   }
 
@@ -1412,6 +1450,11 @@ export async function handleQA (groupId: string, userId: string, raw: string): P
   if (!qaList.length) return false;
 
   const text = raw.replace(/\[CQ:[^\]]+\]/g, '').trim();
+  // 简单避免与管理指令冲突：如果消息以“删问”、“模糊问”、“精确问”、“删除问答”开头，则不进行问答匹配
+  if (text.startsWith('删问') || text.startsWith('模糊问') || text.startsWith('精确问') || text.startsWith('删除问答')) {
+      return false;
+  }
+
   for (const qa of qaList) {
     let matched = false;
     if (qa.mode === 'exact') matched = text === qa.keyword;

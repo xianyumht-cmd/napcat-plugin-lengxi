@@ -107,11 +107,23 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
       if (fs.existsSync(groupsDataDir)) {
           const groupDirs = fs.readdirSync(groupsDataDir);
           for (const gid of groupDirs) {
-              const cfgPath = path.join(groupsDataDir, gid, 'config.json');
+              const groupDirPath = path.join(groupsDataDir, gid);
+              const cfgPath = path.join(groupDirPath, 'config.json');
               if (fs.existsSync(cfgPath)) {
                   try {
                       const groupCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
                       pluginState.config.groups[gid] = groupCfg;
+                      
+                      // 加载 QA 配置
+                      const qaPath = path.join(groupDirPath, 'qa.json');
+                      if (fs.existsSync(qaPath)) {
+                          try {
+                              const qaData = JSON.parse(fs.readFileSync(qaPath, 'utf-8'));
+                              pluginState.config.groups[gid].qaList = qaData;
+                          } catch (e) {
+                              pluginState.log('error', `加载群 ${gid} QA配置失败: ${e}`);
+                          }
+                      }
                   } catch (e) {
                       pluginState.log('error', `加载群 ${gid} 配置失败: ${e}`);
                   }
@@ -258,20 +270,31 @@ const plugin_cleanup: PluginModule['plugin_cleanup'] = async () => {
 
 // ========== 消息处理 ==========
 const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPluginContext, event: OB11Message) => {
-  if (event.post_type !== 'message' || event.message_type !== 'group') return;
+  // 仅处理 message 类型事件
+  if (event.post_type !== 'message') return;
 
-  const groupId = String(event.group_id);
   const userId = String(event.user_id);
   const raw = event.raw_message || '';
   const messageId = String(event.message_id);
   const selfId = String((event as any).self_id || '');
   const messageSegments = (event as any).message || [];
 
-  // 0. 授权检查：未授权群完全静默，不处理任何群内指令或被动功能
-  const license = authManager.getGroupLicense(groupId);
-  if (!license) {
-    return;
+  // 1. 私聊消息处理 (优先级最高，不受群授权限制)
+  if (event.message_type === 'private') {
+      await handleCommand(event, ctx);
+      return;
   }
+
+  // 2. 群消息处理
+  if (event.message_type === 'group') {
+      const groupId = String(event.group_id);
+
+      // 0. 授权检查：未授权群完全静默，不处理任何群内指令或被动功能
+      const license = authManager.getGroupLicense(groupId);
+      if (!license) {
+        return;
+      }
+
 
   // 0.1 自身消息处理：如果是机器人自己发的消息，跳过大部分检查，仅处理撤回
   if (userId === selfId) {
@@ -286,63 +309,69 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
     return;
   }
 
-  // 2. 群管指令处理 (优先于黑名单，确保主人在黑名单中也能解除)
-  const handled = await handleCommand(event, ctx);
-  if (handled) return;
+    // 2. 群管指令处理 (优先于黑名单，确保主人在黑名单中也能解除)
+    const handled = await handleCommand(event, ctx);
+    if (handled) return;
 
-  // 0.2 白名单用户检查
-  const isWhite = pluginState.isWhitelisted(userId);
+    // 0.2 白名单用户检查
+    const isWhite = pluginState.isWhitelisted(userId);
 
-  // 1. 黑名单检查（白名单豁免）
-  if (!isWhite) {
-    const blacklisted = await handleBlacklist(groupId, userId, messageId);
-    if (blacklisted) return;
-  }
+    // 1. 黑名单检查（白名单豁免）
+    if (!isWhite) {
+      const blacklisted = await handleBlacklist(groupId, userId, messageId);
+      if (blacklisted) return;
+    }
 
-  // 2.5 问答自动回复
-  const qaHandled = await handleQA(groupId, userId, raw);
-  if (qaHandled) {
+    // 2.5 问答自动回复
+    const qaHandled = await handleQA(groupId, userId, raw);
+    if (qaHandled) {
+      await recordActivity(groupId, userId);
+      cacheMessage(messageId, userId, groupId, raw, messageSegments);
+      return;
+    }
+
+    // 3. 针对用户自动撤回（白名单豁免）
+    if (!isWhite) {
+      const recalled = await handleAutoRecall(groupId, userId, messageId);
+      if (recalled) return;
+    }
+
+    // 4. 违禁词过滤（白名单豁免）
+    if (!isWhite) {
+      const filtered = await handleFilterKeywords(groupId, userId, messageId, raw, ctx);
+      if (filtered) return;
+    }
+
+    // 4.5 消息类型过滤（白名单豁免）
+    if (!isWhite) {
+      const typeFiltered = await handleMsgTypeFilter(groupId, userId, messageId, raw, messageSegments);
+      if (typeFiltered) return;
+    }
+
+    // 5. 刷屏检测（白名单豁免）
+    if (!isWhite) {
+      await handleSpamDetect(groupId, userId, raw);
+    }
+
+    // 6. 记录活跃统计
     await recordActivity(groupId, userId);
+
+    // 7. 缓存消息（防撤回）
     cacheMessage(messageId, userId, groupId, raw, messageSegments);
-    return;
+
+    // 8. 回应表情
+    await handleEmojiReact(groupId, userId, messageId, selfId);
+
+    // 9. 验证答题
+    const settings = pluginState.getGroupSettings(groupId);
+    if (settings.enableVerify) {
+      await handleVerifyAnswer(groupId, userId, raw, messageId);
+    }
+
+    // 10. 卡片消息锁 (仅处理 JSON/XML)
+    await handleCardLockCheck(groupId, userId, messageId, raw);
+    await handleCardLockOnMessage(groupId, userId, messageId, raw);
   }
-
-  // 3. 针对用户自动撤回（白名单豁免）
-  if (!isWhite) {
-    const recalled = await handleAutoRecall(groupId, userId, messageId);
-    if (recalled) return;
-  }
-
-  // 4. 违禁词过滤（白名单豁免）
-  if (!isWhite) {
-    const filtered = await handleFilterKeywords(groupId, userId, messageId, raw, ctx);
-    if (filtered) return;
-  }
-
-  // 4.5 消息类型过滤（白名单豁免）
-  if (!isWhite) {
-    const typeFiltered = await handleMsgTypeFilter(groupId, userId, messageId, raw, messageSegments);
-    if (typeFiltered) return;
-  }
-
-  // 5. 刷屏检测（白名单豁免）
-  if (!isWhite) {
-    await handleSpamDetect(groupId, userId, raw);
-  }
-
-  // 6. 记录活跃统计
-  await recordActivity(groupId, userId);
-
-  // 7. 缓存消息（防撤回）
-  cacheMessage(messageId, userId, groupId, raw, messageSegments);
-
-  // 8. 回应表情
-  await handleEmojiReact(groupId, userId, messageId, selfId);
-
-  // 9. 验证答题
-  const settings = pluginState.getGroupSettings(groupId);
-  if (!settings.enableVerify) return;
-  await handleVerifyAnswer(groupId, userId, raw, messageId);
 };
 
 // ========== 事件处理 ==========
