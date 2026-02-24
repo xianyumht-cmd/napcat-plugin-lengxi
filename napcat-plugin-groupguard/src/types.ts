@@ -19,8 +19,10 @@ export interface MsgFilterSettings {
 }
 
 export interface PluginConfig {
+  licenseKey?: string;
   debug: boolean;
   ownerQQs: string;
+  licenses: Record<string, GroupLicense>;
   global: GroupGuardSettings;
   groups: Record<string, GroupGuardSettings>;
   antiRecallGroups: string[];
@@ -85,6 +87,59 @@ export interface GroupGuardSettings {
   msgFilter?: MsgFilterSettings;
   /** 群独立问答列表 */
   qaList?: QAEntry[];
+  /** 警告上限次数 */
+  warningLimit?: number;
+  /** 警告惩罚：ban=禁言, kick=踢出 */
+  warningAction?: 'ban' | 'kick';
+  /** 宵禁开始时间 (HH:mm) */
+  curfewStart?: string;
+  /** 宵禁结束时间 (HH:mm) */
+  curfewEnd?: string;
+  /** 是否开启宵禁 */
+  enableCurfew?: boolean;
+  /** 定时任务列表 */
+  scheduledTasks?: ScheduledTask[];
+  /** 发言奖励积分 */
+  messageReward?: number;
+  /** 签到最小积分 */
+  signinMin?: number;
+  /** 签到最大积分 */
+  signinMax?: number;
+  /** 邀请奖励积分 */
+  invitePoints?: number;
+  /** 抽奖消耗积分 */
+  lotteryCost?: number;
+  /** 抽奖最大奖励积分 */
+  lotteryReward?: number;
+  /** 自动撤回机器人自己发的消息 */
+  autoRecallSelf?: boolean;
+  /** 自动撤回延迟（秒） */
+  autoRecallSelfDelay?: number;
+}
+
+export interface ScheduledTask {
+  id: string;
+  cron: string; // 简化版: "HH:mm" 或 "interval:minutes"
+  type: 'text' | 'image';
+  content: string;
+  lastRun?: number;
+}
+
+export interface SigninData {
+  lastSigninTime: number; // timestamp
+  streak: number; // 连续签到天数
+  points: number; // 积分
+}
+
+export interface InviteData {
+  inviterId: string; // 邀请人QQ
+  inviteCount: number; // 邀请人数
+  invitedUsers: string[]; // 被邀请人QQ列表
+}
+
+export interface GroupLicense {
+  expireTime: number; // 授权过期时间戳，0表示永久
+  level: 'free' | 'pro' | 'enterprise';
 }
 
 export interface VerifySession {

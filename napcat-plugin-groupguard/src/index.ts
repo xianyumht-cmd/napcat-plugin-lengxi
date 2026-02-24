@@ -6,6 +6,7 @@ import path from 'path';
 import type { PluginConfig } from './types';
 import { DEFAULT_PLUGIN_CONFIG } from './config';
 import { pluginState } from './state';
+import { authManager } from './auth';
 import { createVerifySession, handleVerifyAnswer, clearAllSessions } from './verify';
 import {
   handleCommand, handleAntiRecall, cacheMessage, handleEmojiReact,
@@ -41,6 +42,7 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
         </p>
       </div>
     `),
+    ctx.NapCatConfig.text('licenseKey', '授权密钥', '', '专业版/企业版授权密钥'),
     ctx.NapCatConfig.text('ownerQQs', '主人QQ号（逗号分隔）', '', '拥有最高权限的QQ号'),
     ctx.NapCatConfig.boolean('debug', '调试模式', false, '显示详细日志'),
   );
@@ -53,13 +55,32 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     } catch { /* ignore */ }
   }
 
+  // 初始化授权
+  authManager.init();
+
   // 加载活跃统计（独立文件）
   pluginState.activityPath = path.join(path.dirname(ctx.configPath), 'activity.json');
   pluginState.loadActivity();
+  
+  // 加载签到与邀请数据
+  try {
+    const signinPath = path.join(path.dirname(ctx.configPath), 'signin.json');
+    if (fs.existsSync(signinPath)) pluginState.signinData = JSON.parse(fs.readFileSync(signinPath, 'utf-8'));
+    const invitePath = path.join(path.dirname(ctx.configPath), 'invite.json');
+    if (fs.existsSync(invitePath)) pluginState.inviteData = JSON.parse(fs.readFileSync(invitePath, 'utf-8'));
+  } catch { /* ignore */ }
 
   // 定时保存（配置每5分钟，活跃统计每2分钟）
   setInterval(() => saveConfig(ctx), 300000);
-  setInterval(() => pluginState.saveActivity(), 120000);
+  setInterval(() => {
+    pluginState.saveActivity();
+    // 保存签到与邀请数据
+    try {
+        const dir = path.dirname(ctx.configPath);
+        fs.writeFileSync(path.join(dir, 'signin.json'), JSON.stringify(pluginState.signinData), 'utf-8');
+        fs.writeFileSync(path.join(dir, 'invite.json'), JSON.stringify(pluginState.inviteData), 'utf-8');
+    } catch { /* ignore */ }
+  }, 120000);
 
   registerRoutes(ctx);
 
@@ -92,6 +113,12 @@ function registerRoutes (ctx: NapCatPluginContext): void {
     try {
       const body = req.body || {};
       pluginState.config = { ...pluginState.config, ...body };
+      
+      // 更新授权状态
+      if (body.licenseKey !== undefined) {
+        // authManager.validateLicense(pluginState.config.licenseKey || '', pluginState.config.ownerQQs);
+      }
+
       if (ctx?.configPath) {
         const dir = path.dirname(ctx.configPath);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -318,6 +345,28 @@ const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx: NapCatPluginC
   if (e.post_type === 'notice' && e.notice_type === 'group_increase') {
     const groupId = String(e.group_id);
     const userId = String(e.user_id);
+    const operatorId = String(e.operator_id || '');
+
+    // 邀请统计
+    if (operatorId && operatorId !== userId && operatorId !== pluginState.botId) {
+      if (!pluginState.inviteData[groupId]) pluginState.inviteData[groupId] = {};
+      const inviterData = pluginState.inviteData[groupId][operatorId] || { inviterId: operatorId, inviteCount: 0, invitedUsers: [] };
+      if (!inviterData.invitedUsers.includes(userId)) {
+        inviterData.inviteCount++;
+        inviterData.invitedUsers.push(userId);
+        pluginState.inviteData[groupId][operatorId] = inviterData;
+        
+        // 邀请奖励
+        const settings = pluginState.getGroupSettings(groupId);
+        if (settings.invitePoints && settings.invitePoints > 0) {
+          if (!pluginState.signinData[groupId]) pluginState.signinData[groupId] = {};
+          const inviterSignin = pluginState.signinData[groupId][operatorId] || { lastSigninTime: 0, streak: 0, points: 0 };
+          inviterSignin.points += settings.invitePoints;
+          pluginState.signinData[groupId][operatorId] = inviterSignin;
+          pluginState.log('info', `邀请奖励: 用户 ${operatorId} 邀请 ${userId} 进群，获得 ${settings.invitePoints} 积分`);
+        }
+      }
+    }
 
     // 跳过机器人自身入群
     if (userId === pluginState.botId) {

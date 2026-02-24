@@ -22,11 +22,26 @@ export const DEFAULT_GROUP_SETTINGS: GroupGuardSettings = {
   targetUsers: [],
   groupBlacklist: [],
   leaveBlacklist: false,
+  warningLimit: 3,
+  warningAction: 'ban',
+  enableCurfew: false,
+  curfewStart: '00:00',
+  curfewEnd: '06:00',
+  messageReward: 0,
+  signinMin: 10,
+  signinMax: 50,
+  invitePoints: 20,
+  lotteryCost: 50,
+  lotteryReward: 200,
+  autoRecallSelf: false,
+  autoRecallSelfDelay: 60,
 };
 
 export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
+  licenseKey: '',
   debug: false,
   ownerQQs: '',
+  licenses: {},
   global: { ...DEFAULT_GROUP_SETTINGS, useGlobal: false },
   groups: {},
   antiRecallGroups: [],
@@ -65,9 +80,37 @@ export const GROUP_ADMIN_MENU = `群管功能（需管理员权限）
 【清除头衔@某人】清除头衔(群主)
 【锁定名片@某人】锁定群名片
 【解锁名片@某人】解锁群名片
-【名片锁定列表】查看锁定列表`;
+【名片锁定列表】查看锁定列表
+【警告@某人】警告成员
+【查看警告@某人】查看警告记录
+【清除警告@某人】清除警告记录
+【开启宵禁 开始 结束】开启宵禁(00:00 06:00)
+【关闭宵禁】关闭宵禁
+【设置欢迎词 内容】设置入群欢迎词
+【定时任务 08:00 内容】添加每日定时
+【删除定时任务 ID】删除指定任务
+【定时列表】查看所有定时任务`;
 
-export const ANTI_RECALL_MENU = `防撤回功能
+export const INTERACT_MENU = `互动娱乐功能
+【签到】每日签到领积分
+【签到榜】查看今日签到排行
+【我的积分】查看个人积分
+【邀请查询】查看邀请人数
+【邀请榜】查看邀请排行
+【抽奖】消耗积分抽奖
+【运行状态】查看机器人状态
+【开启发言奖励 积分】开启发言送积分
+【关闭发言奖励】关闭发言送积分`;
+
+export const AUTH_MENU = `授权管理功能
+【授权 群号 天数】给群充值时间(老板)
+【授权 群号 永久】给群永久授权(老板)
+【回收授权 群号】取消授权(老板)
+【查询授权 群号】查询群授权(老板)
+【授权查询】查询本群授权(管理员)
+【激活 卡密】使用卡密充值(管理员)`;
+
+export const ANTI_RECALL_MENU = `防撤回功能(需授权)
 【开启防撤回】当前群开启
 【关闭防撤回】当前群关闭
 【防撤回列表】查看已开启的群`;

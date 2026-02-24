@@ -2,7 +2,7 @@
 import type { ActionMap } from 'napcat-types/napcat-onebot/action/index';
 import type { PluginLogger } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import type { NetworkAdapterConfig } from 'napcat-types/napcat-onebot/config/config';
-import type { PluginConfig, VerifySession, GroupGuardSettings, ActivityRecord } from './types';
+import type { PluginConfig, VerifySession, GroupGuardSettings, ActivityRecord, SigninData, InviteData } from './types';
 import { DEFAULT_PLUGIN_CONFIG } from './config';
 import fs from 'fs';
 import path from 'path';
@@ -52,6 +52,16 @@ class PluginState {
   activityPath = '';
   /** 活跃数据是否有变更（脏标记） */
   private activityDirty = false;
+  /** 警告记录 { groupId: { userId: count } } */
+  warnings: Record<string, Record<string, number>> = {};
+  /** 签到数据 { groupId: { userId: SigninData } } */
+  signinData: Record<string, Record<string, SigninData>> = {};
+  /** 邀请数据 { groupId: { userId: InviteData } } */
+  inviteData: Record<string, Record<string, InviteData>> = {};
+  /** 启动时间 */
+  startTime: number = Date.now();
+  /** 处理消息数 */
+  msgCount: number = 0;
 
   private pushLog (level: string, msg: string): void {
     this.logBuffer.push({ time: Date.now(), level, msg });
@@ -104,7 +114,20 @@ class PluginState {
     });
   }
   async sendGroupMsg (groupId: string, message: unknown): Promise<void> {
-    await this.callApi('send_group_msg', { group_id: groupId, message });
+    // 增加随机延迟 (500-1500ms) 以规避风控
+    const jitter = Math.floor(Math.random() * 1000) + 500;
+    await new Promise(resolve => setTimeout(resolve, jitter));
+
+    const res = await this.callApi('send_group_msg', { group_id: groupId, message }) as { message_id?: number | string };
+    
+    // Auto Recall Self Logic
+    const settings = this.getGroupSettings(groupId);
+    if (settings.autoRecallSelf && res && res.message_id) {
+      const delay = (settings.autoRecallSelfDelay || 60) * 1000;
+      setTimeout(() => {
+        this.callApi('delete_msg', { message_id: res.message_id }).catch(() => {});
+      }, delay);
+    }
   }
   async sendGroupText (groupId: string, text: string): Promise<void> {
     await this.sendGroupMsg(groupId, [{ type: 'text', data: { text } }]);
@@ -187,6 +210,15 @@ class PluginState {
     record.lastActive = Date.now();
     this.activityStats[groupId][userId] = record;
     this.activityDirty = true;
+
+    // 发言奖励
+    const settings = this.getGroupSettings(groupId);
+    if (settings.messageReward && settings.messageReward > 0) {
+      if (!this.signinData[groupId]) this.signinData[groupId] = {};
+      const userSignin = this.signinData[groupId][userId] || { lastSigninTime: 0, streak: 0, points: 0 };
+      userSignin.points += settings.messageReward;
+      this.signinData[groupId][userId] = userSignin;
+    }
   }
 }
 

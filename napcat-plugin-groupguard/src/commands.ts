@@ -2,7 +2,8 @@
 import type { OB11Message } from 'napcat-types/napcat-onebot/types/index';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import { pluginState } from './state';
-import { GROUP_ADMIN_MENU, ANTI_RECALL_MENU, EMOJI_REACT_MENU, TARGET_MENU, BLACKWHITE_MENU, FILTER_MENU, QA_MENU, REJECT_KW_MENU } from './config';
+import { authManager } from './auth';
+import { GROUP_ADMIN_MENU, ANTI_RECALL_MENU, EMOJI_REACT_MENU, TARGET_MENU, BLACKWHITE_MENU, FILTER_MENU, QA_MENU, REJECT_KW_MENU, AUTH_MENU, INTERACT_MENU } from './config';
 import fs from 'fs';
 import path from 'path';
 
@@ -60,8 +61,404 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
       { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: EMOJI_REACT_MENU } }] } },
       { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: QA_MENU } }] } },
       { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: REJECT_KW_MENU } }] } },
+      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: INTERACT_MENU } }] } },
+      { type: 'node', data: { nickname: '🛡️ 群管插件', user_id: selfId, content: [{ type: 'text', data: { text: AUTH_MENU } }] } },
     ];
     await pluginState.callApi('send_group_forward_msg', { group_id: groupId, messages: nodes });
+    return true;
+  }
+
+  // ===== 授权管理 (老板/管理员) =====
+  if (text.startsWith('授权 ') && !text.startsWith('授权查询')) {
+    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要老板权限'); return true; }
+    const parts = text.split(/\s+/);
+    if (parts.length < 3) { await pluginState.sendGroupText(groupId, '格式：授权 群号 天数(永久)'); return true; }
+    const targetGroup = parts[1];
+    const duration = parts[2];
+    const days = duration === '永久' ? -1 : parseInt(duration);
+    if (isNaN(days)) { await pluginState.sendGroupText(groupId, '天数必须是数字或“永久”'); return true; }
+    
+    authManager.grantLicense(targetGroup, days);
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已给群 ${targetGroup} 授权 ${duration === '永久' ? '永久' : days + '天'}`);
+    return true;
+  }
+  
+  if (text.startsWith('回收授权')) {
+    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要老板权限'); return true; }
+    const targetGroup = text.slice(4).trim();
+    if (!targetGroup) { await pluginState.sendGroupText(groupId, '请指定群号'); return true; }
+    
+    authManager.revokeLicense(targetGroup);
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已回收群 ${targetGroup} 的授权`);
+    return true;
+  }
+
+  if (text.startsWith('查询授权')) {
+    if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要老板权限'); return true; }
+    const targetGroup = text.slice(4).trim();
+    const license = authManager.getGroupLicense(targetGroup);
+    if (!license) { await pluginState.sendGroupText(groupId, `群 ${targetGroup} 当前无授权（免费版）`); return true; }
+    const expireStr = license.expireTime === 0 ? '永久' : new Date(license.expireTime).toLocaleString();
+    await pluginState.sendGroupText(groupId, `群 ${targetGroup} 授权信息：\n等级：${license.level}\n过期时间：${expireStr}`);
+    return true;
+  }
+
+  if (text === '授权查询') {
+    const license = authManager.getGroupLicense(groupId);
+    if (!license) { await pluginState.sendGroupText(groupId, '本群当前为免费版，部分高级功能不可用。请联系老板购买授权。'); return true; }
+    const expireStr = license.expireTime === 0 ? '永久' : new Date(license.expireTime).toLocaleString();
+    await pluginState.sendGroupText(groupId, `本群已获得授权！\n等级：${license.level}\n过期时间：${expireStr}`);
+    return true;
+  }
+
+  // ===== 警告系统 =====
+  if (text.startsWith('警告 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const rest = text.slice(3).trim();
+    const target = getTarget(raw, rest);
+    if (!target) { await pluginState.sendGroupText(groupId, '请指定目标：警告@某人'); return true; }
+    
+    if (!pluginState.warnings[groupId]) pluginState.warnings[groupId] = {};
+    const count = (pluginState.warnings[groupId][target] || 0) + 1;
+    pluginState.warnings[groupId][target] = count;
+    
+    const settings = pluginState.getGroupSettings(groupId);
+    const limit = settings.warningLimit || 3;
+    
+    if (count >= limit) {
+        delete pluginState.warnings[groupId][target];
+        if (settings.warningAction === 'kick') {
+            await pluginState.callApi('set_group_kick', { group_id: groupId, user_id: target, reject_add_request: false });
+            await pluginState.sendGroupText(groupId, `用户 ${target} 警告次数达到上限 (${count}/${limit})，已被踢出。`);
+        } else {
+            const banTime = (settings.filterBanMinutes || 10) * 60;
+            await pluginState.callApi('set_group_ban', { group_id: groupId, user_id: target, duration: banTime });
+            await pluginState.sendGroupText(groupId, `用户 ${target} 警告次数达到上限 (${count}/${limit})，禁言 ${settings.filterBanMinutes} 分钟。`);
+        }
+    } else {
+        await pluginState.sendGroupText(groupId, `用户 ${target} 已被警告，当前次数：${count}/${limit}`);
+    }
+    return true;
+  }
+  
+  if (text.startsWith('清除警告 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const target = getTarget(raw, text.slice(5).trim());
+    if (!target) { await pluginState.sendGroupText(groupId, '请指定目标'); return true; }
+    if (pluginState.warnings[groupId] && pluginState.warnings[groupId][target]) {
+        delete pluginState.warnings[groupId][target];
+        await pluginState.sendGroupText(groupId, `已清除用户 ${target} 的警告记录`);
+    } else {
+        await pluginState.sendGroupText(groupId, `该用户无警告记录`);
+    }
+    return true;
+  }
+
+  if (text.startsWith('查看警告 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const target = getTarget(raw, text.slice(5).trim());
+    if (!target) { await pluginState.sendGroupText(groupId, '请指定目标'); return true; }
+    const count = (pluginState.warnings[groupId] && pluginState.warnings[groupId][target]) || 0;
+    const settings = pluginState.getGroupSettings(groupId);
+    await pluginState.sendGroupText(groupId, `用户 ${target} 当前警告次数：${count}/${settings.warningLimit || 3}`);
+    return true;
+  }
+
+  // ===== 宵禁管理 =====
+  if (text.startsWith('开启宵禁 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!authManager.checkFeature(groupId, 'curfew')) { await pluginState.sendGroupText(groupId, '宵禁功能仅限专业版/企业版使用，请购买授权。'); return true; }
+    const parts = text.split(/\s+/);
+    if (parts.length < 3) { await pluginState.sendGroupText(groupId, '格式：开启宵禁 00:00 06:00'); return true; }
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    const gs = pluginState.config.groups[groupId];
+    gs.enableCurfew = true;
+    gs.curfewStart = parts[1];
+    gs.curfewEnd = parts[2];
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已开启宵禁：每天 ${gs.curfewStart} 至 ${gs.curfewEnd} 全员禁言`);
+    return true;
+  }
+  
+  if (text === '关闭宵禁') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (pluginState.config.groups[groupId]) {
+        pluginState.config.groups[groupId].enableCurfew = false;
+        saveConfig(ctx);
+    }
+    await pluginState.sendGroupText(groupId, '已关闭宵禁');
+    return true;
+  }
+
+  // ===== 欢迎词设置 =====
+  if (text.startsWith('设置欢迎词 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const msg = text.slice(6).trim();
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].welcomeMessage = msg;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '欢迎词已更新');
+    return true;
+  }
+  
+  // ===== 定时任务 =====
+  if (text.startsWith('定时任务 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!authManager.checkFeature(groupId, 'scheduled_tasks')) { await pluginState.sendGroupText(groupId, '定时任务仅限专业版/企业版使用，请购买授权。'); return true; }
+    
+    // 格式：定时任务 08:00 内容
+    const parts = text.split(/\s+/);
+    if (parts.length < 3) { await pluginState.sendGroupText(groupId, '格式：定时任务 08:00 内容'); return true; }
+    
+    const time = parts[1];
+    if (!/^\d{2}:\d{2}$/.test(time)) { await pluginState.sendGroupText(groupId, '时间格式错误，应为 HH:mm'); return true; }
+    
+    const content = parts.slice(2).join(' ');
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    const gs = pluginState.config.groups[groupId];
+    if (!gs.scheduledTasks) gs.scheduledTasks = [];
+    
+    const id = Date.now().toString(36);
+    gs.scheduledTasks.push({
+        id,
+        cron: time,
+        type: 'text',
+        content
+    });
+    
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已添加定时任务 (ID:${id})：每天 ${time} 发送 "${content}"`);
+    return true;
+  }
+
+  if (text.startsWith('删除定时任务 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const id = text.slice(7).trim();
+    if (!pluginState.config.groups[groupId]?.scheduledTasks) { await pluginState.sendGroupText(groupId, '本群无定时任务'); return true; }
+    
+    const gs = pluginState.config.groups[groupId];
+    const before = gs.scheduledTasks!.length;
+    gs.scheduledTasks = gs.scheduledTasks!.filter(t => t.id !== id);
+    
+    if (gs.scheduledTasks.length === before) {
+        await pluginState.sendGroupText(groupId, '未找到该ID的任务');
+    } else {
+        saveConfig(ctx);
+        await pluginState.sendGroupText(groupId, '已删除定时任务');
+    }
+    return true;
+  }
+
+  if (text === '定时列表') {
+    const tasks = pluginState.config.groups[groupId]?.scheduledTasks || [];
+    if (!tasks.length) { await pluginState.sendGroupText(groupId, '本群无定时任务'); return true; }
+    
+    const list = tasks.map(t => `[${t.id}] ${t.cron} -> ${t.content}`).join('\n');
+    await pluginState.sendGroupText(groupId, `定时任务列表：\n${list}`);
+    return true;
+  }
+
+  // ===== 签到系统 =====
+  if (text === '签到') {
+    if (!pluginState.signinData[groupId]) pluginState.signinData[groupId] = {};
+    const userSignin = pluginState.signinData[groupId][userId] || { lastSigninTime: 0, streak: 0, points: 0 };
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    if (userSignin.lastSigninTime >= today) {
+        await pluginState.sendGroupMsg(groupId, [
+            { type: 'at', data: { qq: userId } },
+            { type: 'text', data: { text: ' 你今天已经签到过了，明天再来吧！' } }
+        ]);
+        return true;
+    }
+    
+    // 检查连续签到
+    const yesterday = today - 86400000;
+    if (userSignin.lastSigninTime >= yesterday && userSignin.lastSigninTime < today) {
+        userSignin.streak++;
+    } else {
+        userSignin.streak = 1;
+    }
+    
+    // 计算积分 (配置范围 + 连签奖励)
+    const settings = pluginState.getGroupSettings(groupId);
+    const min = settings.signinMin || 10;
+    const max = settings.signinMax || 50;
+    const base = Math.floor(Math.random() * (max - min + 1)) + min;
+    const bonus = Math.min(userSignin.streak, 10);
+    const points = base + bonus;
+    userSignin.points += points;
+    userSignin.lastSigninTime = Date.now();
+    
+    pluginState.signinData[groupId][userId] = userSignin;
+    // 触发保存逻辑在 index.ts 的定时器中
+    
+    await pluginState.sendGroupMsg(groupId, [
+        { type: 'at', data: { qq: userId } },
+        { type: 'text', data: { text: ` 签到成功！\n获得积分：${points}\n当前积分：${userSignin.points}\n连续签到：${userSignin.streak}天` } }
+    ]);
+    return true;
+  }
+  
+  if (text === '签到榜') {
+    const data = pluginState.signinData[groupId];
+    if (!data) { await pluginState.sendGroupText(groupId, '本群暂无签到数据'); return true; }
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    const list = Object.entries(data)
+        .filter(([_, v]) => v.lastSigninTime >= today)
+        .sort((a, b) => b[1].lastSigninTime - a[1].lastSigninTime) // 按时间倒序
+        .slice(0, 10);
+        
+    if (!list.length) { await pluginState.sendGroupText(groupId, '今天还没有人签到哦'); return true; }
+    
+    const content = list.map((item, i) => {
+        const time = new Date(item[1].lastSigninTime).toLocaleTimeString();
+        return `${i + 1}. ${item[0]} (${time})`;
+    }).join('\n');
+    
+    await pluginState.sendGroupText(groupId, `📅 今日签到榜\n${content}`);
+    return true;
+  }
+  
+  if (text === '我的积分') {
+    const data = pluginState.signinData[groupId]?.[userId];
+    const points = data ? data.points : 0;
+    await pluginState.sendGroupMsg(groupId, [
+        { type: 'at', data: { qq: userId } },
+        { type: 'text', data: { text: ` 你的当前积分：${points}` } }
+    ]);
+    return true;
+  }
+
+  // ===== 邀请统计 =====
+  if (text === '邀请查询') {
+    const data = pluginState.inviteData[groupId]?.[userId];
+    const count = data ? data.inviteCount : 0;
+    await pluginState.sendGroupMsg(groupId, [
+        { type: 'at', data: { qq: userId } },
+        { type: 'text', data: { text: ` 你已邀请 ${count} 人加入本群` } }
+    ]);
+    return true;
+  }
+  
+  if (text === '邀请榜') {
+    const data = pluginState.inviteData[groupId];
+    if (!data) { await pluginState.sendGroupText(groupId, '本群暂无邀请数据'); return true; }
+    
+    const list = Object.entries(data)
+        .sort((a, b) => b[1].inviteCount - a[1].inviteCount)
+        .slice(0, 10);
+        
+    const content = list.map((item, i) => `${i + 1}. ${item[0]} - 邀请 ${item[1].inviteCount} 人`).join('\n');
+    await pluginState.sendGroupText(groupId, `🏆 邀请排行榜\n${content}`);
+    return true;
+  }
+  
+  if (text.startsWith('激活 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    // 简单的卡密模拟逻辑：PRO-30-XXXX
+    const key = text.slice(3).trim();
+    if (key.startsWith('PRO-30-')) {
+        authManager.grantLicense(groupId, 30);
+        saveConfig(ctx);
+        await pluginState.sendGroupText(groupId, '激活成功！已获得 30 天专业版授权。');
+    } else if (key.startsWith('PRO-PERM-')) {
+        authManager.grantLicense(groupId, -1);
+        saveConfig(ctx);
+        await pluginState.sendGroupText(groupId, '激活成功！已获得 永久 专业版授权。');
+    } else {
+        await pluginState.sendGroupText(groupId, '无效的激活码');
+    }
+    return true;
+  }
+  
+  // ===== 运行状态 =====
+  if (text === '运行状态') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const uptime = Math.floor((Date.now() - pluginState.startTime) / 1000);
+    const h = Math.floor(uptime / 3600);
+    const m = Math.floor((uptime % 3600) / 60);
+    const s = uptime % 60;
+    const mem = process.memoryUsage();
+    const rss = (mem.rss / 1024 / 1024).toFixed(2);
+    const heap = (mem.heapUsed / 1024 / 1024).toFixed(2);
+    
+    const status = `🤖 运行状态
+⏱️ 运行时长：${h}小时${m}分${s}秒
+📨 处理消息：${pluginState.msgCount} 条
+💾 内存占用：RSS ${rss}MB / Heap ${heap}MB
+🛡️ 当前版本：v${pluginState.version}
+👥 授权群数：${Object.keys(pluginState.config.licenses || {}).length}`;
+    await pluginState.sendGroupText(groupId, status);
+    return true;
+  }
+
+  // ===== 抽奖系统 =====
+  if (text === '抽奖') {
+    if (!pluginState.signinData[groupId]) pluginState.signinData[groupId] = {};
+    const userSignin = pluginState.signinData[groupId][userId];
+    const settings = pluginState.getGroupSettings(groupId);
+    const cost = settings.lotteryCost || 20;
+    const maxReward = settings.lotteryReward || 100;
+
+    if (!userSignin || userSignin.points < cost) {
+        await pluginState.sendGroupMsg(groupId, [
+            { type: 'at', data: { qq: userId } },
+            { type: 'text', data: { text: ` 积分不足！抽奖需要${cost}积分，请先签到获取积分。` } }
+        ]);
+        return true;
+    }
+    
+    userSignin.points -= cost;
+    const rand = Math.random();
+    let prize = '';
+    let bonus = 0;
+    
+    if (rand < 0.01) { prize = `特等奖：积分+${maxReward}`; bonus = maxReward; }
+    else if (rand < 0.1) { prize = `一等奖：积分+${Math.floor(maxReward * 0.5)}`; bonus = Math.floor(maxReward * 0.5); }
+    else if (rand < 0.3) { prize = `二等奖：积分+${Math.floor(maxReward * 0.3)}`; bonus = Math.floor(maxReward * 0.3); }
+    else if (rand < 0.6) { prize = `三等奖：积分+${Math.floor(maxReward * 0.1)}`; bonus = Math.floor(maxReward * 0.1); }
+    else { prize = '谢谢参与'; bonus = 0; }
+    
+    userSignin.points += bonus;
+    pluginState.signinData[groupId][userId] = userSignin;
+    
+    await pluginState.sendGroupMsg(groupId, [
+        { type: 'at', data: { qq: userId } },
+        { type: 'text', data: { text: ` 消耗${cost}积分抽奖...\n🎉 ${prize}\n当前积分：${userSignin.points}` } }
+    ]);
+    return true;
+  }
+  
+  // ===== 发言奖励 =====
+  if (text.startsWith('开启发言奖励 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const points = parseInt(text.slice(7));
+    if (isNaN(points) || points <= 0) { await pluginState.sendGroupText(groupId, '请输入正确的积分数'); return true; }
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].messageReward = points;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已开启发言奖励，每条消息奖励 ${points} 积分`);
+    return true;
+  }
+  
+  if (text === '关闭发言奖励') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (pluginState.config.groups[groupId]) {
+        pluginState.config.groups[groupId].messageReward = 0;
+        saveConfig(ctx);
+    }
+    await pluginState.sendGroupText(groupId, '已关闭发言奖励');
     return true;
   }
 
@@ -175,7 +572,9 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   // ===== 防撤回 =====
   if (text === '开启防撤回') {
-    if (!pluginState.isOwner(userId) && !await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (!authManager.checkFeature(groupId, 'anti_recall')) { await pluginState.sendGroupText(groupId, '此功能仅限专业版/企业版使用，请购买授权。'); return true; }
+    if (!pluginState.config.antiRecallGroups) pluginState.config.antiRecallGroups = [];
     if (!pluginState.config.antiRecallGroups.includes(groupId)) { pluginState.config.antiRecallGroups.push(groupId); saveConfig(ctx); }
     await pluginState.sendGroupText(groupId, '已开启防撤回');
     return true;
@@ -246,9 +645,36 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     return true;
   }
 
+  // ===== 自身撤回 =====
+  if (text.startsWith('开启自身撤回')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const rest = text.slice(6).trim();
+    const duration = parseInt(rest);
+    const delay = isNaN(duration) ? 60 : duration;
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    const gs = pluginState.config.groups[groupId];
+    gs.autoRecallSelf = true;
+    gs.autoRecallSelfDelay = delay;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已开启自身消息撤回，延迟 ${delay} 秒`);
+    return true;
+  }
+
+  if (text === '关闭自身撤回') {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    if (pluginState.config.groups[groupId]) {
+        pluginState.config.groups[groupId].autoRecallSelf = false;
+        saveConfig(ctx);
+    }
+    await pluginState.sendGroupText(groupId, '已关闭自身消息撤回');
+    return true;
+  }
+
   // ===== 黑名单 =====
   if (text.startsWith('拉黑')) {
     if (!pluginState.isOwner(userId)) { await pluginState.sendGroupText(groupId, '需要主人权限'); return true; }
+    if (!authManager.checkFeature(groupId, 'global_blacklist')) { await pluginState.sendGroupText(groupId, '全局黑名单仅限企业版使用，请使用群拉黑或购买企业授权。'); return true; }
     const rest = text.slice(2).trim();
     const target = getTarget(raw, rest);
     if (!target) { await pluginState.sendGroupText(groupId, '请指定目标：拉黑@某人 或 拉黑QQ号'); return true; }
@@ -401,7 +827,11 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     if (!pluginState.isOwner(userId) && !await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
     let mode: 'exact' | 'contains' | 'regex' = 'exact';
     let rest = '';
-    if (text.startsWith('添加正则问答 ')) { mode = 'regex'; rest = text.slice(7).trim(); }
+    if (text.startsWith('添加正则问答 ')) {
+      if (!authManager.checkFeature(groupId, 'regex_qa')) { await pluginState.sendGroupText(groupId, '正则问答仅限专业版/企业版使用，请购买授权。'); return true; }
+      mode = 'regex';
+      rest = text.slice(7).trim();
+    }
     else if (text.startsWith('添加模糊问答 ')) { mode = 'contains'; rest = text.slice(7).trim(); }
     else { rest = text.slice(5).trim(); }
     const sep = rest.indexOf('|');
@@ -445,7 +875,8 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   }
 
   // ===== 活跃统计 =====
-  if (text === '活跃统计') {
+  if (text.startsWith('活跃统计')) {
+    if (!authManager.checkFeature(groupId, 'analytics_detail')) { await pluginState.sendGroupText(groupId, '活跃统计仅限专业版/企业版使用，请购买授权。'); return true; }
     const stats = pluginState.activityStats[groupId];
     if (!stats || !Object.keys(stats).length) { await pluginState.sendGroupText(groupId, '本群暂无活跃统计数据'); return true; }
     const selfId = String((event as any).self_id || '');
