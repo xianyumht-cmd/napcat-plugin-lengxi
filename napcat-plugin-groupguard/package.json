@@ -1,9 +1,9 @@
 {
   "name": "napcat-plugin-groupguard",
   "plugin": "群管插件",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "type": "module",
-  "main": "index.mjs",
+  "main": "dist/index.mjs",
   "description": "群管插件：自动通过入群申请，新成员数学验证，超时或答错踢出",
   "author": "冷曦",
   "napcat": {
