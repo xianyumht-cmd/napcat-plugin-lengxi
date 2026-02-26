@@ -189,6 +189,7 @@
                 <a href="#interact" class="nav-link">5. 互动娱乐</a>
                 <a href="#advanced" class="nav-link">6. 高级功能</a>
                 <a href="#scenarios" class="nav-link">7. 典型业务场景</a>
+                <a href="#switches" class="nav-link">8. 功能开关汇总</a>
             </nav>
         </aside>
 
@@ -268,15 +269,11 @@
                     <div>
                         <h3>基础控制</h3>
                         <div class="cmd-box">
-                            <div class="cmd-code">开启功能 入群验证</div>
+                            <div class="cmd-code">开启/关闭功能 入群验证</div>
                             <p style="font-size:0.9rem; margin-top:0.5rem">启用后，新成员进群需回答问题或验证。</p>
                         </div>
                         <div class="cmd-box">
-                            <div class="cmd-code">关闭功能 入群验证</div>
-                            <p style="font-size:0.9rem; margin-top:0.5rem">关闭验证，所有申请需管理员人工处理。</p>
-                        </div>
-                        <div class="cmd-box">
-                            <div class="cmd-code">开启功能 自动同意</div>
+                            <div class="cmd-code">开启/关闭功能 自动同意</div>
                             <p style="font-size:0.9rem; margin-top:0.5rem">⚠️ 高风险：无需验证直接通过所有进群申请。</p>
                         </div>
                     </div>
@@ -287,7 +284,7 @@
                             <p style="font-size:0.9rem; margin-top:0.5rem">设置进群暗号，申请理由包含该暗号即自动通过。</p>
                         </div>
                         <div class="cmd-box">
-                            <div class="cmd-code">开启功能 暗号回落</div>
+                            <div class="cmd-code">开启/关闭功能 暗号回落</div>
                             <p style="font-size:0.9rem; margin-top:0.5rem">当未设置暗号时，自动降级为“自动同意”模式。</p>
                         </div>
                         <div class="cmd-box">
@@ -395,7 +392,7 @@
                     <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
                         <h4 style="margin:0 0 0.5rem 0;">防刷屏控制</h4>
                         <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li>开启功能 刷屏检测</li>
+                            <li>开启/关闭功能 刷屏检测</li>
                             <li>设置复读阈值 &lt;次数&gt; (0为关闭，建议3-5)</li>
                             <li>设置刷屏窗口 &lt;秒数&gt;</li>
                         </ul>
@@ -434,10 +431,10 @@
                             <h3 style="margin-top:0">娱乐功能开关</h3>
                             <p style="font-size:0.9rem">管理员可按需开启或关闭特定娱乐模块。</p>
                             <div class="grid grid-2">
-                                <div><span class="cmd-code">开启功能 签到</span> / <span class="cmd-code">关闭功能 签到</span></div>
-                                <div><span class="cmd-code">开启功能 抽奖</span> / <span class="cmd-code">关闭功能 抽奖</span></div>
-                                <div><span class="cmd-code">开启功能 问答</span> / <span class="cmd-code">关闭功能 问答</span></div>
-                                <div><span class="cmd-code">开启功能 活跃统计</span> / <span class="cmd-code">关闭功能 活跃统计</span></div>
+                                <div><span class="cmd-code">开启/关闭功能 签到</span></div>
+                                <div><span class="cmd-code">开启/关闭功能 抽奖</span></div>
+                                <div><span class="cmd-code">开启/关闭功能 问答</span></div>
+                                <div><span class="cmd-code">开启/关闭功能 活跃统计</span></div>
                             </div>
                         </div>
                     </div>
@@ -480,6 +477,14 @@
                     <div class="cmd-code">定时任务 &lt;HH:mm&gt; &lt;内容&gt;</div>
                     <p style="font-size:0.8rem; color:var(--text-light)">示例：定时任务 08:00 大家早上好！</p>
                 </div>
+
+                <div class="cmd-box">
+                    <span class="cmd-title">机器人自身撤回</span>
+                    <p>让机器人发送的消息在指定时间后自动撤回，保持群面整洁。</p>
+                    <div class="cmd-code">开启自身撤回 &lt;秒数&gt;</div>
+                    <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.5rem">示例：开启自身撤回 60 (1分钟后撤回) | 默认60秒</p>
+                    <div class="cmd-code" style="margin-top:0.5rem">关闭自身撤回</div>
+                </div>
             </section>
 
             <!-- 7. 典型业务场景 -->
@@ -498,7 +503,7 @@
                             <li>设置复杂暗号：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置暗号 帅且快</code></li>
                             <li>开启刷屏检测：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">开启功能 刷屏检测</code></li>
                             <li>设置刷屏参数：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置刷屏窗口 10</code> (10秒内)</li>
-                            <li>设置复读阈值：WebUI 设置 repeatThreshold = 3</li>
+                            <li>设置复读阈值：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置复读阈值 3</code></li>
                         </ol>
 
                         <h4 style="font-size:0.95rem; margin:1rem 0 0.5rem">预期效果</h4>
@@ -525,6 +530,46 @@
                             <li>只有输入正确 VIP 码才能进群。</li>
                             <li>进群自动欢迎，提升尊贵感。</li>
                             <li>群内无法发送外部链接，保护内容安全。</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 8. 功能开关汇总 -->
+            <section id="switches" class="card">
+                <h2>8. 功能开关汇总</h2>
+                <p>集中管理所有功能的开启与关闭状态。</p>
+                
+                <div class="grid grid-2">
+                    <!-- 验证类 -->
+                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0;">🛡️ 验证与安全</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+                            <li><span class="cmd-code">开启功能 入群验证</span> / <span class="cmd-code">关闭功能 入群验证</span></li>
+                            <li><span class="cmd-code">开启功能 自动同意</span> / <span class="cmd-code">关闭功能 自动同意</span></li>
+                            <li><span class="cmd-code">开启功能 暗号回落</span> / <span class="cmd-code">关闭功能 暗号回落</span></li>
+                            <li><span class="cmd-code">开启功能 刷屏检测</span> / <span class="cmd-code">关闭功能 刷屏检测</span></li>
+                        </ul>
+                    </div>
+
+                    <!-- 娱乐类 -->
+                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0;">🎮 互动与娱乐</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+                            <li><span class="cmd-code">开启功能 签到</span> / <span class="cmd-code">关闭功能 签到</span></li>
+                            <li><span class="cmd-code">开启功能 抽奖</span> / <span class="cmd-code">关闭功能 抽奖</span></li>
+                            <li><span class="cmd-code">开启功能 问答</span> / <span class="cmd-code">关闭功能 问答</span></li>
+                            <li><span class="cmd-code">开启功能 活跃统计</span> / <span class="cmd-code">关闭功能 活跃统计</span></li>
+                        </ul>
+                    </div>
+
+                    <!-- 系统类 -->
+                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0;">⚙️ 系统与维护</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+                            <li><span class="cmd-code">开启自身撤回 &lt;秒&gt;</span> / <span class="cmd-code">关闭自身撤回</span></li>
+                            <li><span class="cmd-code">开启功能 邀请统计</span> / <span class="cmd-code">关闭功能 邀请统计</span></li>
+                            <li><span class="cmd-code">开启功能 退群拉黑</span> / <span class="cmd-code">关闭功能 退群拉黑</span></li>
                         </ul>
                     </div>
                 </div>

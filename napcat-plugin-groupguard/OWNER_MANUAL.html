@@ -35,13 +35,14 @@
                 <span class="text-3xl">🛡️</span>
             </div>
             <h1 class="text-3xl font-bold text-slate-900">GroupGuard 开发者手册</h1>
-            <p class="text-slate-500 mt-2">v1.0.19 | 商业版群管系统</p>
+            <p class="text-slate-500 mt-2">v1.0.23 | 商业版群管系统</p>
         </header>
 
         <!-- Navigation -->
         <nav class="flex justify-center gap-4 mb-8 sticky top-0 bg-slate-50/90 backdrop-blur py-4 z-10">
             <a href="#deploy" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">部署运维</a>
             <a href="#auth" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">授权管理</a>
+            <a href="#pricing" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">定价策略</a>
             <a href="#risk" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">全局风控</a>
             <a href="#global" class="px-4 py-2 rounded-lg hover:bg-white hover:shadow transition text-slate-600 font-medium">全局黑白名单</a>
         </nav>
@@ -121,7 +122,101 @@
                 </div>
             </section>
 
-            <!-- Risk Control -->
+            <!-- Pricing Strategy -->
+            <section id="pricing" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-yellow-500 rounded-full"></span>
+                    商业化运营指南 (生产环境)
+                </h2>
+                
+                <div class="mb-8 p-4 bg-yellow-50 rounded-lg border border-yellow-100">
+                    <h3 class="font-bold text-yellow-800 mb-2">💰 成本与利润分析 (基于机顶盒架构)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <span class="block text-slate-500 text-xs">硬件成本 (一次性)</span>
+                            <span class="font-bold text-slate-700">¥50 - ¥100</span>
+                            <span class="block text-xs text-slate-400">魔改 TV Box (S905/RK3399)</span>
+                        </div>
+                        <div>
+                            <span class="block text-slate-500 text-xs">电力成本 (每年)</span>
+                            <span class="font-bold text-slate-700">≈ ¥25</span>
+                            <span class="block text-xs text-slate-400">5W 功耗 / 44度电</span>
+                        </div>
+                        <div>
+                            <span class="block text-slate-500 text-xs">网络成本</span>
+                            <span class="font-bold text-slate-700">¥0</span>
+                            <span class="block text-xs text-slate-400">复用家用宽带</span>
+                        </div>
+                        <div>
+                            <span class="block text-slate-500 text-xs">单机承载力</span>
+                            <span class="font-bold text-blue-600">50-100 群</span>
+                            <span class="block text-xs text-slate-400">高并发 Node.js</span>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-xs text-yellow-700 font-medium">
+                        📈 盈利模型：仅需售出 1 个标准群年费 (¥99)，即可覆盖硬件投入与首年电费。后续收入均为纯利润。
+                    </p>
+                </div>
+
+                <h3 class="font-bold text-slate-700 mb-4">定价策略表 (全功能无限制)</h3>
+                <div class="overflow-x-auto rounded-lg border border-slate-200">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-600 font-semibold">
+                            <tr>
+                                <th class="px-4 py-3">群规模</th>
+                                <th class="px-4 py-3">人数限制</th>
+                                <th class="px-4 py-3">月付 (基础)</th>
+                                <th class="px-4 py-3">季付 (9折)</th>
+                                <th class="px-4 py-3 text-blue-600">年付 (8折/推荐)</th>
+                                <th class="px-4 py-3">适用场景</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-4 py-3 font-medium">微型群</td>
+                                <td class="px-4 py-3 text-slate-500">&lt; 100 人</td>
+                                <td class="px-4 py-3 font-mono">¥1 / 免费</td>
+                                <td class="px-4 py-3 font-mono">¥15</td>
+                                <td class="px-4 py-3 font-mono font-bold text-blue-600">¥50</td>
+                                <td class="px-4 py-3 text-xs text-slate-500">趋近于免费，前期引流</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-4 py-3 font-medium">标准群</td>
+                                <td class="px-4 py-3 text-slate-500">100 - 500 人</td>
+                                <td class="px-4 py-3 font-mono">¥10</td>
+                                <td class="px-4 py-3 font-mono">¥27</td>
+                                <td class="px-4 py-3 font-mono font-bold text-blue-600">¥99</td>
+                                <td class="px-4 py-3 text-xs text-slate-500">高性价比，主力营收</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-4 py-3 font-medium">大型群</td>
+                                <td class="px-4 py-3 text-slate-500">500 - 1000 人</td>
+                                <td class="px-4 py-3 font-mono">¥20</td>
+                                <td class="px-4 py-3 font-mono">¥54</td>
+                                <td class="px-4 py-3 font-mono font-bold text-blue-600">¥199</td>
+                                <td class="px-4 py-3 text-xs text-slate-500">高活跃社区，资源消耗适中</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-4 py-3 font-medium">超大群</td>
+                                <td class="px-4 py-3 text-slate-500">2k / 3k / 4k</td>
+                                <td class="px-4 py-3 font-mono">标准 x2/x3/x4</td>
+                                <td class="px-4 py-3 font-mono">面议</td>
+                                <td class="px-4 py-3 font-mono font-bold text-blue-600">面议</td>
+                                <td class="px-4 py-3 text-xs text-slate-500">核心大客户，提供VIP服务</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-6 text-sm text-slate-500">
+                    <p class="mb-2"><span class="font-bold text-slate-700">营销建议：</span></p>
+                    <ul class="list-disc list-inside space-y-1 ml-2">
+                        <li><span class="font-medium text-slate-700">首月免费/低价体验</span>：对于微型群（&lt;100人），建议完全免费或仅收象征性费用（如1元/月），以快速扩大市场占有率。</li>
+                        <li><span class="font-medium text-slate-700">年费打包</span>：强烈推荐用户订阅年费，虽然折扣较大（8折），但能锁定用户长期使用，减少流失率。</li>
+                        <li><span class="font-medium text-slate-700">多群优惠</span>：同一群主购买3个以上群授权，可额外给予 9折优惠。</li>
+                    </ul>
+                </div>
+            </section>
             <section id="risk" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100">
                 <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
                     <span class="w-1 h-6 bg-red-600 rounded-full"></span>
@@ -210,6 +305,10 @@
                             <tr>
                                 <td class="px-4 py-3 font-mono text-orange-600">多群广播 &lt;内容&gt;</td>
                                 <td class="px-4 py-3">向所有已授权的群发送通知消息（自动延时防风控）</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-orange-600">设置权限缓存 &lt;秒数&gt;</td>
+                                <td class="px-4 py-3">设置管理员权限缓存时间（0为关闭），默认600秒</td>
                             </tr>
                             <tr>
                                 <td class="px-4 py-3 font-mono text-orange-600">开启/关闭调试</td>

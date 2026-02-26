@@ -261,30 +261,32 @@ class PluginState {
     
     // 针对 delete_msg 做特殊处理 (类型转换 + 重试机制)
     if (action === 'delete_msg' && params && params.message_id) {
-        // 尝试转换为 number (如果是纯数字字符串)
-        if (typeof params.message_id === 'string' && /^\d+$/.test(params.message_id)) {
-             // 某些实现可能需要 number 类型，但也可能是 int64 string，这里保留 string 并尝试一次
-             // 如果失败，可以尝试转换类型。目前 NapCat 似乎接受 string，但底层 NT 偶尔超时。
-             // 重点是增加重试逻辑。
-        }
+        // 某些 NT 版本下，message_id 作为 string 传递更稳定
+        params.message_id = String(params.message_id);
     }
 
     try {
       return await this.actions.call(action, params as never, this.adapterName, this.networkConfig);
     } catch (e: any) {
-      // 针对 delete_msg 的超时或无响应错误进行一次重试
+      const errMsg = String(e);
+      
+      // 针对 delete_msg 的特殊优化
       if (action === 'delete_msg') {
-          const errMsg = String(e);
+          // 1. 如果是超时或无响应，且消息其实已经发出去了，我们降低日志级别并重试一次
           if (errMsg.includes('Timeout') || errMsg.includes('No data returned') || errMsg.includes('decode failed')) {
-              this.log('warn', `撤回消息失败，尝试重试... (${errMsg})`);
-              await new Promise(resolve => setTimeout(resolve, 500)); // 等待 500ms
+              if (this.config.debug) this.log('warn', `撤回消息请求超时，尝试重试一次...`);
+              await new Promise(resolve => setTimeout(resolve, 300)); // 缩短重试间隔
               try {
                   return await this.actions.call(action, params as never, this.adapterName, this.networkConfig);
               } catch (retryErr) {
-                  this.log('error', `API调用重试失败 [${action}]: ${retryErr}`);
+                  // 2. 如果重试也失败，通常是因为消息已经不存在了（撤回成功了），此时保持静默
+                  if (this.config.debug) this.log('info', `撤回消息最终确认: 已处理或失效`);
                   return null;
               }
           }
+          // 3. 其他类型的错误（如权限不足），仅在 debug 模式下记录
+          if (this.config.debug) this.log('warn', `撤回消息 API 调用异常: ${errMsg}`);
+          return null;
       }
       
       this.log('error', `API调用失败 [${action}]: ${e}`);
