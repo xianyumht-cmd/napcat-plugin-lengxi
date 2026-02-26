@@ -1,74 +1,79 @@
-# NapCat 插件合集
+# 🛡️ NapCat GroupGuard Plugin
 
-[![GitHub Release](https://img.shields.io/github/v/release/lengxi-root/napcat-plugin-lengxi?style=flat-square)](https://github.com/lengxi-root/napcat-plugin-lengxi/releases)
+[![Version](https://img.shields.io/badge/version-1.0.22-blue.svg)](package.json)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-NapCat 插件统一仓库，自动构建 & 发布，支持通过 `napcat-plugin-autoupdate` 一键安装和更新。
+全功能企业级群管理插件，专为 NapCat/OneBot11 设计。集成风控防护、商业授权、互动娱乐、入群验证、自动问答等核心模块。
 
-## 安全声明
+## ✨ 核心特性
 
-本项目全部插件**不包含任何远程操控命令、后门程序或恶意代码**，全部源码明文开源。
+### 🛡️ 安全风控
+- **入群验证**：支持数学验证、暗号验证、自动同意等多种模式。
+- **违禁词过滤**：多级惩罚机制（撤回/禁言/踢出/拉黑），支持正则匹配。
+- **防刷屏/复读**：自定义刷屏窗口与复读阈值，自动禁言恶意用户。
+- **媒体屏蔽**：支持屏蔽图片、视频、语音、链接、二维码、名片、小程序等。
+- **防撤回**：自动转发撤回消息（支持图片/语音），留存证据。
 
-当你每次更新插件时，请阅读最新的 [Commits](https://github.com/lengxi-root/napcat-plugin-lengxi/commits/main)，更新即代表你同意该版本的功能变更，否则请立即停止更新。插件更新的任何功能皆为插件的一部分，如果你不信任该项目库，请立即卸载相关全部插件。
+### 💼 商业授权
+- **分级授权**：支持免费版、专业版、企业版差异化功能控制。
+- **自动过期**：授权到期自动降级，保障商业权益。
+- **在线激活**：通过激活码实时激活授权。
 
-本仓库所有插件**禁止**以任何形式进行二次分发、二次创作或抄袭相关逻辑与上架 NapCat 插件商城或其他平台。如有违反，请自行承担风险。
+### 🎮 互动娱乐
+- **签到系统**：每日签到、连续签到奖励、积分累计。
+- **积分商城**：消耗积分兑换免死金牌、自定义头衔、解除禁言等。
+- **抽奖系统**：积分抽奖，随机获取积分奖励。
+- **活跃统计**：群成员发言活跃度排行榜。
 
-本插件库仅供学习交流使用，请在下载后 24 小时内删除当前仓库内插件，因使用本仓库插件所产生的一切后果由用户自行承担。
+### 🤖 智能辅助
+- **问答系统**：支持精确、模糊、正则三种匹配模式的自动回复。
+- **定时任务**：支持群内设置每日定时发送消息。
+- **入群欢迎**：自定义入群欢迎语。
 
-交流群：**1085402468**
+## 📖 快速上手
 
----
+### 1. 激活授权
+插件启动后，默认处于未授权状态（部分功能受限）。
+- **群内发送**：`激活 <激活码>` (例如：`激活 PRO-30-ABCDEF`)
+- **查询状态**：`查询授权` (所有群员可用)
 
-## 快速开始
+### 2. 常用指令速查
 
-### 方式一：WebUI 导入（旧版 NapCat）
+#### 👥 群员管理 (需管理员权限)
+| 指令 | 说明 | 示例 |
+|------|------|------|
+| `踢出 @某人` | 踢出成员 | `踢出 @张三` |
+| `禁言 @某人 <分钟>` | 禁言指定时长 | `禁言 @李四 30` |
+| `解禁 @某人` | 解除禁言 | `解禁 @李四` |
+| `警告 @某人` | 记一次警告 | `警告 @王五` |
+| `全体禁言` / `全体解禁` | 全员禁言开关 | `全体禁言` |
 
-1. 下载 [`napcat-plugin-autoupdate.zip`](https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-autoupdate.zip)（或前往 [Releases](https://github.com/lengxi-root/napcat-plugin-lengxi/releases) 页面手动下载）
-2. 打开 NapCat WebUI → 插件管理 → 导入插件 → 上传下载的 zip 文件
-3. 安装完成后进入 `插件自动更新` 的 Web 面板 → 侧边栏点击「推荐插件」
-4. 在推荐插件页面即可一键安装和更新本仓库的所有插件
-
-### 方式二：命令行安装（新版 NapCat / 无导入功能时）
-
-新版 NapCat 移除了 WebUI 导入插件功能，可通过命令行手动安装。
-
-#### Docker 环境
-
-进入容器后执行（二选一）：
-
-```bash
-# 直连 GitHub
-curl -L "https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-autoupdate.zip" -o /tmp/plugin.zip && unzip -o /tmp/plugin.zip -d /app/napcat/plugins && rm /tmp/plugin.zip
-
-# 国内加速（GitHub 访问慢时使用）
-curl -L "https://ghfast.top/https://github.com/lengxi-root/napcat-plugin-lengxi/releases/download/plugins/napcat-plugin-autoupdate.zip" -o /tmp/plugin.zip && unzip -o /tmp/plugin.zip -d /app/napcat/plugins && rm /tmp/plugin.zip
-```
-
-> 如果提示 `curl` 或 `unzip` 不存在，先执行：`apt update && apt install -y curl unzip`
-
-> ⚠️ 请确认插件目录路径为 `/app/napcat/plugins`，不同部署方式路径可能不同，可通过 `find / -path "*/napcat/plugins" -type d 2>/dev/null` 查找。
-
-#### 加载插件
-
-安装完成后，重启容器使插件生效：
-
-```bash
-docker restart <容器名>
-```
-
----
-
-## 插件列表
-
-| 插件 | 说明 |
+#### ⚙️ 功能开关
+| 指令 | 说明 |
 |------|------|
-| [AI Cat - 智能猫娘助手](./napcat-plugin-aicat) | 智能猫娘群管助手，支持 AI 对话、群管理、自定义指令等功能 |
-| [消息代发转卡](./napcat-plugin-amsghook) | 让所有插件与 OneBot 的消息通过官方机器人 Markdown 发送 |
-| [插件自动更新](./napcat-plugin-autoupdate) | 定时检查已安装插件的最新版本并自动更新或提醒 |
-| [三角洲行动](./napcat-plugin-delta-force) | 三角洲行动游戏数据查询，支持战绩查询、账号绑定等 |
-| [GitHub 订阅](./napcat-plugin-github-sub) | GitHub 仓库订阅推送，监控 Commits / Issues / PRs |
-| [自动抢红包](./napcat-plugin-grabredbag) | 自动抢红包，支持口令红包、黑白名单、随机延迟、防检测 |
-| [群管插件](./napcat-plugin-groupguard) | 入群验证、违禁词过滤、防撤回、刷屏检测、问答系统 |
-| [meme 娱乐插件](./napcat-plugin-play) | meme 表情包制作、点歌、AI 绘画、哈基米等 |
-| [Puppeteer 渲染服务](./napcat-plugin-puppeteer) | HTML/模板截图渲染 API，供其他插件调用 |
-| [NapCat 工作流](./napcat-plugin-workflow) | AI 可视化工作流，拖拽节点创建自动化流程与定时任务 |
+| `开启/关闭功能 <功能名>` | 支持：入群验证、刷屏检测、签到、抽奖、问答等 |
+| `屏蔽/取消屏蔽 <类型>` | 支持：图片、链接、二维码、小程序等 |
+| `设置复读阈值 <次数>` | 设置连续复读多少次触发检测 (0为关闭) |
 
+#### 🎮 娱乐互动
+| 指令 | 说明 |
+|------|------|
+| `签到` | 每日签到获取积分 |
+| `积分商城` | 查看可兑换物品 |
+| `兑换 <物品>` | 兑换商城物品 |
+| `活跃统计` | 查看本群发言排行 |
+
+> 完整指令列表与详细说明请参阅插件目录下的 [USER_MANUAL.html](USER_MANUAL.html)。
+
+## 📂 安装部署
+
+1. 下载最新 release 包。
+2. 解压至 NapCat 的 `plugins` 目录。
+3. 重启 NapCat。
+
+## ⚠️ 注意事项
+- 部分管理功能（如踢人、禁言）需要机器人账号在群内拥有**管理员**或**群主**身份。
+- 建议定期备份 `data/` 目录下的配置文件。
+
+---
+&copy; 2024 GroupGuard Plugin. All Rights Reserved.
