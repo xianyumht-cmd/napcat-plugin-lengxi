@@ -1,0 +1,238 @@
+// 群管插件类型定义
+
+/** 消息类型检测过滤配置 */
+export interface MsgFilterSettings {
+  /** 自动撤回视频 */
+  blockVideo: boolean;
+  /** 自动撤回图片 */
+  blockImage: boolean;
+  /** 自动撤回语音 */
+  blockRecord: boolean;
+  /** 自动撤回合并转发 */
+  blockForward: boolean;
+  /** 自动撤回小程序卡片 */
+  blockLightApp: boolean;
+  /** 自动撤回名片分享 */
+  blockContact: boolean;
+  /** 自动撤回含链接消息 */
+  blockUrl: boolean;
+  /** 自动撤回二维码图片 */
+  blockQr: boolean;
+}
+
+export interface PluginConfig {
+  licenseKey?: string;
+  debug: boolean;
+  ownerQQs: string;
+  licenses: Record<string, GroupLicense>;
+  global: GroupGuardSettings;
+  groups: Record<string, GroupGuardSettings>;
+  antiRecallGroups: string[];
+  globalAntiRecall: boolean;
+  globalEmojiReact: boolean;
+  emojiReactGroups: Record<string, string[]>;
+  cardLocks: Record<string, string>;
+  blacklist: string[];
+  whitelist: string[];
+  filterKeywords: string[];
+  filterPunishLevel: number;
+  filterBanMinutes: number;
+  welcomeMessage: string;
+  spamWindow: number;
+  spamThreshold: number;
+  spamDetect: boolean;
+  spamBanMinutes: number;
+  /** 退群自动拉黑 */
+  leaveBlacklist: boolean;
+  /** 全局消息类型过滤 */
+  msgFilter: MsgFilterSettings;
+  /** 全局问答列表 */
+  qaList: QAEntry[];
+  /** 入群审核拒绝关键词 */
+  rejectKeywords: string[];
+  /** 预设配置列表 */
+  presets: PresetConfig[];
+}
+
+export interface GroupGuardSettings {
+  useGlobal?: boolean;
+  autoApprove: boolean;
+  enableVerify: boolean;
+  verifyTimeout: number;
+  maxAttempts: number;
+  mathMin: number;
+  mathMax: number;
+  targetUsers: string[];
+  /** 群独立黑名单 */
+  groupBlacklist: string[];
+  /** 入群审核拒绝关键词（验证信息包含则拒绝） */
+  rejectKeywords?: string[];
+  /** 退群自动拉黑（群级别） */
+  leaveBlacklist: boolean;
+  /** 欢迎词（群级别，空则用全局） */
+  welcomeMessage?: string;
+  /** 违禁词列表（群级别，空则用全局） */
+  filterKeywords?: string[];
+  /** 违禁词惩罚等级 */
+  filterPunishLevel?: number;
+  /** 违禁词禁言时长（分钟） */
+  filterBanMinutes?: number;
+  /** 刷屏检测开关 */
+  spamDetect?: boolean;
+  /** 刷屏时间窗口（秒） */
+  spamWindow?: number;
+  /** 刷屏消息阈值 */
+  spamThreshold?: number;
+  /** 刷屏禁言时长（分钟） */
+  spamBanMinutes?: number;
+  /** 复读检测阈值（连续N条相同消息） */
+  repeatThreshold?: number;
+  /** 权限缓存时间 (秒)，0为关闭 */
+  adminCacheSeconds?: number;
+  /** 群独立消息类型过滤 */
+  msgFilter?: MsgFilterSettings;
+  /** 群独立问答列表 */
+  qaList?: QAEntry[];
+  /** 警告上限次数 */
+  warningLimit?: number;
+  /** 警告惩罚：ban=禁言, kick=踢出 */
+  warningAction?: 'ban' | 'kick';
+  /** 宵禁开始时间 (HH:mm) */
+  curfewStart?: string;
+  /** 宵禁结束时间 (HH:mm) */
+  curfewEnd?: string;
+  /** 是否开启宵禁 */
+  enableCurfew?: boolean;
+  /** 定时任务列表 */
+  scheduledTasks?: ScheduledTask[];
+  /** 发言奖励积分 */
+  messageReward?: number;
+  /** 签到最小积分 */
+  signinMin?: number;
+  /** 签到最大积分 */
+  signinMax?: number;
+  /** 邀请奖励积分 */
+  invitePoints?: number;
+  /** 抽奖消耗积分 */
+  lotteryCost?: number;
+  /** 抽奖最大奖励积分 */
+  lotteryReward?: number;
+  /** 自动撤回机器人自己发的消息 */
+  autoRecallSelf?: boolean;
+  /** 自动撤回延迟（秒） */
+  autoRecallSelfDelay?: number;
+  /** 随机后缀（防复读风控） */
+  randomSuffix?: boolean;
+  /** 随机延迟发送（毫秒） */
+  randomDelayMin?: number;
+  randomDelayMax?: number;
+  // 新增开关
+  /** 是否禁用问答 */
+  disableQA?: boolean;
+  /** 是否禁用签到 */
+  disableSignin?: boolean;
+  /** 是否禁用抽奖 */
+  disableLottery?: boolean;
+  /** 是否禁用邀请统计 */
+  disableInvite?: boolean;
+  /** 是否禁用活跃统计 */
+  disableActivity?: boolean;
+
+  // ===== 商用入群验证 =====
+  /** 入群暗号（为空则关闭） */
+  entryPassphrase?: string;
+  /** 暗号关闭后是否回落到自动同意（默认开启） */
+  enableAutoApproveAfterPassphraseOff?: boolean;
+}
+
+/** 入群验证日志 */
+export interface JoinLogEntry {
+  groupId: string;
+  userId: string;
+  /** 匹配到的验证信息 */
+  answer: string;
+  /** 是否匹配暗号 */
+  passphraseMatched: boolean;
+  /** 执行动作：approve | reject */
+  action: 'approve' | 'reject';
+  /** 详情/理由 */
+  reason: string;
+  timestamp: number;
+}
+
+export interface ScheduledTask {
+  id: string;
+  cron: string; // 简化版: "HH:mm" 或 "interval:minutes"
+  type: 'text' | 'image';
+  content: string;
+  lastRun?: number;
+}
+
+export interface SigninData {
+  lastSigninTime: number; // timestamp
+  streak: number; // 连续签到天数
+  points: number; // 积分
+}
+
+export interface InviteData {
+  inviterId: string; // 邀请人QQ
+  inviteCount: number; // 邀请人数
+  invitedUsers: string[]; // 被邀请人QQ列表
+}
+
+export interface GroupLicense {
+  expireTime: number; // 授权过期时间戳，0表示永久
+  level: 'free' | 'pro' | 'enterprise';
+}
+
+export interface VerifySession {
+  userId: string;
+  groupId: string;
+  answer: number;
+  expression: string;
+  attempts: number;
+  maxAttempts: number;
+  timer: ReturnType<typeof setTimeout>;
+  createdAt: number;
+}
+
+export interface ActivityRecord {
+  msgCount: number;
+  lastActive: number;
+  todayCount: number;
+  todayDate: string;
+}
+
+/** 问答条目 */
+export interface QAEntry {
+  /** 触发关键词 */
+  keyword: string;
+  /** 回复内容，支持 {user} {group} */
+  reply: string;
+  /** 匹配模式: exact=精确 contains=包含 regex=正则 */
+  mode: 'exact' | 'contains' | 'regex';
+}
+
+/** 预设配置模板 */
+export interface PresetConfig {
+  /** 预设名称 */
+  name: string;
+  /** 保存的设置快照 */
+  settings: GroupGuardSettings;
+  /** 全局级别的字段快照 */
+  globalFields?: {
+    filterKeywords?: string[];
+    filterPunishLevel?: number;
+    filterBanMinutes?: number;
+    blacklist?: string[];
+    whitelist?: string[];
+    leaveBlacklist?: boolean;
+    spamDetect?: boolean;
+    spamWindow?: number;
+    spamThreshold?: number;
+    spamBanMinutes?: number;
+    msgFilter?: MsgFilterSettings;
+    welcomeMessage?: string;
+    qaList?: QAEntry[];
+  };
+}
