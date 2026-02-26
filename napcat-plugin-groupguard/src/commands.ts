@@ -279,6 +279,18 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
 
   const groupId = String(event.group_id);
 
+  // 允许所有群成员查询授权状态 (无论是否已授权)
+  if (text === '查询授权' || text === '授权状态') {
+      const license = authManager.getGroupLicense(groupId);
+      if (!license) {
+          await pluginState.sendGroupText(groupId, '⚠️ 本群当前未获得授权\n功能受限，请联系管理员获取授权。');
+      } else {
+          const remaining = license.expireTime === -1 ? '永久' : Math.ceil((license.expireTime - Date.now()) / 86400000) + '天';
+          await pluginState.sendGroupText(groupId, `✅ 本群已授权 (${license.level === 'enterprise' ? '企业版' : '专业版'})\n📅 剩余有效期: ${remaining}`);
+      }
+      return true;
+  }
+
   // 检查授权状态：未授权群仅允许执行授权相关指令，其余指令静默忽略
   const license = authManager.getGroupLicense(groupId);
   // 群内不再响应授权指令，改为仅支持私聊授权
@@ -445,6 +457,20 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
           await pluginState.sendGroupText(groupId, `已设置入群暗号为：${passphrase}`);
       }
       saveConfig(ctx);
+      await pluginState.sendGroupText(groupId, `已设置入群暗号为：${passphrase}`);
+      return true;
+  }
+  
+  // ===== 刷屏与复读检测 =====
+  if (text.startsWith('设置复读阈值 ')) {
+      if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+      const val = parseInt(text.slice(7).trim());
+      if (isNaN(val) || val < 0) { await pluginState.sendGroupText(groupId, '请输入有效的数字 (0表示关闭)'); return true; }
+      
+      if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+      pluginState.config.groups[groupId].repeatThreshold = val;
+      saveConfig(ctx);
+      await pluginState.sendGroupText(groupId, `已设置复读阈值: ${val} (连续${val}条相同内容触发检测)`);
       return true;
   }
 

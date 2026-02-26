@@ -199,7 +199,7 @@
                 <div class="icon-box">🛡️</div>
                 <div style="flex:1">
                     <h1>GroupGuard 用户手册</h1>
-                    <p style="margin-top:0.5rem">v1.0.21 | 企业级群管解决方案</p>
+                    <p style="margin-top:0.5rem">v1.0.23 | 企业级群管解决方案</p>
                     
                     <!-- Alert: Robot Admin -->
                     <div class="alert-box">
@@ -392,6 +392,14 @@
                             <li>开启/关闭二维码撤回 (高级识别)</li>
                         </ul>
                     </div>
+                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0;">防刷屏控制</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+                            <li>开启功能 刷屏检测</li>
+                            <li>设置复读阈值 &lt;次数&gt; (0为关闭，建议3-5)</li>
+                            <li>设置刷屏窗口 &lt;秒数&gt;</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
@@ -419,6 +427,22 @@
                     </div>
                 </div>
                 
+                <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem; margin-top:1.5rem;">
+                    <div style="display:flex; gap:1rem;">
+                        <div style="font-size:2rem;">⚙️</div>
+                        <div>
+                            <h3 style="margin-top:0">娱乐功能开关</h3>
+                            <p style="font-size:0.9rem">管理员可按需开启或关闭特定娱乐模块。</p>
+                            <div class="grid grid-2">
+                                <div><span class="cmd-code">开启功能 签到</span> / <span class="cmd-code">关闭功能 签到</span></div>
+                                <div><span class="cmd-code">开启功能 抽奖</span> / <span class="cmd-code">关闭功能 抽奖</span></div>
+                                <div><span class="cmd-code">开启功能 问答</span> / <span class="cmd-code">关闭功能 问答</span></div>
+                                <div><span class="cmd-code">开启功能 活跃统计</span> / <span class="cmd-code">关闭功能 活跃统计</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem; margin-top:1.5rem;">
                     <div style="display:flex; gap:1rem;">
                         <div style="font-size:2rem;">🛍️</div>
@@ -455,28 +479,6 @@
                     <p>设置每天固定时间发送消息。</p>
                     <div class="cmd-code">定时任务 &lt;HH:mm&gt; &lt;内容&gt;</div>
                     <p style="font-size:0.8rem; color:var(--text-light)">示例：定时任务 08:00 大家早上好！</p>
-                </div>
-
-                <div class="cmd-box" style="border-left-color:#F97316; background:#FFF7ED;">
-                    <span class="cmd-title" style="color:#9A3412">高风险/高级管理指令 <span class="tag tag-owner">主人/管理员</span></span>
-                    <div class="grid grid-2" style="margin-top:0.5rem;">
-                        <div>
-                            <div class="cmd-code" style="color:#C2410C; background:rgba(255,237,213,0.5)">设置权限缓存 &lt;秒数&gt;</div>
-                            <div style="font-size:0.8rem; color:#EA580C">设置缓存时间，0为关闭。</div>
-                        </div>
-                        <div>
-                            <div class="cmd-code" style="color:#C2410C; background:rgba(255,237,213,0.5)">开启自身撤回 &lt;秒数&gt;</div>
-                            <div style="font-size:0.8rem; color:#EA580C">机器人消息阅后即焚。</div>
-                        </div>
-                        <div>
-                            <div class="cmd-code" style="color:#C2410C; background:rgba(255,237,213,0.5)">多群广播 &lt;内容&gt;</div>
-                            <div style="font-size:0.8rem; color:#EA580C">⚠️ 仅限主人私聊使用。</div>
-                        </div>
-                        <div>
-                            <div class="cmd-code" style="color:#C2410C; background:rgba(255,237,213,0.5)">白名单 @某人</div>
-                            <div style="font-size:0.8rem; color:#EA580C">⚠️ 仅限主人使用。</div>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -532,7 +534,7 @@
     </div>
 
     <footer style="text-align:center; padding:2rem; color:var(--text-light); border-top:1px solid var(--border); margin-top:2rem;">
-        <p>&copy; 2024 GroupGuard Plugin. Documentation v1.0.21</p>
+        <p>&copy; 2024 GroupGuard Plugin. Documentation v1.0.23</p>
     </footer>
 
     <script>
