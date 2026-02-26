@@ -1,6 +1,6 @@
 # 🛡️ NapCat GroupGuard Plugin
 
-[![Version](https://img.shields.io/badge/version-1.0.22-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-1.0.23-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 全功能企业级群管理插件，专为 NapCat/OneBot11 设计。集成风控防护、商业授权、互动娱乐、入群验证、自动问答等核心模块。
