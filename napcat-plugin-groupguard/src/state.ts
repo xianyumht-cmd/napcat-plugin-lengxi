@@ -174,10 +174,21 @@ class PluginState {
     const finalContent = content + suffix;
 
     try {
-      await this.actions.call('send_group_msg', {
+      const res = await this.actions.call('send_group_msg', {
         group_id: groupId,
         message: [{ type: 'text', data: { text: finalContent } }]
-      } as never, this.adapterName, this.networkConfig);
+      } as never, this.adapterName, this.networkConfig) as { message_id?: number | string };
+
+      // 自动撤回自身消息逻辑
+      if (res && res.message_id) {
+        const settings = this.getGroupSettings(groupId);
+        if (settings.autoRecallSelf) {
+          const delay = (settings.autoRecallSelfDelay || 60) * 1000;
+          setTimeout(() => {
+            this.callApi('delete_msg', { message_id: res.message_id }).catch(() => {});
+          }, delay);
+        }
+      }
     } catch (e) {
       this.log('error', `发送群消息失败: ${e}`);
     }
@@ -203,10 +214,21 @@ class PluginState {
     }
 
     try {
-      await this.actions.call('send_group_msg', {
+      const res = await this.actions.call('send_group_msg', {
         group_id: groupId,
         message
-      } as never, this.adapterName, this.networkConfig);
+      } as never, this.adapterName, this.networkConfig) as { message_id?: number | string };
+
+      // 自动撤回自身消息逻辑
+      if (res && res.message_id) {
+        const settings = this.getGroupSettings(groupId);
+        if (settings.autoRecallSelf) {
+          const delay = (settings.autoRecallSelfDelay || 60) * 1000;
+          setTimeout(() => {
+            this.callApi('delete_msg', { message_id: res.message_id }).catch(() => {});
+          }, delay);
+        }
+      }
     } catch (e) {
       this.log('error', `发送群消息失败: ${e}`);
     }
@@ -236,9 +258,35 @@ class PluginState {
   /** 调用 API */
   async callApi (action: string, params: any): Promise<any> {
     if (!this.actions || !this.networkConfig) return;
+    
+    // 针对 delete_msg 做特殊处理 (类型转换 + 重试机制)
+    if (action === 'delete_msg' && params && params.message_id) {
+        // 尝试转换为 number (如果是纯数字字符串)
+        if (typeof params.message_id === 'string' && /^\d+$/.test(params.message_id)) {
+             // 某些实现可能需要 number 类型，但也可能是 int64 string，这里保留 string 并尝试一次
+             // 如果失败，可以尝试转换类型。目前 NapCat 似乎接受 string，但底层 NT 偶尔超时。
+             // 重点是增加重试逻辑。
+        }
+    }
+
     try {
       return await this.actions.call(action, params as never, this.adapterName, this.networkConfig);
-    } catch (e) {
+    } catch (e: any) {
+      // 针对 delete_msg 的超时或无响应错误进行一次重试
+      if (action === 'delete_msg') {
+          const errMsg = String(e);
+          if (errMsg.includes('Timeout') || errMsg.includes('No data returned') || errMsg.includes('decode failed')) {
+              this.log('warn', `撤回消息失败，尝试重试... (${errMsg})`);
+              await new Promise(resolve => setTimeout(resolve, 500)); // 等待 500ms
+              try {
+                  return await this.actions.call(action, params as never, this.adapterName, this.networkConfig);
+              } catch (retryErr) {
+                  this.log('error', `API调用重试失败 [${action}]: ${retryErr}`);
+                  return null;
+              }
+          }
+      }
+      
       this.log('error', `API调用失败 [${action}]: ${e}`);
       return null;
     }

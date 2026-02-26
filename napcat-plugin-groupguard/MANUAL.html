@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GroupGuard 插件操作手册</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --border-color: #e1e4e8;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: #fff;
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin: 0;
+        }
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+        .content-section {
+            display: none;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .content-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        h2 {
+            color: var(--primary-color);
+            border-left: 5px solid var(--accent-color);
+            padding-left: 15px;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #555;
+            margin-top: 25px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        code {
+            background-color: #f1f8ff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #0366d6;
+            font-family: Consolas, Monaco, "Courier New", monospace;
+        }
+        .note {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .role-admin { background-color: #e1f5fe; color: #0288d1; }
+        .role-system { background-color: #fce4ec; color: #c2185b; }
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>GroupGuard 插件操作手册 (v1.0.18)</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('system')">系统管理员手册</button>
+            <button class="tab-btn" onclick="switchTab('group')">群管理员操作指南</button>
+        </div>
+
+        <!-- 系统管理员手册 -->
+        <div id="system" class="content-section active">
+            <div class="note">
+                <strong>说明：</strong> 本部分包含系统级配置、授权管理及全局风控设置，仅限拥有最高权限的账号（配置中的 ownerQQs）操作。指令建议通过私聊发送。
+            </div>
+
+            <h2>1. 授权与生命周期管理</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>说明</th>
+                        <th>示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>授权 &lt;群号&gt; &lt;天数&gt;</code></td>
+                        <td>为指定群开通服务。天数为数字或"永久"。</td>
+                        <td><code>授权 123456 30</code><br><code>授权 123456 永久</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>回收授权 &lt;群号&gt;</code></td>
+                        <td>立即终止指定群的服务。</td>
+                        <td><code>回收授权 123456</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>查询授权 &lt;群号&gt;</code></td>
+                        <td>查询群的授权状态及到期时间。</td>
+                        <td><code>查询授权 123456</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>2. 数据安全与维护</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>说明</th>
+                        <th>风险提示</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>清空群配置</code></td>
+                        <td>发起清空指定群所有数据的请求（需在目标群内发送）。</td>
+                        <td>⚠️ 将删除该群的问答、日志、黑名单等所有数据。</td>
+                    </tr>
+                    <tr>
+                        <td><code>确认清空群配置</code></td>
+                        <td>确认执行上述清空操作。</td>
+                        <td>⚠️ 操作不可逆。</td>
+                    </tr>
+                    <tr>
+                        <td><code>开启调试</code> / <code>关闭调试</code></td>
+                        <td>开启/关闭详细日志模式（私聊发送）。</td>
+                        <td>用于排查指令无响应等问题。</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>3. 全局风控设置</h2>
+            <p>全局设置对所有群生效，优先级低于群独立设置（即如果群内单独配置了，则以群内为准；否则继承全局）。</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>说明</th>
+                        <th>示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>添加全局违禁词 &lt;词语&gt;</code></td>
+                        <td>添加全局拦截的敏感词（触发撤回+禁言）。</td>
+                        <td><code>添加全局违禁词 兼职</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>删除全局违禁词 &lt;词语&gt;</code></td>
+                        <td>移除全局敏感词。</td>
+                        <td><code>删除全局违禁词 兼职</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>添加全局拒绝词 &lt;词语&gt;</code></td>
+                        <td>添加全局入群自动拒绝的关键词。</td>
+                        <td><code>添加全局拒绝词 广告</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>删除全局拒绝词 &lt;词语&gt;</code></td>
+                        <td>移除全局入群拒绝关键词。</td>
+                        <td><code>删除全局拒绝词 广告</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 群管理员操作指南 -->
+        <div id="group" class="content-section">
+            <div class="note">
+                <strong>说明：</strong> 本部分适用于已获得授权的群。操作者需为群内的管理员、群主或系统管理员。
+            </div>
+
+            <h2>1. 基础群务管理</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>说明</th>
+                        <th>示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>踢出 &lt;@某人/QQ&gt;</code></td>
+                        <td>将成员移出群聊。</td>
+                        <td><code>踢出 @张三</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>禁言 &lt;@某人/QQ&gt; &lt;分钟&gt;</code></td>
+                        <td>禁言指定时长（默认10分钟）。</td>
+                        <td><code>禁言 @张三 30</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>解禁 &lt;@某人/QQ&gt;</code></td>
+                        <td>解除禁言。</td>
+                        <td><code>解禁 @张三</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>全体禁言</code> / <code>全体解禁</code></td>
+                        <td>开启或关闭全员禁言。</td>
+                        <td><code>全体禁言</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>群拉黑 &lt;@某人&gt;</code></td>
+                        <td>移出并加入本群黑名单（拒绝再次申请）。</td>
+                        <td><code>群拉黑 @张三</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>警告 &lt;@某人&gt;</code></td>
+                        <td>记一次警告，达到上限（默认3次）自动处罚。</td>
+                        <td><code>警告 @张三</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>2. 入群验证与安全 (v1.0.18新特性)</h2>
+            <p>系统支持三种入群验证模式，优先级：<strong>黑名单 > 防刷拦截 > 暗号验证 > 自动同意/拒绝词</strong>。</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>说明</th>
+                        <th>示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>设置入群暗号 &lt;暗号&gt;</code></td>
+                        <td>设置入群验证暗号（自动去空格，不分大小写）。<br>匹配成功自动同意，失败自动拒绝。</td>
+                        <td><code>设置入群暗号 napcat</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>关闭入群暗号</code></td>
+                        <td>停用暗号验证功能。</td>
+                        <td><code>关闭入群暗号</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>开启/关闭暗号回落</code></td>
+                        <td>暗号关闭后，是否继续使用自动同意规则（默认开启）。<br>若关闭，则暗号关闭后不再自动处理申请。</td>
+                        <td><code>关闭暗号回落</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>添加拒绝词 &lt;词语&gt;</code></td>
+                        <td>验证信息包含该词则自动拒绝（暗号模式下不生效）。</td>
+                        <td><code>添加拒绝词 广告</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>3. 内容管理与互动</h2>
+            <h3>问答系统</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>说明</th>
+                        <th>示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>精确问&lt;A&gt;答&lt;B&gt;</code></td>
+                        <td>完全匹配A时回复B。</td>
+                        <td><code>精确问价格答请看公告</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>模糊问&lt;A&gt;答&lt;B&gt;</code></td>
+                        <td>包含A时回复B。</td>
+                        <td><code>模糊问官网答是 www.xxx.com</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>删除问答 &lt;关键词&gt;</code></td>
+                        <td>删除指定问答。</td>
+                        <td><code>删除问答 价格</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>定时任务与欢迎词</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>说明</th>
+                        <th>示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>设置欢迎词 &lt;内容&gt;</code></td>
+                        <td>支持 <code>{user}</code> 和 <code>{group}</code> 变量。</td>
+                        <td><code>设置欢迎词 欢迎{user}加入！</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>定时任务 &lt;时间&gt; &lt;内容&gt;</code></td>
+                        <td>添加每日定时消息。</td>
+                        <td><code>定时任务 08:00 早安</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>开启/关闭宵禁 &lt;开始&gt; &lt;结束&gt;</code></td>
+                        <td>设置夜间自动禁言模式。</td>
+                        <td><code>开启宵禁 00:00 06:00</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>违禁词管理</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指令</th>
+                        <th>说明</th>
+                        <th>示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>添加违禁词 &lt;词语&gt;</code></td>
+                        <td>添加本群拦截词（触发撤回+禁言）。</td>
+                        <td><code>添加违禁词 兼职</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>删除违禁词 &lt;词语&gt;</code></td>
+                        <td>移除本群拦截词。</td>
+                        <td><code>删除违禁词 兼职</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>违禁词列表</code></td>
+                        <td>查看本群及全局生效的违禁词。</td>
+                        <td><code>违禁词列表</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 GroupGuard Plugin Documentation. All rights reserved.</p>
+    </footer>
+
+    <script>
+        function switchTab(tabId) {
+            // 隐藏所有内容
+            document.querySelectorAll('.content-section').forEach(el => {
+                el.classList.remove('active');
+            });
+            // 取消所有按钮激活状态
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // 激活当前选中
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

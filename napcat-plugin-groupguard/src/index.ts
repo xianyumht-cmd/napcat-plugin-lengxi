@@ -298,8 +298,8 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
 
   // 0.1 自身消息处理：如果是机器人自己发的消息，跳过大部分检查，仅处理撤回
   if (userId === selfId) {
-    // 自身消息撤回逻辑 - 强制使用全局配置
-    const settings = pluginState.config.global;
+    // 自身消息撤回逻辑 - 优先使用群独立配置，无配置则回落到全局
+    const settings = pluginState.getGroupSettings(groupId);
     if (settings.autoRecallSelf) {
       const delay = (settings.autoRecallSelfDelay || 60) * 1000;
       setTimeout(() => {

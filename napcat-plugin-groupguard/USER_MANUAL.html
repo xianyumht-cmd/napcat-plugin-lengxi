@@ -4,496 +4,553 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GroupGuard 用户手册 (租户版)</title>
-    <meta name="description" content="GroupGuard 插件官方用户手册，包含功能概览、配置指南、场景用例及性能调优。">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#10B981',
-                        secondary: '#475569',
-                        bg: '#F3F4F6',
-                        surface: '#FFFFFF'
-                    }
-                }
-            }
-        }
-        mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
-        hljs.highlightAll();
-    </script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-        .cmd-box { background: #F1F5F9; border-left: 4px solid #10B981; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; }
-        .cmd-title { font-weight: bold; color: #1E293B; margin-bottom: 0.5rem; display: block; }
-        .cmd-code { font-family: 'Fira Code', monospace; color: #059669; font-size: 0.95em; }
-        .tag { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
-        .tag-free { background: #E2E8F0; color: #64748B; }
+        :root {
+            --primary: #10B981;
+            --primary-dark: #059669;
+            --secondary: #475569;
+            --bg: #F3F4F6;
+            --surface: #FFFFFF;
+            --text: #1E293B;
+            --text-light: #64748B;
+            --border: #E2E8F0;
+            --code-bg: #F1F5F9;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            line-height: 1.6;
+        }
+        a { text-decoration: none; color: inherit; }
+        
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            display: flex;
+            gap: 2rem;
+        }
+        aside {
+            width: 250px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 2rem;
+            height: calc(100vh - 4rem);
+            overflow-y: auto;
+            display: none;
+        }
+        @media (min-width: 1024px) { aside { display: block; } }
+        
+        main { flex: 1; min-width: 0; }
+
+        /* Navigation */
+        .nav-link {
+            display: block;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.25rem;
+            border-radius: 0.5rem;
+            color: var(--secondary);
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover { background: var(--surface); color: var(--primary); }
+
+        /* Components */
+        .card {
+            background: var(--surface);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .header-card {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .icon-box {
+            width: 5rem;
+            height: 5rem;
+            background: var(--primary);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        h1 { margin: 0; font-size: 1.875rem; color: var(--text); }
+        h2 { margin: 0 0 1.5rem 0; font-size: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        h3 { margin: 1.5rem 0 1rem 0; font-size: 1.25rem; color: var(--secondary); }
+        p { margin-bottom: 1rem; color: var(--text-light); }
+
+        /* Command Box */
+        .cmd-box {
+            background: var(--code-bg);
+            border-left: 4px solid var(--primary);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .cmd-title { font-weight: bold; display: block; margin-bottom: 0.5rem; color: var(--text); }
+        .cmd-code {
+            font-family: 'Fira Code', monospace;
+            color: var(--primary-dark);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            display: inline-block;
+        }
+        
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 0.1rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
         .tag-pro { background: #DBEAFE; color: #2563EB; }
-        .table-wrapper { overflow-x: auto; margin-bottom: 1rem; border-radius: 0.5rem; border: 1px solid #E2E8F0; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #E2E8F0; }
-        th { background: #F8FAFC; font-weight: 600; color: #475569; }
+        .tag-owner { background: #FEF3C7; color: #D97706; }
+
+        /* Tables */
+        .table-wrapper { overflow-x: auto; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 0.5rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: #F8FAFC; color: var(--secondary); font-weight: 600; }
         tr:last-child td { border-bottom: none; }
-        .anchor { scroll-margin-top: 5rem; }
+
+        /* Grid System */
+        .grid { display: grid; gap: 1.5rem; }
+        @media (min-width: 768px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1024px) { .grid-3 { grid-template-columns: 1fr 1fr 1fr; } }
+
+        /* Diagram Replacement */
+        .flow-diagram {
+            background: var(--bg);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        .flow-step {
+            background: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+            display: inline-block;
+            margin: 0.5rem;
+            font-weight: 500;
+        }
+        .flow-arrow { color: var(--text-light); margin: 0.5rem; }
+        
+        /* Alert & Search */
+        .alert-box {
+            background: #FFF7ED;
+            border: 1px solid #FDBA74;
+            color: #C2410C;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        .search-box { margin-top: 1rem; position: relative; }
+        .search-box input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
+        
+        .highlight { background-color: #FDE047; }
     </style>
 </head>
-<body class="bg-gray-100 text-slate-800">
+<body>
 
-    <div class="max-w-6xl mx-auto px-4 py-8 flex gap-8">
-        
-        <!-- Sidebar Navigation -->
-        <aside class="hidden lg:block w-64 shrink-0 sticky top-8 h-[calc(100vh-4rem)] overflow-y-auto pr-4">
-            <nav class="space-y-1 text-sm font-medium text-slate-600">
-                <a href="#overview" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">1. 功能全景图</a>
-                <a href="#activate" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">2. 激活与授权</a>
-                <a href="#verify" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">3. 入群验证</a>
-                <a href="#manage" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">4. 群员管理</a>
-                <a href="#interact" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">5. 互动娱乐</a>
-                <a href="#advanced" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">6. 高级功能</a>
-                <a href="#api" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">7. API与配置详解</a>
-                <a href="#scenarios" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">8. 典型业务场景</a>
-                <a href="#tuning" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">9. 高级调优</a>
-                <a href="#security" class="block px-3 py-2 rounded-lg hover:bg-white hover:text-primary transition">10. 安全与合规</a>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside>
+            <nav>
+                <a href="#overview" class="nav-link">1. 功能全景图</a>
+                <a href="#activate" class="nav-link">2. 激活与授权</a>
+                <a href="#verify" class="nav-link">3. 入群验证</a>
+                <a href="#manage" class="nav-link">4. 群员管理</a>
+                <a href="#interact" class="nav-link">5. 互动娱乐</a>
+                <a href="#advanced" class="nav-link">6. 高级功能</a>
+                <a href="#scenarios" class="nav-link">7. 典型业务场景</a>
             </nav>
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 min-w-0">
+        <main>
             <!-- Header -->
-            <header class="mb-8 bg-white rounded-2xl shadow-sm p-8 flex items-center gap-6">
-                <div class="flex-shrink-0 w-20 h-20 bg-emerald-500 rounded-2xl shadow-lg flex items-center justify-center text-white text-4xl">
-                    🛡️
-                </div>
-                <div>
-                    <h1 class="text-3xl font-bold text-slate-900">GroupGuard 用户手册</h1>
-                    <p class="text-slate-500 mt-2 text-lg">v1.0.19 | 企业级群管解决方案</p>
+            <header class="card header-card">
+                <div class="icon-box">🛡️</div>
+                <div style="flex:1">
+                    <h1>GroupGuard 用户手册</h1>
+                    <p style="margin-top:0.5rem">v1.0.21 | 企业级群管解决方案</p>
+                    
+                    <!-- Alert: Robot Admin -->
+                    <div class="alert-box">
+                        <strong>⚠️ 重要提示：</strong> 本插件的大部分管理功能（如踢人、禁言、撤回）需要机器人账号在群内拥有【管理员】或【群主】身份才能生效。请务必先将机器人设为管理员。
+                    </div>
+
+                    <!-- Search Box -->
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="🔍 搜索功能或指令 (Ctrl+F)" onkeyup="filterDocs()">
+                    </div>
                 </div>
             </header>
 
             <!-- 1. 功能全景图 -->
-            <section id="overview" class="anchor bg-white rounded-xl shadow-sm p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">1. 功能全景图</h2>
-                <div class="mb-6">
-                    <p class="text-slate-600 mb-4">GroupGuard 采用模块化架构设计，核心包含风控层、业务层和数据层。以下是系统数据流向与模块交互的全景视图：</p>
-                    <div class="mermaid bg-slate-50 p-4 rounded-lg overflow-x-auto">
-                        graph TD
-                            User[用户/群员] -->|发送消息| Adapter[OneBot适配器]
-                            Adapter -->|事件分发| EventBus[事件总线]
-                            
-                            subgraph "核心防护层 (Core Protection)"
-                                EventBus -->|1. 自身消息过滤| AntiLoop[防死循环]
-                                EventBus -->|2. 授权校验| AuthCheck[授权验证]
-                                EventBus -->|3. 风控检测| RiskControl[全局风控]
-                            end
-                            
-                            subgraph "业务逻辑层 (Business Logic)"
-                                RiskControl -->|通过| CommandParser[指令解析器]
-                                CommandParser -->|管理指令| AdminModule[管理模块]
-                                CommandParser -->|互动指令| InteractModule[互动模块]
-                                CommandParser -->|验证流程| VerifyModule[验证模块]
-                                
-                                AdminModule -->|踢/禁/改名片| API_Call
-                                InteractModule -->|积分/签到/抽奖| DB_Write
-                                VerifyModule -->|进群申请| API_Call
-                            end
-                            
-                            subgraph "数据持久层 (Persistence)"
-                                DB_Write -->|写操作| SQLite[(SQLite/JSON)]
-                                Config[配置管理] -->|读配置| SQLite
-                            end
+            <section id="overview" class="card">
+                <h2>1. 功能全景图</h2>
+                <p>GroupGuard 采用模块化架构设计，核心包含风控层、业务层和数据层。以下是系统数据流向与模块交互的全景视图：</p>
+                
+                <div class="flow-diagram">
+                    <div class="flow-step">用户/群员 (发送消息)</div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div class="flow-step">协议适配器 & 事件总线</div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div style="border:1px dashed var(--secondary); padding:1rem; border-radius:0.5rem; margin:1rem 0; background:rgba(255,255,255,0.5)">
+                        <div style="font-weight:bold; margin-bottom:0.5rem">核心防护层</div>
+                        <span class="flow-step">防死循环</span>
+                        <span class="flow-step">授权校验</span>
+                        <span class="flow-step">全局风控</span>
                     </div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div style="border:1px dashed var(--secondary); padding:1rem; border-radius:0.5rem; margin:1rem 0; background:rgba(255,255,255,0.5)">
+                        <div style="font-weight:bold; margin-bottom:0.5rem">业务逻辑层</div>
+                        <span class="flow-step">指令解析</span>
+                        <span class="flow-step">管理模块</span>
+                        <span class="flow-step">互动模块</span>
+                        <span class="flow-step">验证模块</span>
+                    </div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div class="flow-step">数据持久层 (SQLite/JSON)</div>
                 </div>
             </section>
 
             <!-- 2. 激活与授权 -->
-            <section id="activate" class="anchor bg-white rounded-xl shadow-sm p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">2. 激活与授权</h2>
-                <p class="text-slate-600 mb-4">使用本插件前，请确保您已获取有效的激活码。未授权的群组将无法响应任何业务指令。</p>
-                <div class="grid gap-4">
+            <section id="activate" class="card">
+                <h2>2. 激活与授权</h2>
+                <p>使用本插件前，请确保您已获取有效的激活码。未授权的群组将无法响应任何业务指令。</p>
+                <div class="grid grid-2">
                     <div class="cmd-box">
                         <span class="cmd-title">激活授权</span>
-                        <p class="text-sm text-slate-500 mb-2">如果您拥有激活码，请在群内发送：</p>
+                        <p>如果您拥有激活码，请在群内发送：</p>
                         <div class="cmd-code">激活 &lt;激活码&gt;</div>
-                        <p class="text-xs text-slate-400 mt-1">示例：激活 PRO-30-ABCDEF123456</p>
+                        <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.5rem">示例：激活 PRO-30-ABCDEF123456</p>
                     </div>
                     <div class="cmd-box">
                         <span class="cmd-title">查询授权</span>
-                        <p class="text-sm text-slate-500 mb-2">查看当前群的授权状态及剩余时间：</p>
+                        <p>查看当前群的授权状态及剩余时间：</p>
                         <div class="cmd-code">查询授权</div>
                     </div>
                 </div>
             </section>
 
             <!-- 3. 入群验证 -->
-            <section id="verify" class="anchor bg-white rounded-xl shadow-sm p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">3. 入群验证系统 <span class="tag tag-pro">专业版</span></h2>
-                <div class="grid md:grid-cols-2 gap-6">
+            <section id="verify" class="card">
+                <h2>3. 入群验证系统 <span class="tag tag-pro">专业版</span></h2>
+                <div class="grid grid-2">
                     <div>
-                        <h3 class="font-bold text-slate-700 mb-4">基础控制</h3>
-                        <div class="space-y-3">
-                            <div>
-                                <div class="cmd-code">开启功能 入群验证</div>
-                                <p class="text-sm text-slate-500">启用后，新成员进群需回答问题或验证。</p>
-                            </div>
-                            <div>
-                                <div class="cmd-code">关闭功能 入群验证</div>
-                                <p class="text-sm text-slate-500">关闭验证，所有申请需管理员人工处理。</p>
-                            </div>
-                            <div>
-                                <div class="cmd-code">开启功能 自动同意</div>
-                                <p class="text-sm text-slate-500">⚠️ 高风险：无需验证直接通过所有进群申请。</p>
-                            </div>
+                        <h3>基础控制</h3>
+                        <div class="cmd-box">
+                            <div class="cmd-code">开启功能 入群验证</div>
+                            <p style="font-size:0.9rem; margin-top:0.5rem">启用后，新成员进群需回答问题或验证。</p>
+                        </div>
+                        <div class="cmd-box">
+                            <div class="cmd-code">关闭功能 入群验证</div>
+                            <p style="font-size:0.9rem; margin-top:0.5rem">关闭验证，所有申请需管理员人工处理。</p>
+                        </div>
+                        <div class="cmd-box">
+                            <div class="cmd-code">开启功能 自动同意</div>
+                            <p style="font-size:0.9rem; margin-top:0.5rem">⚠️ 高风险：无需验证直接通过所有进群申请。</p>
                         </div>
                     </div>
                     <div>
-                        <h3 class="font-bold text-slate-700 mb-4">进阶策略</h3>
-                        <div class="space-y-3">
-                            <div>
-                                <div class="cmd-code">设置暗号 &lt;内容&gt;</div>
-                                <p class="text-sm text-slate-500">设置进群暗号，申请理由包含该暗号即自动通过。</p>
-                            </div>
-                            <div>
-                                <div class="cmd-code">开启功能 暗号回落</div>
-                                <p class="text-sm text-slate-500">当未设置暗号时，自动降级为“自动同意”模式。</p>
-                            </div>
-                            <div>
-                                <div class="cmd-code">设置欢迎词 &lt;内容&gt;</div>
-                                <p class="text-sm text-slate-500">支持变量：{user} 代表进群用户昵称。</p>
-                            </div>
+                        <h3>进阶策略</h3>
+                        <div class="cmd-box">
+                            <div class="cmd-code">设置暗号 &lt;内容&gt;</div>
+                            <p style="font-size:0.9rem; margin-top:0.5rem">设置进群暗号，申请理由包含该暗号即自动通过。</p>
+                        </div>
+                        <div class="cmd-box">
+                            <div class="cmd-code">开启功能 暗号回落</div>
+                            <p style="font-size:0.9rem; margin-top:0.5rem">当未设置暗号时，自动降级为“自动同意”模式。</p>
+                        </div>
+                        <div class="cmd-box">
+                            <div class="cmd-code">设置欢迎词 &lt;内容&gt;</div>
+                            <p style="font-size:0.9rem; margin-top:0.5rem">支持变量：{user} 代表进群用户昵称。</p>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- 4. 群员管理 -->
-            <section id="manage" class="anchor bg-white rounded-xl shadow-sm p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">4. 群员管理指令</h2>
+            <section id="manage" class="card">
+                <h2>4. 群员管理指令</h2>
                 
-                <div class="space-y-6">
-                    <div>
-                        <h3 class="font-bold text-slate-700 mb-2">惩罚与管控</h3>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th class="w-1/3">指令格式</th>
-                                        <th class="w-1/3">说明</th>
-                                        <th class="w-1/3">示例</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td class="font-mono text-emerald-600">踢出 @某人</td>
-                                        <td>移除群成员，可选是否拉黑</td>
-                                        <td>踢出 @张三</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-mono text-emerald-600">禁言 @某人 &lt;分钟&gt;</td>
-                                        <td>禁言指定时长，默认10分钟</td>
-                                        <td>禁言 @李四 30</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-mono text-emerald-600">警告 @某人</td>
-                                        <td>记一次警告，满3次自动处罚</td>
-                                        <td>警告 @王五</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-mono text-emerald-600">全体禁言</td>
-                                        <td>开启全员禁言（仅管理员可发言）</td>
-                                        <td>全体禁言</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 class="font-bold text-slate-700 mb-2">内容净化</h3>
-                        <div class="grid md:grid-cols-2 gap-4">
-                            <div class="bg-slate-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-slate-800 mb-2">违禁词管理</h4>
-                                <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                                    <li>添加违禁词 &lt;关键词&gt;</li>
-                                    <li>删除违禁词 &lt;关键词&gt;</li>
-                                    <li>违禁词列表</li>
-                                </ul>
-                            </div>
-                            <div class="bg-slate-50 p-4 rounded-lg">
-                                <h4 class="font-semibold text-slate-800 mb-2">媒体类型屏蔽</h4>
-                                <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                                    <li>屏蔽 [图片|视频|语音|链接]</li>
-                                    <li>取消屏蔽 [图片|视频|语音|链接]</li>
-                                    <li>示例：屏蔽 小程序</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 5. 互动娱乐 -->
-            <section id="interact" class="anchor bg-white rounded-xl shadow-sm p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">5. 互动娱乐功能</h2>
-                <div class="grid md:grid-cols-3 gap-6">
-                    <div class="bg-slate-50 p-6 rounded-xl border border-slate-100">
-                        <div class="text-3xl mb-3">📅</div>
-                        <h3 class="font-bold text-slate-700 mb-2">签到系统</h3>
-                        <p class="text-sm text-slate-500 mb-4">每日签到获取积分，支持连续签到奖励。</p>
-                        <div class="space-y-1 text-sm font-mono text-emerald-600">
-                            <div>签到</div>
-                            <div>签到榜</div>
-                            <div>我的积分</div>
-                        </div>
-                    </div>
-                    <div class="bg-slate-50 p-6 rounded-xl border border-slate-100">
-                        <div class="text-3xl mb-3">🎁</div>
-                        <h3 class="font-bold text-slate-700 mb-2">抽奖系统</h3>
-                        <p class="text-sm text-slate-500 mb-4">消耗积分抽取随机奖励，概率可配置。</p>
-                        <div class="space-y-1 text-sm font-mono text-emerald-600">
-                            <div>抽奖</div>
-                            <div>开启功能 抽奖</div>
-                        </div>
-                    </div>
-                    <div class="bg-slate-50 p-6 rounded-xl border border-slate-100">
-                        <div class="text-3xl mb-3">🛍️</div>
-                        <h3 class="font-bold text-slate-700 mb-2">积分商城</h3>
-                        <p class="text-sm text-slate-500 mb-4">积分兑换特权或虚拟物品。</p>
-                        <div class="space-y-1 text-sm font-mono text-emerald-600">
-                            <div>积分商城</div>
-                            <div>兑换 免死金牌</div>
-                            <div>兑换 头衔 &lt;名&gt;</div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 7. API与配置详解 -->
-            <section id="api" class="anchor bg-white rounded-xl shadow-sm p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">7. API与配置详解</h2>
-                <p class="text-slate-600 mb-4">以下配置项可通过 WebUI 或修改 <code>config.json</code> 进行调整。修改后通常无需重启，即时生效。</p>
-                
+                <h3>惩罚与管控</h3>
                 <div class="table-wrapper">
                     <table>
                         <thead>
                             <tr>
-                                <th class="w-1/4">配置项 (Key)</th>
-                                <th class="w-1/6">类型</th>
-                                <th class="w-1/6">默认值</th>
-                                <th class="w-1/4">说明</th>
-                                <th class="w-1/6">热更</th>
+                                <th width="30%">指令格式</th>
+                                <th width="40%">说明</th>
+                                <th width="30%">示例</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="font-mono">adminCacheSeconds</td>
-                                <td>Number</td>
-                                <td>60</td>
-                                <td>管理员权限缓存时间(秒)。0为关闭。调大可减少API调用。</td>
-                                <td>✅</td>
+                                <td class="cmd-code">踢出 @某人</td>
+                                <td>移除群成员，可选是否拉黑</td>
+                                <td>踢出 @张三</td>
                             </tr>
                             <tr>
-                                <td class="font-mono">repeatThreshold</td>
-                                <td>Number</td>
-                                <td>0</td>
-                                <td>复读检测阈值。连续发送N条相同消息触发禁言。0为关闭。</td>
-                                <td>✅</td>
+                                <td class="cmd-code">禁言 @某人 &lt;分钟&gt;</td>
+                                <td>禁言指定时长，默认10分钟</td>
+                                <td>禁言 @李四 30</td>
                             </tr>
                             <tr>
-                                <td class="font-mono">warningLimit</td>
-                                <td>Number</td>
-                                <td>3</td>
-                                <td>警告次数上限。达到此值触发惩罚(踢出或禁言)。</td>
-                                <td>✅</td>
+                                <td class="cmd-code">解禁 @某人 / QQ号</td>
+                                <td>解除指定成员的禁言状态</td>
+                                <td>解禁 @李四</td>
                             </tr>
                             <tr>
-                                <td class="font-mono">lotteryCost</td>
-                                <td>Number</td>
-                                <td>50</td>
-                                <td>每次抽奖消耗的积分。</td>
-                                <td>✅</td>
+                                <td class="cmd-code">警告 @某人</td>
+                                <td>记一次警告，满3次自动处罚</td>
+                                <td>警告 @王五</td>
                             </tr>
                             <tr>
-                                <td class="font-mono">signinMin / signinMax</td>
-                                <td>Number</td>
-                                <td>10 / 50</td>
-                                <td>签到随机积分范围。</td>
-                                <td>✅</td>
+                                <td class="cmd-code">全体禁言 / 全体解禁</td>
+                                <td>开启/关闭全员禁言</td>
+                                <td>全体禁言</td>
+                            </tr>
+                            <tr>
+                                <td class="cmd-code">群拉黑 @某人</td>
+                                <td>将成员加入本群黑名单（自动踢出并拒绝再进）</td>
+                                <td>群拉黑 @恶意广告</td>
+                            </tr>
+                            <tr>
+                                <td class="cmd-code">群取消拉黑 @某人</td>
+                                <td>从本群黑名单移除</td>
+                                <td>群取消拉黑 @误封用户</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <h3 class="font-bold text-slate-700 mt-6 mb-4">最小配置示例 (config.json)</h3>
-                <pre><code class="language-json">{
-  "ownerQQs": [123456789],
-  "global": {
-    "randomSuffix": true,
-    "randomDelayMin": 500,
-    "randomDelayMax": 1500
-  },
-  "groups": {
-    "987654321": {
-      "enableVerify": true,
-      "entryPassphrase": "我爱群管",
-      "warningLimit": 5
-    }
-  }
-}</code></pre>
-            </section>
-
-            <!-- 8. 典型业务场景 -->
-            <section id="scenarios" class="anchor bg-white rounded-xl shadow-sm p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">8. 典型业务场景</h2>
-                
-                <div class="space-y-6">
-                    <!-- Scene 1 -->
-                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
-                        <h3 class="font-bold text-lg text-slate-800 mb-2">场景一：防止广告号刷屏轰炸</h3>
-                        <p class="text-sm text-slate-600 mb-4">**需求**：某群深夜常有广告号进群发送大量垃圾信息。</p>
-                        <div class="grid md:grid-cols-2 gap-4">
-                            <div>
-                                <h4 class="font-semibold text-slate-700 text-sm mb-2">配置步骤</h4>
-                                <ol class="list-decimal list-inside text-sm text-slate-600 space-y-1">
-                                    <li>开启入群验证：<code class="bg-slate-200 px-1 rounded">开启功能 入群验证</code></li>
-                                    <li>设置复杂暗号：<code class="bg-slate-200 px-1 rounded">设置暗号不仅要帅还要快</code></li>
-                                    <li>开启刷屏检测：<code class="bg-slate-200 px-1 rounded">开启功能 刷屏检测</code></li>
-                                    <li>设置复读阈值：WebUI 设置 <code class="bg-slate-200 px-1 rounded">repeatThreshold = 3</code></li>
-                                </ol>
-                            </div>
-                            <div>
-                                <h4 class="font-semibold text-slate-700 text-sm mb-2">预期效果</h4>
-                                <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                                    <li>未知用户无法直接进群。</li>
-                                    <li>即使进群，连续发3条广告秒被禁言。</li>
-                                    <li>短时间高频发送会被系统自动检测并禁言。</li>
-                                </ul>
-                            </div>
-                        </div>
+                <h3>特殊管控</h3>
+                <div class="grid grid-2">
+                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0;">名片与头衔</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+                            <li>锁定名片 @某人 (锁定当前名片，修改会自动还原)</li>
+                            <li>授予头衔 @某人 &lt;头衔&gt; (需群主权限)</li>
+                            <li>清除头衔 @某人</li>
+                        </ul>
                     </div>
-
-                    <!-- Scene 2 -->
-                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
-                        <h3 class="font-bold text-lg text-slate-800 mb-2">场景二：付费群/会员群管理</h3>
-                        <p class="text-sm text-slate-600 mb-4">**需求**：管理一个需要验证身份的付费会员群。</p>
-                        <div class="grid md:grid-cols-2 gap-4">
-                            <div>
-                                <h4 class="font-semibold text-slate-700 text-sm mb-2">配置步骤</h4>
-                                <ol class="list-decimal list-inside text-sm text-slate-600 space-y-1">
-                                    <li>设置私密暗号：<code class="bg-slate-200 px-1 rounded">设置暗号 VIP-2024</code></li>
-                                    <li>设置欢迎词：<code class="bg-slate-200 px-1 rounded">设置欢迎词 欢迎尊贵的VIP {user}！</code></li>
-                                    <li>禁止分享链接：<code class="bg-slate-200 px-1 rounded">屏蔽 链接</code> (防止外流)</li>
-                                </ol>
-                            </div>
-                            <div>
-                                <h4 class="font-semibold text-slate-700 text-sm mb-2">预期效果</h4>
-                                <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                                    <li>只有输入正确 VIP 码才能进群。</li>
-                                    <li>进群自动欢迎，提升尊贵感。</li>
-                                    <li>群内无法发送外部链接，保护内容安全。</li>
-                                </ul>
-                            </div>
-                        </div>
+                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0;">针对模式</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+                            <li>针对 @某人 (该用户发消息秒撤回)</li>
+                            <li>取消针对 @某人</li>
+                            <li>针对列表 / 清除针对</li>
+                        </ul>
                     </div>
                 </div>
-            </section>
 
-            <!-- 9. 高级调优 -->
-            <section id="tuning" class="anchor bg-white rounded-xl shadow-sm p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">9. 高级调优</h2>
-                <div class="grid md:grid-cols-2 gap-8">
-                    <div>
-                        <h3 class="font-bold text-slate-700 mb-4">性能基线 (Benchmark)</h3>
-                        <p class="text-sm text-slate-600 mb-4">基于 i5-8500T / 8G 内存环境压测数据：</p>
-                        <div class="table-wrapper">
-                            <table>
-                                <tbody>
-                                    <tr>
-                                        <td class="font-semibold">QPS 峰值</td>
-                                        <td>120 msg/s</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-semibold">消息延迟 (P99)</td>
-                                        <td>&lt; 200ms</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-semibold">内存占用 (Idle)</td>
-                                        <td>~45 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-semibold">内存占用 (Load)</td>
-                                        <td>~120 MB</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                <h3>内容净化</h3>
+                <div class="grid grid-2">
+                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0;">违禁词管理</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+                            <li>添加违禁词 &lt;关键词&gt;</li>
+                            <li>删除违禁词 &lt;关键词&gt;</li>
+                            <li>违禁词列表</li>
+                            <li>设置违禁词惩罚 &lt;1-4&gt; (1:撤回 2:禁言 3:踢出 4:拉黑)</li>
+                            <li>设置违禁词禁言 &lt;分钟&gt;</li>
+                        </ul>
                     </div>
-                    <div>
-                        <h3 class="font-bold text-slate-700 mb-4">调优建议</h3>
-                        <ul class="space-y-3 text-sm text-slate-600">
-                            <li>
-                                <span class="font-bold text-slate-800">高并发群组：</span>
-                                建议将 <code class="bg-slate-100 px-1">adminCacheSeconds</code> 设为 300 (5分钟)，大幅减少 API 请求。
-                            </li>
-                            <li>
-                                <span class="font-bold text-slate-800">防风控优先：</span>
-                                开启 <code class="bg-slate-100 px-1">随机后缀</code> 并设置 <code class="bg-slate-100 px-1">随机延迟</code> 为 1000-2000ms。
-                            </li>
-                            <li>
-                                <span class="font-bold text-slate-800">Node.js 内存：</span>
-                                启动时添加 <code class="bg-slate-100 px-1">--max-old-space-size=512</code> 限制堆内存，防止内存泄漏导致的系统卡顿。
-                            </li>
+                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0;">媒体类型屏蔽</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+                            <li>屏蔽 [图片|视频|语音|链接|二维码|名片|小程序|转发]</li>
+                            <li>取消屏蔽 [类型]</li>
+                            <li>开启/关闭二维码撤回 (高级识别)</li>
                         </ul>
                     </div>
                 </div>
             </section>
 
-            <!-- 10. 安全与合规 -->
-            <section id="security" class="anchor bg-white rounded-xl shadow-sm p-8">
-                <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-2">10. 安全与合规</h2>
+            <!-- 5. 互动娱乐 -->
+            <section id="interact" class="card">
+                <h2>5. 互动娱乐功能</h2>
+                <div class="grid grid-3">
+                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
+                        <div style="font-size:2rem; margin-bottom:0.5rem;">📅</div>
+                        <h3 style="margin-top:0">签到系统</h3>
+                        <p style="font-size:0.9rem">每日签到获取积分，支持连续签到奖励。</p>
+                        <div class="cmd-code">签到</div> <div class="cmd-code">签到榜</div>
+                    </div>
+                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
+                        <div style="font-size:2rem; margin-bottom:0.5rem;">📊</div>
+                        <h3 style="margin-top:0">活跃统计</h3>
+                        <p style="font-size:0.9rem">查看群内发言排行榜及统计数据。</p>
+                        <div class="cmd-code">活跃统计</div>
+                    </div>
+                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
+                        <div style="font-size:2rem; margin-bottom:0.5rem;">🎁</div>
+                        <h3 style="margin-top:0">抽奖系统</h3>
+                        <p style="font-size:0.9rem">消耗积分抽取随机奖励，概率可配置。</p>
+                        <div class="cmd-code">抽奖</div>
+                    </div>
+                </div>
                 
-                <h3 class="font-bold text-slate-700 mb-3">数据隐私声明</h3>
-                <p class="text-sm text-slate-600 mb-4">
-                    本插件遵循最小权限原则。所有群聊数据（如签到、积分、配置）均存储在本地 <code class="bg-slate-100 px-1">data/</code> 目录下，不会上传至任何第三方云端服务器。
-                </p>
+                <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem; margin-top:1.5rem;">
+                    <div style="display:flex; gap:1rem;">
+                        <div style="font-size:2rem;">🛍️</div>
+                        <div>
+                            <h3 style="margin-top:0">积分商城</h3>
+                            <p style="font-size:0.9rem">使用积分兑换虚拟权益。支持自定义商品。</p>
+                            <div class="grid grid-2">
+                                <div><span class="cmd-code">积分商城</span> / <span class="cmd-code">商城</span></div>
+                                <div><span class="cmd-code">兑换 免死金牌</span> (清除警告)</div>
+                                <div><span class="cmd-code">兑换 头衔 &lt;内容&gt;</span></div>
+                                <div><span class="cmd-code">兑换 解禁 @某人</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-                <h3 class="font-bold text-slate-700 mb-3">OWASP Top 10 应对措施</h3>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th class="w-1/4">风险类别</th>
-                                <th class="w-3/4">防护措施</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="font-semibold text-red-600">注入攻击 (Injection)</td>
-                                <td>所有 SQL 操作使用参数化查询 (Prepared Statements)，严防 SQL 注入。指令解析使用严格正则匹配。</td>
-                            </tr>
-                            <tr>
-                                <td class="font-semibold text-red-600">越权访问 (Broken Access Control)</td>
-                                <td>采用 Owner/Admin 双层权限校验，敏感操作（如授权、全局风控）仅限 Owner 私聊执行，严格隔离租户数据。</td>
-                            </tr>
-                            <tr>
-                                <td class="font-semibold text-red-600">敏感信息泄露</td>
-                                <td>日志中自动脱敏 Token 和 Key。WebUI 仅监听本地回环地址 (默认)，建议通过 Nginx 反代加 Auth 访问。</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <!-- 6. 高级功能 -->
+            <section id="advanced" class="card">
+                <h2>6. 高级功能</h2>
+                
+                <div class="cmd-box">
+                    <span class="cmd-title">问答系统 (自动回复)</span>
+                    <p>支持精确匹配、模糊匹配和正则匹配。</p>
+                    <div class="grid grid-2">
+                        <div><span class="cmd-code">精确问 &lt;问题&gt; 答 &lt;回复&gt;</span></div>
+                        <div><span class="cmd-code">模糊问 &lt;关键词&gt; 答 &lt;回复&gt;</span></div>
+                        <div><span class="cmd-code">删问 &lt;关键词&gt;</span></div>
+                    </div>
+                </div>
+                
+                <div class="cmd-box">
+                    <span class="cmd-title">定时任务 <span class="tag tag-pro">专业版</span></span>
+                    <p>设置每天固定时间发送消息。</p>
+                    <div class="cmd-code">定时任务 &lt;HH:mm&gt; &lt;内容&gt;</div>
+                    <p style="font-size:0.8rem; color:var(--text-light)">示例：定时任务 08:00 大家早上好！</p>
+                </div>
+
+                <div class="cmd-box" style="border-left-color:#F97316; background:#FFF7ED;">
+                    <span class="cmd-title" style="color:#9A3412">高风险/高级管理指令 <span class="tag tag-owner">主人/管理员</span></span>
+                    <div class="grid grid-2" style="margin-top:0.5rem;">
+                        <div>
+                            <div class="cmd-code" style="color:#C2410C; background:rgba(255,237,213,0.5)">设置权限缓存 &lt;秒数&gt;</div>
+                            <div style="font-size:0.8rem; color:#EA580C">设置缓存时间，0为关闭。</div>
+                        </div>
+                        <div>
+                            <div class="cmd-code" style="color:#C2410C; background:rgba(255,237,213,0.5)">开启自身撤回 &lt;秒数&gt;</div>
+                            <div style="font-size:0.8rem; color:#EA580C">机器人消息阅后即焚。</div>
+                        </div>
+                        <div>
+                            <div class="cmd-code" style="color:#C2410C; background:rgba(255,237,213,0.5)">多群广播 &lt;内容&gt;</div>
+                            <div style="font-size:0.8rem; color:#EA580C">⚠️ 仅限主人私聊使用。</div>
+                        </div>
+                        <div>
+                            <div class="cmd-code" style="color:#C2410C; background:rgba(255,237,213,0.5)">白名单 @某人</div>
+                            <div style="font-size:0.8rem; color:#EA580C">⚠️ 仅限主人使用。</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 7. 典型业务场景 -->
+            <section id="scenarios" class="card">
+                <h2>7. 典型业务场景</h2>
+                
+                <div class="grid grid-2">
+                    <!-- Scene 1 -->
+                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
+                        <h3 style="margin-top:0; color:var(--text)">场景一：防止广告号刷屏轰炸</h3>
+                        <p style="font-size:0.9rem">**需求**：某群深夜常有广告号进群发送大量垃圾信息。</p>
+                        
+                        <h4 style="font-size:0.95rem; margin-bottom:0.5rem">配置步骤</h4>
+                        <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:var(--secondary)">
+                            <li>开启入群验证：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">开启功能 入群验证</code></li>
+                            <li>设置复杂暗号：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置暗号 帅且快</code></li>
+                            <li>开启刷屏检测：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">开启功能 刷屏检测</code></li>
+                            <li>设置刷屏参数：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置刷屏窗口 10</code> (10秒内)</li>
+                            <li>设置复读阈值：WebUI 设置 repeatThreshold = 3</li>
+                        </ol>
+
+                        <h4 style="font-size:0.95rem; margin:1rem 0 0.5rem">预期效果</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:var(--secondary)">
+                            <li>未知用户无法直接进群。</li>
+                            <li>即使进群，连续发广告秒被禁言。</li>
+                        </ul>
+                    </div>
+
+                    <!-- Scene 2 -->
+                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
+                        <h3 style="margin-top:0; color:var(--text)">场景二：付费群/会员群管理</h3>
+                        <p style="font-size:0.9rem">**需求**：管理一个需要验证身份的付费会员群。</p>
+                        
+                        <h4 style="font-size:0.95rem; margin-bottom:0.5rem">配置步骤</h4>
+                        <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:var(--secondary)">
+                            <li>设置私密暗号：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置暗号 VIP-2024</code></li>
+                            <li>设置欢迎词：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置欢迎词 欢迎VIP {user}！</code></li>
+                            <li>禁止分享链接：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">屏蔽 链接</code></li>
+                        </ol>
+
+                        <h4 style="font-size:0.95rem; margin:1rem 0 0.5rem">预期效果</h4>
+                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:var(--secondary)">
+                            <li>只有输入正确 VIP 码才能进群。</li>
+                            <li>进群自动欢迎，提升尊贵感。</li>
+                            <li>群内无法发送外部链接，保护内容安全。</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
         </main>
     </div>
 
-    <footer class="mt-12 text-center text-slate-400 text-sm pb-8 bg-slate-50 border-t border-slate-200 py-8">
-        <p>&copy; 2024 GroupGuard Plugin. Documentation v1.0.19</p>
-        <p class="mt-2">Built with ❤️ for NapCat Community</p>
+    <footer style="text-align:center; padding:2rem; color:var(--text-light); border-top:1px solid var(--border); margin-top:2rem;">
+        <p>&copy; 2024 GroupGuard Plugin. Documentation v1.0.21</p>
     </footer>
+
+    <script>
+        function filterDocs() {
+            const input = document.getElementById('searchInput');
+            const filter = input.value.toUpperCase();
+            const sections = document.querySelectorAll('main section');
+            
+            sections.forEach(section => {
+                const text = section.innerText;
+                if (text.toUpperCase().indexOf(filter) > -1) {
+                    section.style.display = "";
+                } else {
+                    section.style.display = "none";
+                }
+            });
+        }
+    </script>
 
 </body>
 </html>

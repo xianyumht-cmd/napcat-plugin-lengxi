@@ -1187,6 +1187,37 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     return true;
   }
 
+  // ===== 违禁词惩罚设置 =====
+  if (text.startsWith('设置违禁词惩罚 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const level = parseInt(text.slice(8).trim());
+    if (isNaN(level) || level < 1 || level > 4) { 
+        await pluginState.sendGroupText(groupId, '请输入有效的惩罚等级 (1-4)：\n1: 仅撤回\n2: 撤回+禁言\n3: 撤回+踢出\n4: 撤回+踢出+拉黑'); 
+        return true; 
+    }
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].filterPunishLevel = level;
+    saveConfig(ctx);
+    
+    const desc = ['仅撤回', '撤回+禁言', '撤回+踢出', '撤回+踢出+拉黑'][level - 1];
+    await pluginState.sendGroupText(groupId, `已设置违禁词惩罚等级为：${level} (${desc})`);
+    return true;
+  }
+
+  if (text.startsWith('设置违禁词禁言 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const minutes = parseInt(text.slice(8).trim());
+    if (isNaN(minutes) || minutes < 1) { await pluginState.sendGroupText(groupId, '请输入有效的禁言时长（分钟）'); return true; }
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].filterBanMinutes = minutes;
+    saveConfig(ctx);
+    
+    await pluginState.sendGroupText(groupId, `已设置违禁词禁言时长为：${minutes} 分钟`);
+    return true;
+  }
+
   if (text === '违禁词列表') {
     const settings = pluginState.getGroupSettings(groupId);
     const groupKw = settings.filterKeywords || [];
@@ -1453,6 +1484,43 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     pluginState.config.groups[groupId].spamDetect = false;
     saveConfig(ctx);
     await pluginState.sendGroupText(groupId, '已关闭刷屏检测');
+    return true;
+  }
+
+  // ===== 刷屏参数设置 =====
+  if (text.startsWith('设置刷屏窗口 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const seconds = parseInt(text.slice(7).trim());
+    if (isNaN(seconds) || seconds < 1) { await pluginState.sendGroupText(groupId, '请输入有效的秒数 (至少1秒)'); return true; }
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].spamWindow = seconds;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已设置刷屏检测窗口为：${seconds} 秒`);
+    return true;
+  }
+
+  if (text.startsWith('设置刷屏阈值 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const count = parseInt(text.slice(7).trim());
+    if (isNaN(count) || count < 1) { await pluginState.sendGroupText(groupId, '请输入有效的条数 (至少1条)'); return true; }
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].spamThreshold = count;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已设置刷屏检测阈值为：${count} 条`);
+    return true;
+  }
+
+  if (text.startsWith('设置刷屏禁言 ')) {
+    if (!await isAdminOrOwner(groupId, userId)) { await pluginState.sendGroupText(groupId, '需要管理员权限'); return true; }
+    const minutes = parseInt(text.slice(7).trim());
+    if (isNaN(minutes) || minutes < 1) { await pluginState.sendGroupText(groupId, '请输入有效的分钟数 (至少1分钟)'); return true; }
+    
+    if (!pluginState.config.groups[groupId]) pluginState.config.groups[groupId] = { ...pluginState.getGroupSettings(groupId) };
+    pluginState.config.groups[groupId].spamBanMinutes = minutes;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, `已设置刷屏禁言时长为：${minutes} 分钟`);
     return true;
   }
 
@@ -1751,7 +1819,7 @@ export async function handleFilterKeywords (groupId: string, userId: string, mes
     // level 2: 撤回 + 禁言
     // level 3: 撤回 + 踢出
     // level 4: 撤回 + 拉黑
-    const level = settings.filterLevel || 1;
+    const level = settings.filterPunishLevel || 1;
 
     if (level >= 2) {
       const banMin = (groupKw && groupKw.length) ? (settings.filterBanMinutes || 10) : (pluginState.config.filterBanMinutes || 10);
