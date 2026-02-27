@@ -69,6 +69,7 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   spamDetect: false,
   spamBanMinutes: 5,
   leaveBlacklist: false,
+  lolToken: '',
   msgFilter: { ...DEFAULT_MSG_FILTER },
   qaList: [],
   rejectKeywords: [],

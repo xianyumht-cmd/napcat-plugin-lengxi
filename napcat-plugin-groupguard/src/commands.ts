@@ -651,6 +651,175 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
     return true;
   }
 
+  // ===== LOL封号查询 =====
+  if (text.startsWith('查封号')) {
+      const rest = text.slice(3).trim();
+      let targetQQ = rest;
+      
+      // 如果没有直接提供纯数字QQ号，尝试从消息中提取（支持@和文本包含）
+      if (!targetQQ || !/^\d+$/.test(targetQQ)) {
+          targetQQ = getTarget(raw, rest) || '';
+      }
+      
+      if (!targetQQ) {
+          await pluginState.sendGroupText(groupId, '请指定要查询的QQ号，例如：查封号 12345 或 查封号 @某人');
+          return true;
+      }
+      
+      // 简单的格式校验
+      if (!/^\d{5,13}$/.test(targetQQ)) {
+          await pluginState.sendGroupText(groupId, 'QQ号格式错误 (需5-13位数字)');
+          return true;
+      }
+
+      await pluginState.sendGroupText(groupId, `正在查询 QQ: ${targetQQ} 的封号状态...`);
+      
+      try {
+          // 使用用户提供的 API 和 Token
+          const apiUrl = `https://yun.4png.com/api/query.html?token=c7739372694acf36&qq=${targetQQ}`;
+          const response = await fetch(apiUrl);
+          const data = await response.json();
+          
+          if (data.code === 200) {
+             const banMsg = data.data?.banmsg || '无详细封禁信息';
+             await pluginState.sendGroupText(groupId, `✅ 查询成功：${data.msg || '未知状态'}\n📝 详细信息：${banMsg}`);
+          } else if (data.code === 404) {
+             await pluginState.sendGroupText(groupId, `❓ 未找到相关信息 [404]\n📢 QQ ${targetQQ} 可能未绑定《英雄联盟》账号，或当前无封禁记录`);
+          } else if (data.code === 403) {
+             await pluginState.sendGroupText(groupId, `🛑 请求被拒绝 [403]：可能因查询过于频繁或IP受限`);
+          } else if (data.code === 429) {
+             await pluginState.sendGroupText(groupId, `📢 API免费额度使用完毕或账号会员已经过期`);
+          } else {
+             await pluginState.sendGroupText(groupId, `❌ 查询失败 [${data.code}]: ${data.msg || '未知错误'}`);
+          }
+      } catch (e: any) {
+          pluginState.log('error', `查询封号失败: ${e}`);
+          await pluginState.sendGroupText(groupId, `查询出错: ${e.message || e}`);
+      }
+      return true;
+  }
+
+  // ===== LOL隐藏战绩查询配置 =====
+  if (text.startsWith('设置loltoken')) {
+    if (!pluginState.isOwner(userId)) { return true; } // 仅主人可见
+    const token = text.replace('设置loltoken', '').trim();
+    if (!token) {
+        await pluginState.sendGroupText(groupId, '请提供 Token，例如：设置loltoken eyJ...');
+        return true;
+    }
+    pluginState.config.lolToken = token;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, 'LOL Token 已更新');
+    return true;
+  }
+
+  // ===== LOL隐藏战绩查询 =====
+  if (text.startsWith('查隐藏')) {
+      const rest = text.replace('查隐藏', '').trim();
+      if (!rest) {
+          await pluginState.sendGroupText(groupId, '请指定召唤师名称，例如：查隐藏 TheShy');
+          return true;
+      }
+      
+      const args = rest.split(/\s+/);
+      const name = args[0];
+      const region = args[1] || '1'; // 默认大区1
+      
+      const token = pluginState.config.lolToken;
+      if (!token) {
+          await pluginState.sendGroupText(groupId, '❌ 未配置 LOL Token，请联系机器人主人配置');
+          return true;
+      }
+
+      await pluginState.sendGroupText(groupId, `🔍 正在查询 [${region}区] ${name} 的隐藏战绩...`);
+      
+      try {
+          // Step 1: Search Summoner
+          const searchUrl = `https://ww1.lolso1.com/game-lol/customize-summoner-basic-by-name-region`;
+          const headers = {
+              'Authorization': `Bearer ${token}`,
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Content-Type': 'application/json',
+              'Referer': 'https://lolso1.com/',
+              'Origin': 'https://lolso1.com'
+          };
+          
+          const searchRes = await fetch(searchUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ name, region: parseInt(region) || 1 })
+          });
+          
+          if (!searchRes.ok) {
+              const errText = await searchRes.text();
+              if (searchRes.status === 403 || searchRes.status === 405) {
+                   await pluginState.sendGroupText(groupId, `🛑 查询被拦截 [${searchRes.status}]：API 拒绝访问 (可能是WAF或Token无效)`);
+              } else {
+                   await pluginState.sendGroupText(groupId, `❌ 搜索失败 [${searchRes.status}]`);
+              }
+              pluginState.log('error', `LOL Search Failed: ${searchRes.status} ${errText}`);
+              return true;
+          }
+          
+          const searchData: any = await searchRes.json();
+          if (!searchData.data || !searchData.data.puuid) {
+              await pluginState.sendGroupText(groupId, `❌ 未找到召唤师 ${name}`);
+              return true;
+          }
+          
+          const { puuid, summonerLevel } = searchData.data;
+          
+          // Step 2: Get Match History
+          const historyUrl = `https://ww1.lolso1.com/game-lol/customize-normal-match-history-simplified`;
+          const historyRes = await fetch(historyUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                  puuid,
+                  region: parseInt(region) || 1,
+                  start: 0,
+                  count: 5
+              })
+          });
+          
+          if (!historyRes.ok) {
+              await pluginState.sendGroupText(groupId, `❌ 获取战绩失败 [${historyRes.status}]`);
+              return true;
+          }
+          
+          const historyData: any = await historyRes.json();
+          const matches = historyData.data || [];
+          
+          if (matches.length === 0) {
+              await pluginState.sendGroupText(groupId, `📭 ${name} 最近没有比赛记录`);
+              return true;
+          }
+          
+          let msg = `📊 ${name} (Lv.${summonerLevel}) 近5场战绩：\n`;
+          msg += `------------------------------\n`;
+          
+          for (const match of matches) {
+              const mode = match.queueId === 420 ? '排位' : (match.queueId === 450 ? '乱斗' : '匹配');
+              const result = match.win ? '✅ 胜利' : '❌ 失败';
+              const kda = `${match.kills}/${match.deaths}/${match.assists}`;
+              const champion = match.championName || '未知英雄';
+              const time = new Date(match.gameEndTimestamp).toLocaleString();
+              
+              msg += `${result} | ${champion} (${mode})\n`;
+              msg += `⚔️ KDA: ${kda}\n`;
+              msg += `⏰ ${time}\n`;
+              msg += `------------------------------\n`;
+          }
+          
+          await pluginState.sendGroupText(groupId, msg.trim());
+
+      } catch (e: any) {
+          pluginState.log('error', `查询隐藏战绩失败: ${e}`);
+          await pluginState.sendGroupText(groupId, `查询出错: ${e.message || e}`);
+      }
+      return true;
+  }
+
   // ===== 邀请统计 =====
   if (text === '邀请查询') {
     const data = await dbQuery.getInvite(groupId, userId);

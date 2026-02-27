@@ -44,6 +44,8 @@ export interface PluginConfig {
   spamBanMinutes: number;
   /** 退群自动拉黑 */
   leaveBlacklist: boolean;
+  /** LOL战绩查询 Token */
+  lolToken?: string;
   /** 全局消息类型过滤 */
   msgFilter: MsgFilterSettings;
   /** 全局问答列表 */
