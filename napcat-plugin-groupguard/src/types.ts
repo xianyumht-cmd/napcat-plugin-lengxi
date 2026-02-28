@@ -46,6 +46,10 @@ export interface PluginConfig {
   leaveBlacklist: boolean;
   /** LOL战绩查询 Token */
   lolToken?: string;
+  /** 自定义战绩查询接口地址 (例如 http://example.com/query.php) */
+  lolQueryUrl?: string;
+  /** 自定义战绩查询授权码 (zhanjikey) */
+  lolAuthKey?: string;
   /** 全局消息类型过滤 */
   msgFilter: MsgFilterSettings;
   /** 全局问答列表 */

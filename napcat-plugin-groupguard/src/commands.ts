@@ -700,6 +700,32 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
   }
 
   // ===== LOL隐藏战绩查询配置 =====
+  if (text.startsWith('设置lolurl')) {
+    if (!pluginState.isOwner(userId)) { return true; }
+    const url = text.replace('设置lolurl', '').trim();
+    if (!url) {
+        await pluginState.sendGroupText(groupId, '请提供完整的查询接口地址，例如：设置lolurl http://example.com/query.php');
+        return true;
+    }
+    pluginState.config.lolQueryUrl = url;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '自定义战绩查询接口地址已更新');
+    return true;
+  }
+
+  if (text.startsWith('设置lolkey')) {
+    if (!pluginState.isOwner(userId)) { return true; }
+    const key = text.replace('设置lolkey', '').trim();
+    if (!key) {
+        await pluginState.sendGroupText(groupId, '请提供授权码(zhanjikey)');
+        return true;
+    }
+    pluginState.config.lolAuthKey = key;
+    saveConfig(ctx);
+    await pluginState.sendGroupText(groupId, '自定义战绩查询授权码已更新');
+    return true;
+  }
+
   if (text.startsWith('设置loltoken')) {
     if (!pluginState.isOwner(userId)) { return true; } // 仅主人可见
     const token = text.replace('设置loltoken', '').trim();
@@ -724,6 +750,61 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
       const args = rest.split(/\s+/);
       const name = args[0];
       const region = args[1] || '1'; // 默认大区1
+
+      // 优先检查是否配置了自定义查询接口
+      const customUrl = pluginState.config.lolQueryUrl;
+      const customKey = pluginState.config.lolAuthKey;
+
+      if (customUrl && customKey) {
+          await pluginState.sendGroupText(groupId, `🔍 正在通过自定义接口查询 ${name}...`);
+          try {
+             // 构造表单数据
+             const params = new URLSearchParams();
+             params.append('name', name);
+             params.append('region', region);
+             params.append('sign', '0'); // 默认尝试 0，如果失败可能需要逆向 sign 算法
+             params.append('key', customKey);
+
+             const res = await fetch(customUrl, {
+                 method: 'POST',
+                 body: params,
+                 headers: {
+                     'Content-Type': 'application/x-www-form-urlencoded',
+                     'X-Requested-With': 'XMLHttpRequest',
+                     'Cookie': `zhanjikey=${customKey}`,
+                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                 }
+             });
+
+             if (res.status === 200) {
+                 const json: any = await res.json();
+                 if (json.status === 200) {
+                     const d = json.data;
+                     let msg = `📊 ${d.summonerName} (Lv.${d.level}) 隐藏战绩\n`;
+                     msg += `------------------------------\n`;
+                     msg += `封号状态: ${d.banstatus === 1 ? '❌ 封号' : (d.banstatus === 2 ? '❓ 未知/灰白' : '✅ 正常')}\n`;
+                     if (d.banst) msg += `封号详情: ${d.banst}\n`;
+                     msg += `单双排: ${d.soloData?.tier} ${d.soloData?.rank} (${d.soloData?.lp}点)\n`;
+                     msg += `灵活排: ${d.flexData?.tier} ${d.flexData?.rank} (${d.flexData?.lp}点)\n`;
+                     msg += `最后在线: ${d.last_game?.time || '未知'}\n`;
+                     msg += `排位资格: ${d.rankEligibility || '未知'}`;
+                     
+                     await pluginState.sendGroupText(groupId, msg);
+                     return true;
+                 } else {
+                     await pluginState.sendGroupText(groupId, `查询失败: ${json.msg || '未知错误'}`);
+                     return true;
+                 }
+             } else {
+                 await pluginState.sendGroupText(groupId, `接口请求失败: HTTP ${res.status}`);
+                 return true;
+             }
+          } catch (e: any) {
+              pluginState.log('error', `自定义查询出错: ${e}`);
+              await pluginState.sendGroupText(groupId, `查询出错: ${e.message}`);
+              return true;
+          }
+      }
       
       const token = pluginState.config.lolToken;
       if (!token) {
