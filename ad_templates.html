@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>元宝.群机器人 - 广告模板展示</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .ad-container {
+            width: 1000px; /* Horizontal format */
+            min-height: 400px;
+            display: flex;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .ad-container:hover {
+            transform: scale(1.01);
+        }
+
+        .left-panel {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .right-panel {
+            flex: 1.2;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        h2 { margin: 0 0 10px 0; font-size: 28px; }
+        h3 { margin: 0 0 15px 0; font-size: 20px; opacity: 0.9; }
+        p { margin: 0 0 10px 0; line-height: 1.6; }
+        .tag { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 8px; text-align: left; font-size: 14px; }
+        
+        .cta-btn {
+            display: inline-block;
+            padding: 10px 25px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 20px;
+            text-align: center;
+            width: fit-content;
+        }
+
+        /* Style 1: Friendly / Easy to Understand (通俗易懂) */
+        .style-friendly {
+            background: linear-gradient(135deg, #fff6e6 0%, #ffffff 100%);
+            border: 2px solid #ffcc80;
+            color: #5a4632;
+        }
+        .style-friendly .left-panel { background-color: #ffecd2; }
+        .style-friendly h2 { color: #ff8c00; }
+        .style-friendly .tag { background-color: #fff; color: #ff8c00; border: 1px solid #ffcc80; }
+        .style-friendly .cta-btn { background-color: #ff8c00; color: white; box-shadow: 0 4px 0 #e07b00; }
+        .style-friendly table tr { border-bottom: 1px dashed #e0c0a0; }
+
+        /* Style 2: Professional (专业) */
+        .style-professional {
+            background-color: #ffffff;
+            border-left: 5px solid #0056b3;
+            color: #333;
+        }
+        .style-professional .left-panel { background-color: #f8f9fa; border-right: 1px solid #e9ecef; }
+        .style-professional h2 { color: #0056b3; font-weight: 700; }
+        .style-professional .tag { background-color: #e7f1ff; color: #0056b3; }
+        .style-professional .cta-btn { background-color: #0056b3; color: white; border-radius: 2px; }
+        .style-professional th { color: #666; font-weight: normal; border-bottom: 2px solid #0056b3; }
+        .style-professional td { border-bottom: 1px solid #eee; }
+
+        /* Style 3: Code / Tech (代码视觉) */
+        .style-code {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        .style-code .left-panel { background-color: #252526; border-right: 1px solid #333; }
+        .style-code h2 { color: #ce9178; } /* String color */
+        .style-code h2::before { content: "const "; color: #569cd6; }
+        .style-code h2::after { content: " ="; color: #d4d4d4; }
+        .style-code .highlight { color: #4ec9b0; }
+        .style-code .comment { color: #6a9955; }
+        .style-code .cta-btn { background-color: #0e639c; color: white; border: 1px solid #4ec9b0; }
+        .style-code table { border: 1px solid #333; }
+        .style-code th { border-bottom: 1px solid #333; color: #569cd6; }
+        .style-code td { border-bottom: 1px solid #333; }
+
+        /* Style 4: Cyber / Gaming (电竞/赛博) */
+        .style-cyber {
+            background: radial-gradient(circle at center, #2b0042 0%, #000000 100%);
+            color: #fff;
+            border: 2px solid #0ff;
+            box-shadow: 0 0 15px #0ff, inset 0 0 15px #f0f;
+            position: relative;
+        }
+        .style-cyber h2 { 
+            color: #0ff; 
+            text-shadow: 0 0 5px #0ff, 0 0 10px #0ff; 
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-style: italic;
+        }
+        .style-cyber .highlight { color: #f0f; text-shadow: 0 0 5px #f0f; }
+        .style-cyber .left-panel { background: rgba(255, 0, 255, 0.1); border-right: 1px solid #0ff; }
+        .style-cyber .cta-btn { 
+            background: transparent; 
+            color: #0ff; 
+            border: 2px solid #0ff; 
+            text-shadow: 0 0 5px #0ff;
+            box-shadow: 0 0 5px #0ff;
+        }
+        .style-cyber .cta-btn:hover { background: #0ff; color: #000; }
+        .style-cyber th { color: #f0f; border-bottom: 1px solid #0ff; }
+
+        /* Style 5: Minimalist (极简) */
+        .style-minimal {
+            background-color: #fff;
+            color: #000;
+            border: 1px solid #eaeaea;
+        }
+        .style-minimal h2 { font-weight: 300; letter-spacing: -1px; }
+        .style-minimal .left-panel { padding-right: 60px; }
+        .style-minimal .cta-btn { 
+            border: 1px solid #000; 
+            color: #000; 
+            background: transparent; 
+            border-radius: 0; 
+        }
+        .style-minimal .cta-btn:hover { background: #000; color: #fff; }
+        .style-minimal th { text-transform: uppercase; font-size: 10px; letter-spacing: 1px; color: #999; }
+        .style-minimal td { font-weight: 500; }
+
+        .label {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            background: #333;
+            color: #fff;
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+
+        /* Explicit Feature List Styling */
+        .feature-box {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .feature-box h4 { margin: 0 0 5px 0; font-size: 14px; }
+        .feature-box ul { margin: 0; padding-left: 20px; }
+        .feature-box li { margin-bottom: 3px; }
+
+        /* Full Feature Matrix (Small Text) */
+        .feature-matrix {
+            width: 100%;
+            padding: 15px 0 0 0;
+            font-size: 11px;
+            line-height: 1.6;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            box-sizing: border-box;
+            flex-grow: 1; /* Fill remaining space */
+        }
+        
+        .promo-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .promo-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .promo-desc { font-size: 13px; opacity: 0.9; }
+
+        .style-friendly .promo-box { background: #fff8e1; color: #d35400; border: 1px dashed #ffcc80; }
+        .style-professional .promo-box { background: #e3f2fd; color: #0d47a1; border-left: 4px solid #1976d2; }
+        .style-code .promo-box { background: #252526; border: 1px solid #333; }
+        .style-cyber .promo-box { background: rgba(0,255,255,0.1); border: 1px solid #0ff; }
+        .style-minimal .promo-box { background: #f9f9f9; border: 1px solid #eee; }
+        .matrix-col h5 { margin: 0 0 3px 0; font-size: 11px; font-weight: bold; opacity: 0.9; }
+        .matrix-col div { opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Style Specific Matrix Colors */
+        .style-friendly .feature-matrix { background-color: transparent; color: #8a6d3b; border-top: 1px dashed #e0c0a0; }
+        .style-professional .feature-matrix { background-color: transparent; color: #495057; border-top: 1px solid #e9ecef; }
+        .style-code .feature-matrix { background-color: transparent; color: #808080; border-top: 1px solid #333; font-family: monospace; }
+        .style-code .matrix-col h5 { color: #569cd6; }
+        .style-cyber .feature-matrix { background-color: transparent; color: #0ff; border-top: 1px solid #0ff; }
+        .style-cyber .matrix-col h5 { color: #f0f; text-shadow: 0 0 2px #f0f; }
+        .style-minimal .feature-matrix { background-color: transparent; color: #999; border-top: 1px solid #eee; }
+        .style-minimal .matrix-col h5 { color: #333; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Ensure content sits above background */
+        .left-panel, .right-panel {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Adjust layout to accommodate footer */
+        .ad-container { flex-wrap: nowrap; min-height: 350px; }
+        .left-panel { flex: 0 0 40%; }
+        .right-panel { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+
+        .wrapper { position: relative; margin-bottom: 50px; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 通俗易懂风格 -->
+    <div class="wrapper">
+        <div class="label">Style 1: 通俗易懂 / 亲民风格</div>
+        <div class="ad-container style-friendly">
+            <div class="left-panel">
+                <h2>🛡️ 元宝.群机器人</h2>
+                <h3>全托管SaaS，群管不操心！</h3>
+                <p>👋 <strong>老板好！</strong> 机器人老掉线？不想挂机？</p>
+                <p>我们要么不掉线，要么秒连！云端24小时帮您看店。</p>
+                
+                <div style="margin-top: 15px;">
+                    <p>🎁 <strong>新人福利</strong>：微型群首月仅需 <strong>1元</strong>！</p>
+                    <p>🔥 <strong>推荐</strong>：年费直接 <strong>8折</strong>，省心又省钱！</p>
+                </div>
+                <a href="#" class="cta-btn">💬 私聊定制您的方案</a>
+            </div>
+            <div class="right-panel">
+                <div class="promo-box">
+                    <div class="promo-title">🔥 每天不到 2 毛钱</div>
+                    <div class="promo-desc">全网超高性价比 · 3群以上再打9折</div>
+                </div>
+                
+                <!-- Full Feature Matrix -->
+                <div class="feature-matrix">
+                    <div class="matrix-col">
+                        <h5>🛡️ 安全风控</h5>
+                        <div>入群验证 · 自动同意</div>
+                        <div>刷屏检测 · 复读检测</div>
+                        <div>违禁词过滤 · 媒体屏蔽</div>
+                        <div>全局黑名单 · 退群拉黑</div>
+                        <div>宵禁模式 · 消息防撤回</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>👥 群员管理</h5>
+                        <div>踢出/禁言 · 警告系统</div>
+                        <div>锁定名片 · 头衔管理</div>
+                        <div>白名单豁免 · 权限缓存</div>
+                        <div>入群暗号 · 拒绝词设置</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>🤖 智能辅助</h5>
+                        <div>自动问答 · 模糊匹配</div>
+                        <div>正则匹配 · 定时任务</div>
+                        <div>多群广播 · 入群欢迎</div>
+                        <div>关键词回复 · 自身撤回</div>
+                        <div>邀请统计 · 运行状态</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>🎮 互动娱乐</h5>
+                        <div>LOL战绩 · 封号查询</div>
+                        <div>每日签到 · 积分系统</div>
+                        <div>幸运抽奖 · 活跃排行</div>
+                        <div>邀请榜单 · 签到榜单</div>
+                        <div>积分商城 · 随机奖励</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 专业商务风格 -->
+    <div class="wrapper">
+        <div class="label">Style 2: 专业 / 商务风格</div>
+        <div class="ad-container style-professional">
+            <div class="left-panel">
+                <h2>🛡️ 元宝.群机器人</h2>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">ENTERPRISE MANAGED BOT SERVICE</p>
+                <h3>专业托管，零运维成本</h3>
+                <p>采用云端全托管SaaS架构，告别本地挂机烦恼。</p>
+                
+                <p style="margin-top: 15px;">✅ <strong>99.9% 在线率</strong> - 稳定高可用</p>
+                <p>✅ <strong>数据安全</strong> - 企业级防护标准</p>
+                <a href="#" class="cta-btn">立即咨询解决方案</a>
+            </div>
+            <div class="right-panel">
+                <div class="promo-box">
+                    <div class="promo-title">Flexible Pricing</div>
+                    <div class="promo-desc">Pay as you grow. Start small, scale fast.</div>
+                </div>
+
+                <!-- Full Feature Matrix -->
+                <div class="feature-matrix">
+                    <div class="matrix-col">
+                        <h5>🛡️ 核心风控</h5>
+                        <div>入群验证 · 自动同意</div>
+                        <div>刷屏检测 · 复读检测</div>
+                        <div>违禁词过滤 · 媒体屏蔽</div>
+                        <div>全局黑名单 · 退群拉黑</div>
+                        <div>宵禁模式 · 消息防撤回</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>👥 成员管理</h5>
+                        <div>踢出/禁言 · 警告系统</div>
+                        <div>锁定名片 · 头衔管理</div>
+                        <div>白名单豁免 · 权限缓存</div>
+                        
+                        <div>入群暗号 · 拒绝词设置</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>🤖 自动化运营</h5>
+                        <div>自动问答 · 模糊匹配</div>
+                        <div>正则匹配 · 定时任务</div>
+                        <div>多群广播 · 入群欢迎</div>
+                        <div>关键词回复 · 自身撤回</div>
+                        <div>邀请统计 · 运行状态</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>🎮 互动系统</h5>
+                        <div>LOL战绩 · 封号查询</div>
+                        <div>每日签到 · 积分系统</div>
+                        <div>幸运抽奖 · 活跃排行</div>
+                        <div>邀请榜单 · 签到榜单</div>
+                        <div>积分商城 · 随机奖励</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 代码/极客风格 -->
+    <div class="wrapper">
+        <div class="label">Style 3: 代码 / 开发者风格</div>
+        <div class="ad-container style-code">
+            <div class="left-panel">
+                <h2>YuanBao_Bot</h2>
+                <div class="comment">// 状态: 24/7 在线 (Hosted)</div>
+                <div class="comment">// 维护: 全托管 (No-Ops)</div>
+                <br>
+                <p><span class="highlight">const</span> service = {</p>
+                <p>&nbsp;&nbsp;stability: <span class="highlight">"High"</span>,</p>
+                <p>&nbsp;&nbsp;security: <span class="highlight">true</span></p>
+                <p>};</p>
+                <br>
+                <p>> 私聊获取 API Key 及专属方案_</p>
+                <a href="#" class="cta-btn">npm install yuanbao-bot</a>
+            </div>
+            <div class="right-panel">
+                <p class="comment">/* Pricing Configuration */</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Users</th>
+                            <th>Price/Mo</th>
+                            <th>Price/Yr</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Micro</td>
+                            <td>&lt;100</td>
+                            <td>¥5</td>
+                            <td class="highlight">¥50</td>
+                        </tr>
+                        <tr>
+                            <td>Std</td>
+                            <td>100-500</td>
+                            <td>¥10</td>
+                            <td class="highlight">¥99</td>
+                        </tr>
+                        <tr>
+                            <td>Lrg</td>
+                            <td>500-1k</td>
+                            <td>¥20</td>
+                            <td class="highlight">¥199</td>
+                        </tr>
+                        <tr>
+                            <td>XL</td>
+                            <td>2k+</td>
+                            <td>xN</td>
+                            <td class="highlight">Talk</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <br>
+                <div style="border: 1px dashed #444; padding: 10px;">
+                    <p><span class="highlight">if</span> (groups >= 3) {</p>
+                    <p>&nbsp;&nbsp;discount *= 0.9; <span class="comment">// 额外9折</span></p>
+                    <p>}</p>
+                    <p><span class="highlight">if</span> (user.new) {</p>
+                    <p>&nbsp;&nbsp;micro_price = 1; <span class="comment">// 首月1元</span></p>
+                    <p>}</p>
+                </div>
+                
+                <!-- Full Feature Matrix -->
+                <div class="feature-matrix">
+                    <div class="matrix-col">
+                        <h5>// Security</h5>
+                        <div>入群验证 · 自动同意</div>
+                        <div>刷屏检测 · 复读检测</div>
+                        <div>违禁词过滤 · 媒体屏蔽</div>
+                        <div>全局黑名单 · 退群拉黑</div>
+                        <div>宵禁模式 · 消息防撤回</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>// Management</h5>
+                        <div>踢出/禁言 · 警告系统</div>
+                        <div>锁定名片 · 头衔管理</div>
+                        <div>白名单豁免 · 权限缓存</div>
+                        
+                        <div>入群暗号 · 拒绝词设置</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>// Automation</h5>
+                        <div>自动问答 · 模糊匹配</div>
+                        <div>正则匹配 · 定时任务</div>
+                        <div>多群广播 · 入群欢迎</div>
+                        <div>关键词回复 · 自身撤回</div>
+                        <div>邀请统计 · 运行状态</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>// Interactive</h5>
+                        <div>LOL战绩 · 封号查询</div>
+                        <div>每日签到 · 积分系统</div>
+                        <div>幸运抽奖 · 活跃排行</div>
+                        <div>邀请榜单 · 签到榜单</div>
+                        <div>积分商城 · 随机奖励</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 电竞/赛博风格 -->
+    <div class="wrapper">
+        <div class="label">Style 4: 电竞 / 赛博朋克风格</div>
+        <div class="ad-container style-cyber">
+            <div class="left-panel">
+                <h2>🛡️ 元宝.BOT</h2>
+                <h3 style="color: #f0f;">SYSTEM ONLINE // 24H</h3>
+                <p>告别掉线延迟，开启<span class="highlight">全托管</span>外挂级体验。</p>
+                
+                <div style="border: 1px solid #f0f; padding: 10px; background: rgba(255,0,255,0.1); margin-top: 30px;">
+                    <p>⚡ <strong>BUFF 加成</strong></p>
+                    <p>年付订阅 -> <span class="highlight">8折伤害减免</span></p>
+                    <p>多群连携 -> <span class="highlight">额外9折暴击</span></p>
+                </div>
+                <br>
+                <a href="#" class="cta-btn">>> 立即激活系统 <<</a>
+            </div>
+            <div class="right-panel">
+                <div class="promo-box">
+                    <div class="promo-title" style="text-shadow: 0 0 5px #0ff;">VIP ACCESS GRANTED</div>
+                    <div class="promo-desc" style="color: #f0f;">Premium features at entry-level cost</div>
+                </div>
+
+                <!-- Full Feature Matrix -->
+                <div class="feature-matrix">
+                    <div class="matrix-col">
+                        <h5>[SECURITY_MOD]</h5>
+                        <div>入群验证 · 自动同意</div>
+                        <div>刷屏检测 · 复读检测</div>
+                        <div>违禁词过滤 · 媒体屏蔽</div>
+                        <div>全局黑名单 · 退群拉黑</div>
+                        <div>宵禁模式 · 消息防撤回</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>[ADMIN_MOD]</h5>
+                        <div>踢出/禁言 · 警告系统</div>
+                        <div>锁定名片 · 头衔管理</div>
+                        <div>白名单豁免 · 权限缓存</div>
+                        
+                        <div>入群暗号 · 拒绝词设置</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>[AUTO_BOT]</h5>
+                        <div>自动问答 · 模糊匹配</div>
+                        <div>正则匹配 · 定时任务</div>
+                        <div>多群广播 · 入群欢迎</div>
+                        <div>关键词回复 · 自身撤回</div>
+                        <div>邀请统计 · 运行状态</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>[GAME_SYS]</h5>
+                        <div>LOL战绩 · 封号查询</div>
+                        <div>每日签到 · 积分系统</div>
+                        <div>幸运抽奖 · 活跃排行</div>
+                        <div>邀请榜单 · 签到榜单</div>
+                        <div>积分商城 · 随机奖励</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. 极简/现代风格 -->
+    <div class="wrapper">
+        <div class="label">Style 5: 极简 / 现代风格</div>
+        <div class="ad-container style-minimal">
+            <div class="left-panel">
+                <h2 style="font-size: 32px;">元宝.群机器人</h2>
+                <p style="color: #999; margin-bottom: 20px;">SaaS Managed Service</p>
+                
+                <p style="font-size: 18px; font-weight: 300;">云端托管。<br>稳定安全。<br>专业维护。</p>
+                
+                <div style="margin-top: 30px;">
+                    <a href="#" class="cta-btn">联系我们</a>
+                </div>
+            </div>
+            <div class="right-panel" style="justify-content: flex-start; padding-top: 30px;">
+                <div class="promo-box" style="text-align: left; padding: 0; background: transparent; border: none;">
+                    <div class="promo-title" style="font-size: 24px;">Simple Pricing.</div>
+                    <div class="promo-desc" style="font-size: 16px; color: #666;">No hidden fees. Cancel anytime.</div>
+                </div>
+                
+                <!-- Full Feature Matrix -->
+                <div class="feature-matrix">
+                    <div class="matrix-col">
+                        <h5>SECURITY</h5>
+                        <div>入群验证 · 自动同意</div>
+                        <div>刷屏检测 · 复读检测</div>
+                        <div>违禁词过滤 · 媒体屏蔽</div>
+                        <div>全局黑名单 · 退群拉黑</div>
+                        <div>宵禁模式 · 消息防撤回</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>MANAGEMENT</h5>
+                        <div>踢出/禁言 · 警告系统</div>
+                        <div>锁定名片 · 头衔管理</div>
+                        <div>白名单豁免 · 权限缓存</div>
+                        
+                        <div>入群暗号 · 拒绝词设置</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>AUTOMATION</h5>
+                        <div>自动问答 · 模糊匹配</div>
+                        <div>正则匹配 · 定时任务</div>
+                        <div>多群广播 · 入群欢迎</div>
+                        <div>关键词回复 · 自身撤回</div>
+                        <div>邀请统计 · 运行状态</div>
+                    </div>
+                    <div class="matrix-col">
+                        <h5>INTERACTIVE</h5>
+                        <div>LOL战绩 · 封号查询</div>
+                        <div>每日签到 · 积分系统</div>
+                        <div>幸运抽奖 · 活跃排行</div>
+                        <div>邀请榜单 · 签到榜单</div>
+                        <div>积分商城 · 随机奖励</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

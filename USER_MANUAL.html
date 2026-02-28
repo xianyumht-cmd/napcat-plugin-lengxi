@@ -3,615 +3,480 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GroupGuard 用户手册 (租户版)</title>
+    <title>GroupGuard 指令速查表</title>
     <style>
         :root {
-            --primary: #10B981;
-            --primary-dark: #059669;
-            --secondary: #475569;
-            --bg: #F3F4F6;
-            --surface: #FFFFFF;
-            --text: #1E293B;
-            --text-light: #64748B;
-            --border: #E2E8F0;
-            --code-bg: #F1F5F9;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --primary: #3b82f6;
+            --accent: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
         }
-        * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
             background-color: var(--bg);
-            color: var(--text);
+            color: var(--text-primary);
             margin: 0;
-            line-height: 1.6;
-        }
-        a { text-decoration: none; color: inherit; }
-        
-        /* Layout */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
             display: flex;
-            gap: 2rem;
+            flex-direction: column;
+            overflow: hidden;
         }
-        aside {
-            width: 250px;
-            flex-shrink: 0;
-            position: sticky;
-            top: 2rem;
-            height: calc(100vh - 4rem);
-            overflow-y: auto;
-            display: none;
-        }
-        @media (min-width: 1024px) { aside { display: block; } }
         
-        main { flex: 1; min-width: 0; }
-
-        /* Navigation */
-        .nav-link {
-            display: block;
-            padding: 0.5rem 1rem;
-            margin-bottom: 0.25rem;
-            border-radius: 0.5rem;
-            color: var(--secondary);
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        .nav-link:hover { background: var(--surface); color: var(--primary); }
-
-        /* Components */
-        .card {
+        header {
+            flex-shrink: 0;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             background: var(--surface);
-            border-radius: 1rem;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 15px 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
-        .header-card {
+        h1 { margin: 0; font-size: 22px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
+        .tips { font-size: 13px; color: var(--text-secondary); background: #eff6ff; padding: 6px 12px; border-radius: 20px; }
+
+        .grid-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .column {
+            background: var(--surface);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+        }
+        .column:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+
+        .col-header {
+            padding: 20px;
+            font-weight: 700;
+            font-size: 16px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            gap: 1.5rem;
+            gap: 10px;
+            letter-spacing: 0.5px;
         }
-        .icon-box {
-            width: 5rem;
-            height: 5rem;
-            background: var(--primary);
-            border-radius: 1rem;
+        /* Color coding for headers */
+        .col-header.basic { background: linear-gradient(to right, #eff6ff, #fff); color: var(--primary); border-left: 5px solid var(--primary); }
+        .col-header.admin { background: linear-gradient(to right, #fef2f2, #fff); color: var(--danger); border-left: 5px solid var(--danger); }
+        .col-header.protect { background: linear-gradient(to right, #fffbeb, #fff); color: var(--warning); border-left: 5px solid var(--warning); }
+        .col-header.config { background: linear-gradient(to right, #f3e8ff, #fff); color: var(--accent); border-left: 5px solid var(--accent); }
+
+        .col-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        
+        /* Grouping commands visually */
+        .group-title {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: bold;
+            margin: 15px 0 8px 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .group-title:first-child { margin-top: 5px; }
+
+        .cmd-card {
+            background: #fff;
+            border: 1px solid #f1f5f9;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+        .cmd-card:hover {
+            border-color: var(--primary);
+            background: #f8fafc;
+            transform: translateX(2px);
+        }
+        .cmd-card:active { transform: scale(0.98); }
+
+        .cmd-main {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .cmd-text {
+            font-family: 'Consolas', monospace;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        .cmd-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        
+        .badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .badge-admin { background: #fee2e2; color: #ef4444; }
+        .badge-owner { background: #f3e8ff; color: #7c3aed; }
+        .badge-all { background: #dcfce7; color: #15803d; }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Toast notification */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #334155;
             color: white;
-            flex-shrink: 0;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
         }
-        
-        h1 { margin: 0; font-size: 1.875rem; color: var(--text); }
-        h2 { margin: 0 0 1.5rem 0; font-size: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-        h3 { margin: 1.5rem 0 1rem 0; font-size: 1.25rem; color: var(--secondary); }
-        p { margin-bottom: 1rem; color: var(--text-light); }
-
-        /* Command Box */
-        .cmd-box {
-            background: var(--code-bg);
-            border-left: 4px solid var(--primary);
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .cmd-title { font-weight: bold; display: block; margin-bottom: 0.5rem; color: var(--text); }
-        .cmd-code {
-            font-family: 'Fira Code', monospace;
-            color: var(--primary-dark);
-            background: rgba(16, 185, 129, 0.1);
-            padding: 0.2rem 0.5rem;
-            border-radius: 0.25rem;
-            display: inline-block;
-        }
-        
-        /* Tags */
-        .tag {
-            display: inline-block;
-            padding: 0.1rem 0.5rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-left: 0.5rem;
-            vertical-align: middle;
-        }
-        .tag-pro { background: #DBEAFE; color: #2563EB; }
-        .tag-owner { background: #FEF3C7; color: #D97706; }
-
-        /* Tables */
-        .table-wrapper { overflow-x: auto; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 0.5rem; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
-        th { background: #F8FAFC; color: var(--secondary); font-weight: 600; }
-        tr:last-child td { border-bottom: none; }
-
-        /* Grid System */
-        .grid { display: grid; gap: 1.5rem; }
-        @media (min-width: 768px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
-        @media (min-width: 1024px) { .grid-3 { grid-template-columns: 1fr 1fr 1fr; } }
-
-        /* Diagram Replacement */
-        .flow-diagram {
-            background: var(--bg);
-            padding: 1.5rem;
-            border-radius: 0.5rem;
-            text-align: center;
-        }
-        .flow-step {
-            background: white;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            border: 1px solid var(--border);
-            display: inline-block;
-            margin: 0.5rem;
-            font-weight: 500;
-        }
-        .flow-arrow { color: var(--text-light); margin: 0.5rem; }
-        
-        /* Alert & Search */
-        .alert-box {
-            background: #FFF7ED;
-            border: 1px solid #FDBA74;
-            color: #C2410C;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-        }
-        .search-box { margin-top: 1rem; position: relative; }
-        .search-box input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
-        
-        .highlight { background-color: #FDE047; }
+        #toast.show { opacity: 1; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <!-- Sidebar -->
-        <aside>
-            <nav>
-                <a href="#overview" class="nav-link">1. 功能全景图</a>
-                <a href="#activate" class="nav-link">2. 激活与授权</a>
-                <a href="#verify" class="nav-link">3. 入群验证</a>
-                <a href="#manage" class="nav-link">4. 群员管理</a>
-                <a href="#interact" class="nav-link">5. 互动娱乐</a>
-                <a href="#advanced" class="nav-link">6. 高级功能</a>
-                <a href="#scenarios" class="nav-link">7. 典型业务场景</a>
-                <a href="#switches" class="nav-link">8. 功能开关汇总</a>
-            </nav>
-        </aside>
+<header>
+    <h1>🛡️ GroupGuard 指令速查 <span style="font-size:14px; color:#94a3b8; font-weight:normal; margin-left:10px;">v1.2</span></h1>
+    <div class="tips">💡 点击任意卡片即可复制指令</div>
+</header>
 
-        <!-- Main Content -->
-        <main>
-            <!-- Header -->
-            <header class="card header-card">
-                <div class="icon-box">🛡️</div>
-                <div style="flex:1">
-                    <h1>GroupGuard 用户手册</h1>
-                    <p style="margin-top:0.5rem">v1.0.23 | 企业级群管解决方案</p>
-                    
-                    <!-- Alert: Robot Admin -->
-                    <div class="alert-box">
-                        <strong>⚠️ 重要提示：</strong> 本插件的大部分管理功能（如踢人、禁言、撤回）需要机器人账号在群内拥有【管理员】或【群主】身份才能生效。请务必先将机器人设为管理员。
-                    </div>
-
-                    <!-- Search Box -->
-                    <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="🔍 搜索功能或指令 (Ctrl+F)" onkeyup="filterDocs()">
-                    </div>
+<div class="grid-container">
+    
+    <!-- 1. 基础 & 娱乐 -->
+    <div class="column">
+        <div class="col-header basic">📊 基础 & 娱乐</div>
+        <div class="col-content">
+            <div class="group-title">个人中心</div>
+            <div class="cmd-card" data-cmd="签到">
+                <div class="cmd-main">
+                    <span class="cmd-text">签到</span>
+                    <span class="badge badge-all">积分</span>
                 </div>
-            </header>
-
-            <!-- 1. 功能全景图 -->
-            <section id="overview" class="card">
-                <h2>1. 功能全景图</h2>
-                <p>GroupGuard 采用模块化架构设计，核心包含风控层、业务层和数据层。以下是系统数据流向与模块交互的全景视图：</p>
-                
-                <div class="flow-diagram">
-                    <div class="flow-step">用户/群员 (发送消息)</div>
-                    <div class="flow-arrow">⬇️</div>
-                    <div class="flow-step">协议适配器 & 事件总线</div>
-                    <div class="flow-arrow">⬇️</div>
-                    <div style="border:1px dashed var(--secondary); padding:1rem; border-radius:0.5rem; margin:1rem 0; background:rgba(255,255,255,0.5)">
-                        <div style="font-weight:bold; margin-bottom:0.5rem">核心防护层</div>
-                        <span class="flow-step">防死循环</span>
-                        <span class="flow-step">授权校验</span>
-                        <span class="flow-step">全局风控</span>
-                    </div>
-                    <div class="flow-arrow">⬇️</div>
-                    <div style="border:1px dashed var(--secondary); padding:1rem; border-radius:0.5rem; margin:1rem 0; background:rgba(255,255,255,0.5)">
-                        <div style="font-weight:bold; margin-bottom:0.5rem">业务逻辑层</div>
-                        <span class="flow-step">指令解析</span>
-                        <span class="flow-step">管理模块</span>
-                        <span class="flow-step">互动模块</span>
-                        <span class="flow-step">验证模块</span>
-                    </div>
-                    <div class="flow-arrow">⬇️</div>
-                    <div class="flow-step">数据持久层 (SQLite/JSON)</div>
+                <div class="cmd-desc">每日打卡获取随机积分奖励。</div>
+            </div>
+            <div class="cmd-card" data-cmd="我的积分">
+                <div class="cmd-main">
+                    <span class="cmd-text">我的积分</span>
                 </div>
-            </section>
-
-            <!-- 2. 激活与授权 -->
-            <section id="activate" class="card">
-                <h2>2. 激活与授权</h2>
-                <p>使用本插件前，请确保您已获取有效的激活码。未授权的群组将无法响应任何业务指令。</p>
-                <div class="grid grid-2">
-                    <div class="cmd-box">
-                        <span class="cmd-title">激活授权</span>
-                        <p>如果您拥有激活码，请在群内发送：</p>
-                        <div class="cmd-code">激活 &lt;激活码&gt;</div>
-                        <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.5rem">示例：激活 PRO-30-ABCDEF123456</p>
-                    </div>
-                    <div class="cmd-box">
-                        <span class="cmd-title">查询授权</span>
-                        <p>查看当前群的授权状态及剩余时间：</p>
-                        <div class="cmd-code">查询授权</div>
-                    </div>
+                <div class="cmd-desc">查看当前积分余额。</div>
+            </div>
+            <div class="cmd-card" data-cmd="邀请查询">
+                <div class="cmd-main">
+                    <span class="cmd-text">邀请查询</span>
                 </div>
-            </section>
+                <div class="cmd-desc">查看累计邀请入群人数。</div>
+            </div>
 
-            <!-- 3. 入群验证 -->
-            <section id="verify" class="card">
-                <h2>3. 入群验证系统 <span class="tag tag-pro">专业版</span></h2>
-                <div class="grid grid-2">
-                    <div>
-                        <h3>基础控制</h3>
-                        <div class="cmd-box">
-                            <div class="cmd-code">开启/关闭功能 入群验证</div>
-                            <p style="font-size:0.9rem; margin-top:0.5rem">启用后，新成员进群需回答问题或验证。</p>
-                        </div>
-                        <div class="cmd-box">
-                            <div class="cmd-code">开启/关闭功能 自动同意</div>
-                            <p style="font-size:0.9rem; margin-top:0.5rem">⚠️ 高风险：无需验证直接通过所有进群申请。</p>
-                        </div>
-                    </div>
-                    <div>
-                        <h3>进阶策略</h3>
-                        <div class="cmd-box">
-                            <div class="cmd-code">设置暗号 &lt;内容&gt;</div>
-                            <p style="font-size:0.9rem; margin-top:0.5rem">设置进群暗号，申请理由包含该暗号即自动通过。</p>
-                        </div>
-                        <div class="cmd-box">
-                            <div class="cmd-code">开启/关闭功能 暗号回落</div>
-                            <p style="font-size:0.9rem; margin-top:0.5rem">当未设置暗号时，自动降级为“自动同意”模式。</p>
-                        </div>
-                        <div class="cmd-box">
-                            <div class="cmd-code">设置欢迎词 &lt;内容&gt;</div>
-                            <p style="font-size:0.9rem; margin-top:0.5rem">支持变量：{user} 代表进群用户昵称。</p>
-                        </div>
-                    </div>
+            <div class="group-title">排行榜</div>
+            <div class="cmd-card" data-cmd="签到榜">
+                <div class="cmd-main">
+                    <span class="cmd-text">签到榜</span>
                 </div>
-            </section>
-
-            <!-- 4. 群员管理 -->
-            <section id="manage" class="card">
-                <h2>4. 群员管理指令</h2>
-                
-                <h3>惩罚与管控</h3>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th width="30%">指令格式</th>
-                                <th width="40%">说明</th>
-                                <th width="30%">示例</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="cmd-code">踢出 @某人</td>
-                                <td>移除群成员，可选是否拉黑</td>
-                                <td>踢出 @张三</td>
-                            </tr>
-                            <tr>
-                                <td class="cmd-code">禁言 @某人 &lt;分钟&gt;</td>
-                                <td>禁言指定时长，默认10分钟</td>
-                                <td>禁言 @李四 30</td>
-                            </tr>
-                            <tr>
-                                <td class="cmd-code">解禁 @某人 / QQ号</td>
-                                <td>解除指定成员的禁言状态</td>
-                                <td>解禁 @李四</td>
-                            </tr>
-                            <tr>
-                                <td class="cmd-code">警告 @某人</td>
-                                <td>记一次警告，满3次自动处罚</td>
-                                <td>警告 @王五</td>
-                            </tr>
-                            <tr>
-                                <td class="cmd-code">全体禁言 / 全体解禁</td>
-                                <td>开启/关闭全员禁言</td>
-                                <td>全体禁言</td>
-                            </tr>
-                            <tr>
-                                <td class="cmd-code">群拉黑 @某人</td>
-                                <td>将成员加入本群黑名单（自动踢出并拒绝再进）</td>
-                                <td>群拉黑 @恶意广告</td>
-                            </tr>
-                            <tr>
-                                <td class="cmd-code">群取消拉黑 @某人</td>
-                                <td>从本群黑名单移除</td>
-                                <td>群取消拉黑 @误封用户</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="cmd-desc">查看今日最早签到排行。</div>
+            </div>
+            <div class="cmd-card" data-cmd="邀请榜">
+                <div class="cmd-main">
+                    <span class="cmd-text">邀请榜</span>
                 </div>
+                <div class="cmd-desc">查看群内邀请人数排行。</div>
+            </div>
 
-                <h3>特殊管控</h3>
-                <div class="grid grid-2">
-                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
-                        <h4 style="margin:0 0 0.5rem 0;">名片与头衔</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li>锁定名片 @某人 (锁定当前名片，修改会自动还原)</li>
-                            <li>授予头衔 @某人 &lt;头衔&gt; (需群主权限)</li>
-                            <li>清除头衔 @某人</li>
-                        </ul>
-                    </div>
-                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
-                        <h4 style="margin:0 0 0.5rem 0;">针对模式</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li>针对 @某人 (该用户发消息秒撤回)</li>
-                            <li>取消针对 @某人</li>
-                            <li>针对列表 / 清除针对</li>
-                        </ul>
-                    </div>
+            <div class="group-title">游戏功能</div>
+            <div class="cmd-card" data-cmd="抽奖">
+                <div class="cmd-main">
+                    <span class="cmd-text">抽奖</span>
+                    <span class="badge badge-all">娱乐</span>
                 </div>
-
-                <h3>内容净化</h3>
-                <div class="grid grid-2">
-                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
-                        <h4 style="margin:0 0 0.5rem 0;">违禁词管理</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li>添加违禁词 &lt;关键词&gt;</li>
-                            <li>删除违禁词 &lt;关键词&gt;</li>
-                            <li>违禁词列表</li>
-                            <li>设置违禁词惩罚 &lt;1-4&gt; (1:撤回 2:禁言 3:踢出 4:拉黑)</li>
-                            <li>设置违禁词禁言 &lt;分钟&gt;</li>
-                        </ul>
-                    </div>
-                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
-                        <h4 style="margin:0 0 0.5rem 0;">媒体类型屏蔽</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li>屏蔽 [图片|视频|语音|链接|二维码|名片|小程序|转发]</li>
-                            <li>取消屏蔽 [类型]</li>
-                            <li>开启/关闭二维码撤回 (高级识别)</li>
-                        </ul>
-                    </div>
-                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
-                        <h4 style="margin:0 0 0.5rem 0;">防刷屏控制</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li>开启/关闭功能 刷屏检测</li>
-                            <li>设置复读阈值 &lt;次数&gt; (0为关闭，建议3-5)</li>
-                            <li>设置刷屏窗口 &lt;秒数&gt;</li>
-                        </ul>
-                    </div>
+                <div class="cmd-desc">消耗积分抽取随机奖励。</div>
+            </div>
+            <div class="cmd-card" data-cmd="查封号">
+                <div class="cmd-main">
+                    <span class="cmd-text">查封号 [QQ]</span>
                 </div>
-            </section>
-
-            <!-- 5. 互动娱乐 -->
-            <section id="interact" class="card">
-                <h2>5. 互动娱乐功能</h2>
-                <div class="grid grid-3">
-                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
-                        <div style="font-size:2rem; margin-bottom:0.5rem;">📅</div>
-                        <h3 style="margin-top:0">签到系统</h3>
-                        <p style="font-size:0.9rem">每日签到获取积分，支持连续签到奖励。</p>
-                        <div class="cmd-code">签到</div> <div class="cmd-code">签到榜</div>
-                    </div>
-                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
-                        <div style="font-size:2rem; margin-bottom:0.5rem;">📊</div>
-                        <h3 style="margin-top:0">活跃统计</h3>
-                        <p style="font-size:0.9rem">查看群内发言排行榜及统计数据。</p>
-                        <div class="cmd-code">活跃统计</div>
-                    </div>
-                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
-                        <div style="font-size:2rem; margin-bottom:0.5rem;">🎁</div>
-                        <h3 style="margin-top:0">抽奖系统</h3>
-                        <p style="font-size:0.9rem">消耗积分抽取随机奖励，概率可配置。</p>
-                        <div class="cmd-code">抽奖</div>
-                    </div>
+                <div class="cmd-desc">查询LOL账号封禁状态。</div>
+            </div>
+            <div class="cmd-card" data-cmd="查隐藏">
+                <div class="cmd-main">
+                    <span class="cmd-text">查隐藏 [ID]</span>
                 </div>
-                
-                <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem; margin-top:1.5rem;">
-                    <div style="display:flex; gap:1rem;">
-                        <div style="font-size:2rem;">⚙️</div>
-                        <div>
-                            <h3 style="margin-top:0">娱乐功能开关</h3>
-                            <p style="font-size:0.9rem">管理员可按需开启或关闭特定娱乐模块。</p>
-                            <div class="grid grid-2">
-                                <div><span class="cmd-code">开启/关闭功能 签到</span></div>
-                                <div><span class="cmd-code">开启/关闭功能 抽奖</span></div>
-                                <div><span class="cmd-code">开启/关闭功能 问答</span></div>
-                                <div><span class="cmd-code">开启/关闭功能 活跃统计</span></div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="cmd-desc">查询LOL隐藏分及近期战绩。</div>
+            </div>
+            
+            <div class="group-title">系统信息</div>
+            <div class="cmd-card" data-cmd="查询授权">
+                <div class="cmd-main">
+                    <span class="cmd-text">查询授权</span>
                 </div>
-
-                <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem; margin-top:1.5rem;">
-                    <div style="display:flex; gap:1rem;">
-                        <div style="font-size:2rem;">🛍️</div>
-                        <div>
-                            <h3 style="margin-top:0">积分商城</h3>
-                            <p style="font-size:0.9rem">使用积分兑换虚拟权益。支持自定义商品。</p>
-                            <div class="grid grid-2">
-                                <div><span class="cmd-code">积分商城</span> / <span class="cmd-code">商城</span></div>
-                                <div><span class="cmd-code">兑换 免死金牌</span> (清除警告)</div>
-                                <div><span class="cmd-code">兑换 头衔 &lt;内容&gt;</span></div>
-                                <div><span class="cmd-code">兑换 解禁 @某人</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 6. 高级功能 -->
-            <section id="advanced" class="card">
-                <h2>6. 高级功能</h2>
-                
-                <div class="cmd-box">
-                    <span class="cmd-title">LOL 封号查询</span>
-                    <p>查询指定 QQ 号的英雄联盟封号状态及详细原因。</p>
-                    <div class="cmd-code">查封号 &lt;QQ号&gt;</div>
-                    <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.5rem">示例：查封号 123456789</p>
-                </div>
-
-                <div class="cmd-box">
-                    <span class="cmd-title">LOL 隐藏战绩查询 <span class="tag tag-pro">付费</span></span>
-                    <p>查询指定召唤师的隐藏战绩（匹配/排位/乱斗）。</p>
-                    <div class="cmd-code">查隐藏 &lt;召唤师名&gt; [大区ID]</div>
-                    <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.5rem">示例：查隐藏 TheShy 1 (默认1区)</p>
-                </div>
-
-                <div class="cmd-box">
-                    <span class="cmd-title">问答系统 (自动回复)</span>
-                    <p>支持精确匹配、模糊匹配和正则匹配。</p>
-                    <div class="grid grid-2">
-                        <div><span class="cmd-code">精确问 &lt;问题&gt; 答 &lt;回复&gt;</span></div>
-                        <div><span class="cmd-code">模糊问 &lt;关键词&gt; 答 &lt;回复&gt;</span></div>
-                        <div><span class="cmd-code">删问 &lt;关键词&gt;</span></div>
-                    </div>
-                </div>
-                
-                <div class="cmd-box">
-                    <span class="cmd-title">定时任务 <span class="tag tag-pro">专业版</span></span>
-                    <p>设置每天固定时间发送消息。</p>
-                    <div class="cmd-code">定时任务 &lt;HH:mm&gt; &lt;内容&gt;</div>
-                    <p style="font-size:0.8rem; color:var(--text-light)">示例：定时任务 08:00 大家早上好！</p>
-                </div>
-
-                <div class="cmd-box">
-                    <span class="cmd-title">机器人自身撤回</span>
-                    <p>让机器人发送的消息在指定时间后自动撤回，保持群面整洁。</p>
-                    <div class="cmd-code">开启自身撤回 &lt;秒数&gt;</div>
-                    <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.5rem">示例：开启自身撤回 60 (1分钟后撤回) | 默认60秒</p>
-                    <div class="cmd-code" style="margin-top:0.5rem">关闭自身撤回</div>
-                </div>
-            </section>
-
-            <!-- 7. 典型业务场景 -->
-            <section id="scenarios" class="card">
-                <h2>7. 典型业务场景</h2>
-                
-                <div class="grid grid-2">
-                    <!-- Scene 1 -->
-                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
-                        <h3 style="margin-top:0; color:var(--text)">场景一：防止广告号刷屏轰炸</h3>
-                        <p style="font-size:0.9rem">**需求**：某群深夜常有广告号进群发送大量垃圾信息。</p>
-                        
-                        <h4 style="font-size:0.95rem; margin-bottom:0.5rem">配置步骤</h4>
-                        <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:var(--secondary)">
-                            <li>开启入群验证：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">开启功能 入群验证</code></li>
-                            <li>设置复杂暗号：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置暗号 帅且快</code></li>
-                            <li>开启刷屏检测：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">开启功能 刷屏检测</code></li>
-                            <li>设置刷屏参数：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置刷屏窗口 10</code> (10秒内)</li>
-                            <li>设置复读阈值：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置复读阈值 3</code></li>
-                        </ol>
-
-                        <h4 style="font-size:0.95rem; margin:1rem 0 0.5rem">预期效果</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:var(--secondary)">
-                            <li>未知用户无法直接进群。</li>
-                            <li>即使进群，连续发广告秒被禁言。</li>
-                        </ul>
-                    </div>
-
-                    <!-- Scene 2 -->
-                    <div style="background:var(--bg); padding:1.5rem; border-radius:0.5rem;">
-                        <h3 style="margin-top:0; color:var(--text)">场景二：付费群/会员群管理</h3>
-                        <p style="font-size:0.9rem">**需求**：管理一个需要验证身份的付费会员群。</p>
-                        
-                        <h4 style="font-size:0.95rem; margin-bottom:0.5rem">配置步骤</h4>
-                        <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:var(--secondary)">
-                            <li>设置私密暗号：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置暗号 VIP-2024</code></li>
-                            <li>设置欢迎词：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">设置欢迎词 欢迎VIP {user}！</code></li>
-                            <li>禁止分享链接：<code style="background:#E2E8F0; padding:0 0.2rem; border-radius:0.2rem">屏蔽 链接</code></li>
-                        </ol>
-
-                        <h4 style="font-size:0.95rem; margin:1rem 0 0.5rem">预期效果</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:var(--secondary)">
-                            <li>只有输入正确 VIP 码才能进群。</li>
-                            <li>进群自动欢迎，提升尊贵感。</li>
-                            <li>群内无法发送外部链接，保护内容安全。</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 8. 功能开关汇总 -->
-            <section id="switches" class="card">
-                <h2>8. 功能开关汇总</h2>
-                <p>集中管理所有功能的开启与关闭状态。</p>
-                
-                <div class="grid grid-2">
-                    <!-- 验证类 -->
-                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
-                        <h4 style="margin:0 0 0.5rem 0;">🛡️ 验证与安全</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li><span class="cmd-code">开启功能 入群验证</span> / <span class="cmd-code">关闭功能 入群验证</span></li>
-                            <li><span class="cmd-code">开启功能 自动同意</span> / <span class="cmd-code">关闭功能 自动同意</span></li>
-                            <li><span class="cmd-code">开启功能 暗号回落</span> / <span class="cmd-code">关闭功能 暗号回落</span></li>
-                            <li><span class="cmd-code">开启功能 刷屏检测</span> / <span class="cmd-code">关闭功能 刷屏检测</span></li>
-                        </ul>
-                    </div>
-
-                    <!-- 娱乐类 -->
-                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
-                        <h4 style="margin:0 0 0.5rem 0;">🎮 互动与娱乐</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li><span class="cmd-code">开启功能 签到</span> / <span class="cmd-code">关闭功能 签到</span></li>
-                            <li><span class="cmd-code">开启功能 抽奖</span> / <span class="cmd-code">关闭功能 抽奖</span></li>
-                            <li><span class="cmd-code">开启功能 问答</span> / <span class="cmd-code">关闭功能 问答</span></li>
-                            <li><span class="cmd-code">开启功能 活跃统计</span> / <span class="cmd-code">关闭功能 活跃统计</span></li>
-                        </ul>
-                    </div>
-
-                    <!-- 系统类 -->
-                    <div style="background:var(--bg); padding:1rem; border-radius:0.5rem;">
-                        <h4 style="margin:0 0 0.5rem 0;">⚙️ 系统与维护</h4>
-                        <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
-                            <li><span class="cmd-code">开启自身撤回 &lt;秒&gt;</span> / <span class="cmd-code">关闭自身撤回</span></li>
-                            <li><span class="cmd-code">开启功能 邀请统计</span> / <span class="cmd-code">关闭功能 邀请统计</span></li>
-                            <li><span class="cmd-code">开启功能 退群拉黑</span> / <span class="cmd-code">关闭功能 退群拉黑</span></li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-        </main>
+                <div class="cmd-desc">查看本群授权等级及到期时间。</div>
+            </div>
+        </div>
     </div>
 
-    <footer style="text-align:center; padding:2rem; color:var(--text-light); border-top:1px solid var(--border); margin-top:2rem;">
-        <p>&copy; 2024 GroupGuard Plugin. Documentation v1.0.23</p>
-    </footer>
+    <!-- 2. 群员管理 -->
+    <div class="column">
+        <div class="col-header admin">⚖️ 群员管理</div>
+        <div class="col-content">
+            <div class="group-title">人员处置</div>
+            <div class="cmd-card" data-cmd="踢出">
+                <div class="cmd-main">
+                    <span class="cmd-text">踢出 @某人</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">将成员移出群聊。</div>
+            </div>
+            <div class="cmd-card" data-cmd="禁言">
+                <div class="cmd-main">
+                    <span class="cmd-text">禁言 @某人 [时间]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">禁言指定时间(分钟)，默认10分钟。</div>
+            </div>
+            <div class="cmd-card" data-cmd="解禁">
+                <div class="cmd-main">
+                    <span class="cmd-text">解禁 @某人</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">解除成员禁言状态。</div>
+            </div>
+            <div class="cmd-card" data-cmd="全体禁言">
+                <div class="cmd-main">
+                    <span class="cmd-text">全体禁言</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">开启全员禁言模式。</div>
+            </div>
 
-    <script>
-        function filterDocs() {
-            const input = document.getElementById('searchInput');
-            const filter = input.value.toUpperCase();
-            const sections = document.querySelectorAll('main section');
-            
-            sections.forEach(section => {
-                const text = section.innerText;
-                if (text.toUpperCase().indexOf(filter) > -1) {
-                    section.style.display = "";
-                } else {
-                    section.style.display = "none";
-                }
+            <div class="group-title">警告系统</div>
+            <div class="cmd-card" data-cmd="警告">
+                <div class="cmd-main">
+                    <span class="cmd-text">警告 @某人 [原因]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">记过一次，累计3次自动处理。</div>
+            </div>
+            <div class="cmd-card" data-cmd="清除警告">
+                <div class="cmd-main">
+                    <span class="cmd-text">清除警告 @某人</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">清空该成员的警告计数。</div>
+            </div>
+
+            <div class="group-title">黑白名单</div>
+            <div class="cmd-card" data-cmd="拉黑">
+                <div class="cmd-main">
+                    <span class="cmd-text">拉黑 @某人</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">踢出并加入本群黑名单，禁止再入。</div>
+            </div>
+            <div class="cmd-card" data-cmd="白名单">
+                <div class="cmd-main">
+                    <span class="cmd-text">白名单 @某人</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">豁免一切风控检测。</div>
+            </div>
+            <div class="cmd-card" data-cmd="黑名单列表">
+                <div class="cmd-main">
+                    <span class="cmd-text">黑名单列表</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">查看本群所有黑名单成员。</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 风控 & 防护 -->
+    <div class="column">
+        <div class="col-header protect">🛡️ 风控 & 防护</div>
+        <div class="col-content">
+            <div class="group-title">消息拦截</div>
+            <div class="cmd-card" data-cmd="屏蔽">
+                <div class="cmd-main">
+                    <span class="cmd-text">屏蔽 [类型]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">类型：图片/视频/语音/链接/名片/小程序。</div>
+            </div>
+            <div class="cmd-card" data-cmd="取消屏蔽">
+                <div class="cmd-main">
+                    <span class="cmd-text">取消屏蔽 [类型]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">允许发送特定类型的消息。</div>
+            </div>
+
+            <div class="group-title">防撤回系统</div>
+            <div class="cmd-card" data-cmd="开启防撤回">
+                <div class="cmd-main">
+                    <span class="cmd-text">开启/关闭防撤回</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">检测并重新发送被撤回的消息。</div>
+            </div>
+            <div class="cmd-card" data-cmd="防撤回列表">
+                <div class="cmd-main">
+                    <span class="cmd-text">防撤回列表</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">查看最近拦截的撤回消息记录。</div>
+            </div>
+
+            <div class="group-title">高级控制</div>
+            <div class="cmd-card" data-cmd="针对">
+                <div class="cmd-main">
+                    <span class="cmd-text">针对 @某人</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">自动撤回指定成员发的所有消息。</div>
+            </div>
+            <div class="cmd-card" data-cmd="锁定名片">
+                <div class="cmd-main">
+                    <span class="cmd-text">锁定名片 @某人</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">锁定群名片，修改后自动改回。</div>
+            </div>
+            <div class="cmd-card" data-cmd="开启宵禁">
+                <div class="cmd-main">
+                    <span class="cmd-text">开启宵禁 [始] [终]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">夜间自动禁言。例：开启宵禁 00:00 06:00</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 配置 & 智能 -->
+    <div class="column">
+        <div class="col-header config">🤖 配置 & 智能</div>
+        <div class="col-content">
+            <div class="group-title">功能开关</div>
+            <div class="cmd-card" data-cmd="开启功能">
+                <div class="cmd-main">
+                    <span class="cmd-text">开启/关闭功能 [名]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">支持：问答/签到/抽奖/入群验证/刷屏检测。</div>
+            </div>
+
+            <div class="group-title">入群设置</div>
+            <div class="cmd-card" data-cmd="设置暗号">
+                <div class="cmd-main">
+                    <span class="cmd-text">设置暗号 [内容]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">入群验证的正确答案。</div>
+            </div>
+            <div class="cmd-card" data-cmd="设置欢迎词">
+                <div class="cmd-main">
+                    <span class="cmd-text">设置欢迎词 [内容]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">新人进群自动发送。{user}代表成员。</div>
+            </div>
+
+            <div class="group-title">自动回复</div>
+            <div class="cmd-card" data-cmd="模糊问">
+                <div class="cmd-main">
+                    <span class="cmd-text">模糊问 Q 答 A</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">设置关键词触发的自动回复。</div>
+            </div>
+            <div class="cmd-card" data-cmd="定时任务">
+                <div class="cmd-main">
+                    <span class="cmd-text">定时任务 [时间] [内容]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">每日定时发送。例：定时任务 08:00 早安</div>
+            </div>
+
+            <div class="group-title">词库管理</div>
+            <div class="cmd-card" data-cmd="添加违禁词">
+                <div class="cmd-main">
+                    <span class="cmd-text">添加违禁词 [词]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">设置敏感词，触发后自动撤回+禁言。</div>
+            </div>
+            <div class="cmd-card" data-cmd="设置复读阈值">
+                <div class="cmd-main">
+                    <span class="cmd-text">设置复读阈值 [N]</span>
+                    <span class="badge badge-admin">管理</span>
+                </div>
+                <div class="cmd-desc">连续N条相同消息触发清理。</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div id="toast">📋 指令已复制</div>
+
+<script>
+    const toast = document.getElementById('toast');
+    let toastTimer;
+
+    document.querySelectorAll('.cmd-card').forEach(el => {
+        el.addEventListener('click', () => {
+            const cmd = el.getAttribute('data-cmd');
+            navigator.clipboard.writeText(cmd).then(() => {
+                // Show toast
+                toast.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 2000);
+
+                // Visual feedback
+                el.style.borderColor = '#3b82f6';
+                el.style.backgroundColor = '#eff6ff';
+                setTimeout(() => {
+                    el.style.borderColor = '';
+                    el.style.backgroundColor = '';
+                }, 200);
             });
-        }
-    </script>
+        });
+    });
+</script>
 
 </body>
 </html>
