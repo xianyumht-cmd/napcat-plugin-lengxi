@@ -421,6 +421,7 @@
         <div class="sb" onclick="go('global',this)">群管设置</div>
         <div class="sb" onclick="go('interact',this)">互动设置</div>
         <div class="sb" onclick="go('assistant',this)">主人助手</div>
+        <div class="sb" onclick="go('license',this)">授权管理</div>
         <div class="sb" onclick="go('activity',this)">活跃统计</div>
         <div class="sb" onclick="go('sessions',this)">验证状态</div>
         <div class="sb" onclick="go('logs',this)">调试日志</div>
@@ -721,6 +722,63 @@
           </div>
         </div>
 
+        <!-- 授权管理 -->
+        <div id="pg-license" class="pg">
+          <div class="glass p-5 mb-4">
+            <div class="sec-t">添加/续期授权</div>
+            <div class="flex gap-2 flex-wrap items-end">
+              <div class="flex-1 min-w-[160px]">
+                <label class="text-xs text-slate-500">选择群聊</label>
+                <select id="l-grp" class="ipt"></select>
+              </div>
+              <div class="w-[120px]">
+                <label class="text-xs text-slate-500">授权时长</label>
+                <select id="l-dur" class="ipt" onchange="if(this.value==='custom') $('l-cdur').style.display=''; else $('l-cdur').style.display='none'">
+                  <option value="30">30 天</option>
+                  <option value="90">90 天</option>
+                  <option value="180">半年</option>
+                  <option value="365">一年</option>
+                  <option value="9999">永久</option>
+                  <option value="custom">自定义(天)</option>
+                </select>
+              </div>
+              <div id="l-cdur" style="display:none;width:80px">
+                <label class="text-xs text-slate-500">天数</label>
+                <input type="number" id="l-days" class="ipt" value="1">
+              </div>
+              <div class="w-[100px]">
+                <label class="text-xs text-slate-500">授权等级</label>
+                <select id="l-lvl" class="ipt">
+                  <option value="pro">专业版</option>
+                  <option value="enterprise">企业版</option>
+                </select>
+              </div>
+              <button onclick="addLic()" class="btn btn-p">授权</button>
+            </div>
+          </div>
+
+          <div class="glass p-5 mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-bold text-base">已授权群聊</h3>
+              <button onclick="loadLic()" class="btn btn-s">刷新</button>
+            </div>
+            <div style="max-height:400px;overflow-y:auto" class="scr">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="border-bottom:2px solid rgba(96,165,250,.15);text-align:left;color:#64748b">
+                    <th style="padding:8px">群聊信息</th>
+                    <th style="padding:8px">等级</th>
+                    <th style="padding:8px">到期时间</th>
+                    <th style="padding:8px">状态</th>
+                    <th style="padding:8px;text-align:right">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="licTb"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- 活跃统计 -->
         <div id="pg-activity" class="pg">
           <div class="glass p-5 mb-4">
@@ -800,7 +858,94 @@
     function gn (id, d) { const v = parseInt($(id)?.value); return isNaN(v) ? d : v; }
     function esc (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     async function af (p, m = 'GET', b = null) { const o = { method: m, headers: { 'Content-Type': 'application/json' } }; if (b) o.body = JSON.stringify(b); return (await fetch(API + p, o)).json(); }
-    function go (pg, el) { document.querySelectorAll('.pg').forEach(p => p.classList.remove('active')); document.querySelectorAll('.sb').forEach(s => s.classList.remove('active')); $('pg-' + pg)?.classList.add('active'); el?.classList.add('active'); if (pg === 'dashboard') updDash(); if (pg === 'sessions') loadSess(); if (pg === 'global') popGrpSel(); if (pg === 'activity') { popActSel(); loadAct(); } if (pg === 'assistant') loadBlMgr(); if (pg === 'logs') { stg('l-db', C.debug); loadLogs(); startLR(); } else stopLR(); }
+    function go (pg, el) { document.querySelectorAll('.pg').forEach(p => p.classList.remove('active')); document.querySelectorAll('.sb').forEach(s => s.classList.remove('active')); $('pg-' + pg)?.classList.add('active'); el?.classList.add('active'); if (pg === 'dashboard') updDash(); if (pg === 'sessions') loadSess(); if (pg === 'global') popGrpSel(); if (pg === 'activity') { popActSel(); loadAct(); } if (pg === 'assistant') loadBlMgr(); if (pg === 'license') { popLicGrp(); loadLic(); } if (pg === 'logs') { stg('l-db', C.debug); loadLogs(); startLR(); } else stopLR(); }
+    function popLicGrp() {
+      const s = $('l-grp');
+      s.innerHTML = GL.map(g => `<option value="${g.group_id}">${g.group_name || g.group_id} (${g.group_id})</option>`).join('');
+    }
+    function loadLic() {
+      const tb = $('licTb');
+      const licenses = C.licenses || {};
+      const list = Object.entries(licenses).map(([gid, l]) => {
+        const grp = GL.find(g => String(g.group_id) === gid) || { group_name: '未知群' };
+        return { gid, name: grp.group_name, ...l };
+      });
+      
+      if (!list.length) {
+        tb.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:#94a3b8">暂无授权记录</td></tr>';
+        return;
+      }
+
+      tb.innerHTML = list.map(l => {
+        const isPerm = l.expireTime > 4070880000000; // > year 2099
+        const expireStr = isPerm ? '永久有效' : new Date(l.expireTime).toLocaleString();
+        const isExpired = !isPerm && Date.now() > l.expireTime;
+        const statusHtml = isExpired 
+          ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600">已过期</span>'
+          : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600">生效中</span>';
+        const levelMap = { pro: '专业版', enterprise: '企业版' };
+        
+        return `<tr style="border-bottom:1px solid rgba(96,165,250,.06)">
+          <td style="padding:8px">
+            <div class="font-medium">${esc(l.name)}</div>
+            <div class="text-[10px] text-slate-400">${l.gid}</div>
+          </td>
+          <td style="padding:8px">
+            <span class="text-xs font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">${levelMap[l.level] || l.level}</span>
+          </td>
+          <td style="padding:8px" class="text-slate-600 font-mono text-xs">${expireStr}</td>
+          <td style="padding:8px">${statusHtml}</td>
+          <td style="padding:8px;text-align:right">
+            <button onclick="rmLic('${l.gid}')" class="btn btn-d" style="font-size:11px;padding:4px 10px">移除</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    async function addLic() {
+      const gid = $('l-grp').value;
+      const durType = $('l-dur').value;
+      const days = durType === 'custom' ? parseInt($('l-days').value) : parseInt(durType);
+      const level = $('l-lvl').value;
+      
+      if (!gid) return toast('请选择群聊', 'error');
+      if (!days || days <= 0) return toast('请输入有效天数', 'error');
+
+      C.licenses = C.licenses || {};
+      const now = Date.now();
+      let currentExpire = 0;
+      
+      // Check existing license
+      if (C.licenses[gid]) {
+        currentExpire = C.licenses[gid].expireTime || 0;
+      }
+      
+      // Calculate new expire time
+      let newExpire;
+      if (days > 9000) {
+        newExpire = 4102415999000; // Permanent (Year 2100)
+      } else {
+        const ms = days * 24 * 3600 * 1000;
+        // If current license is valid, extend it
+        if (currentExpire > now) {
+          newExpire = currentExpire + ms;
+        } else {
+          // Otherwise start from now
+          newExpire = now + ms;
+        }
+      }
+
+      C.licenses[gid] = { level, expireTime: newExpire };
+      await doSave();
+      loadLic();
+      toast('授权已更新', 'success');
+    }
+    async function rmLic(gid) {
+      if (!confirm('确定要移除该群的授权吗？')) return;
+      if (C.licenses) delete C.licenses[gid];
+      await doSave();
+      loadLic();
+      toast('授权已移除', 'success');
+    }
     function badge (id, on) { const e = $(id); if (!e) return; e.textContent = on ? '已开启' : '已关闭'; e.className = on ? 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'; }
     async function loadCfg () { try { const r = await af('/config'); if (r.code === 0) { C = r.data || {}; fillGlobal(); $('sDot').className = 'w-2 h-2 rounded-full bg-emerald-400'; $('sTxt').textContent = '已连接'; if (r.version) { const v = 'v' + r.version; $('sidebar-ver').textContent = 'GroupGuard ' + v; $('dash-ver').textContent = 'GroupGuard ' + v + ' · by 冷曦'; } return true; } } catch { } toast('加载配置失败', 'error'); return false; }
     async function loadGrps () { try { const r = await af('/groups'); if (r.code === 0) GL = r.data || []; } catch { } }
