@@ -540,7 +540,7 @@
               <div class="cfg-sec">
                 <div class="sec-t">警告系统</div>
                 <div class="grid grid-cols-2 gap-3">
-                  <div><label class="text-xs text-slate-500">警告上限次数</label><input type="number" id="c-wl" class="ipt" value="3"></div>
+                  <div><label class="text-xs text-slate-500">警告上限次数</label><input type="number" id="c-wl-limit" class="ipt" value="3"></div>
                   <div><label class="text-xs text-slate-500">达到上限动作</label><select id="c-wa" class="ipt"><option value="ban">禁言</option><option value="kick">踢出</option></select></div>
                 </div>
               </div>
@@ -584,6 +584,78 @@
                     <input type="number" id="c-rdx" class="ipt" placeholder="最大 (ms)" value="0">
                   </div>
                   <div class="text-[10px] text-slate-400 mt-1">全局生效，建议范围 500-1500</div>
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500">发送队列模式</label>
+                    <select id="c-qm" class="ipt">
+                      <option value="group">分群队列</option>
+                      <option value="global">全局队列</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">发送并发</label>
+                    <input type="number" id="c-qc" class="ipt" value="2" min="1" max="20">
+                  </div>
+                </div>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500">全局限流（条/分钟）</label>
+                    <input type="number" id="c-gpm" class="ipt" value="180" min="1">
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">问答冷却（秒）</label>
+                    <input type="number" id="c-qacd" class="ipt" value="30" min="0">
+                  </div>
+                </div>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500">同用户冷却（秒）</label>
+                    <input type="number" id="c-qucd" class="ipt" value="12" min="0">
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">群熔断阈值（窗口内条数）</label>
+                    <input type="number" id="c-gft" class="ipt" value="45" min="1">
+                  </div>
+                </div>
+                <div class="mt-2 grid grid-cols-3 gap-3">
+                  <div><label class="text-xs text-slate-500">低风险冷却（秒）</label><input type="number" id="c-qtl" class="ipt" value="15" min="0"></div>
+                  <div><label class="text-xs text-slate-500">中风险冷却（秒）</label><input type="number" id="c-qtm" class="ipt" value="30" min="0"></div>
+                  <div><label class="text-xs text-slate-500">高风险冷却（秒）</label><input type="number" id="c-qth" class="ipt" value="60" min="0"></div>
+                </div>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500">群熔断窗口（秒）</label>
+                    <input type="number" id="c-gfw" class="ipt" value="60" min="1">
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">群熔断时长（秒）</label>
+                    <input type="number" id="c-gfc" class="ipt" value="90" min="1">
+                  </div>
+                </div>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500">高风险关键词（逗号分隔）</label>
+                    <input type="text" id="c-qhr" class="ipt" placeholder="广告,引流,赌博,色情,二维码,进群">
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">中风险关键词（逗号分隔）</label>
+                    <input type="text" id="c-qmr" class="ipt" placeholder="签到,抽奖,积分,菜单,帮助">
+                  </div>
+                </div>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500">回复概率（%）</label>
+                    <input type="number" id="c-rp" class="ipt" value="100" min="0" max="100">
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">超限时排队等待</label>
+                    <div class="tgl mt-1.5" id="c-rle" onclick="tg(this)"></div>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <label class="text-xs text-slate-500">回复模板池（用 | 分隔，必须包含 {msg}）</label>
+                  <input type="text" id="c-rtp" class="ipt" placeholder="{msg}|{msg}~|[自动回复] {msg}">
                 </div>
               </div>
               <div class="cfg-sec">
@@ -636,7 +708,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3 mt-2">
                   <div><label class="text-xs text-slate-500">黑名单 (QQ)</label><input type="text" id="c-bl" class="ipt"></div>
-                  <div><label class="text-xs text-slate-500">白名单 (QQ)</label><input type="text" id="c-wl" class="ipt"></div>
+                  <div><label class="text-xs text-slate-500">白名单 (QQ)</label><input type="text" id="c-wl-list" class="ipt"></div>
                 </div>
               </div>
             </div>
@@ -965,10 +1037,10 @@
       sv('c-sw', g.spamWindow || 10); sv('c-st', g.spamThreshold || 10); sv('c-sb', g.spamBanMinutes || 5);
       const mf = g.msgFilter || {};
       stg('c-mf-v', mf.blockVideo); stg('c-mf-i', mf.blockImage); stg('c-mf-r', mf.blockRecord);
-      stg('c-mf-f', mf.blockForward); stg('c-mf-l', mf.blockLightApp); stg('c-mf-c', mf.blockContact); stg('c-mf-u', mf.blockUrl);
+      stg('c-mf-f', mf.blockForward); stg('c-mf-l', mf.blockLightApp); stg('c-mf-c', mf.blockContact); stg('c-mf-u', mf.blockUrl); stg('c-mf-q', mf.blockQr);
       renderQA(g.qaList || []);
       // New fields
-      sv('c-wl', (g.warningLimit || 3));
+      sv('c-wl-limit', (g.warningLimit || 3));
       sv('c-acs', g.adminCacheSeconds !== undefined ? g.adminCacheSeconds : 60);
       sv('c-rt', g.repeatThreshold || 0);
       $('c-wa').value = g.warningAction || 'ban';
@@ -979,6 +1051,22 @@
       stg('c-rs', g.randomSuffix);
       sv('c-rdn', g.randomDelayMin || 0);
       sv('c-rdx', g.randomDelayMax || 0);
+      $('c-qm').value = g.queueMode || 'group';
+      sv('c-qc', g.queueConcurrency || 2);
+      sv('c-gpm', g.globalMaxPerMinute || 180);
+      sv('c-qacd', g.qaCooldownSeconds !== undefined ? g.qaCooldownSeconds : 30);
+      sv('c-qucd', g.qaUserCooldownSeconds !== undefined ? g.qaUserCooldownSeconds : 12);
+      sv('c-qtl', g.qaTierCooldownLow !== undefined ? g.qaTierCooldownLow : 15);
+      sv('c-qtm', g.qaTierCooldownMedium !== undefined ? g.qaTierCooldownMedium : 30);
+      sv('c-qth', g.qaTierCooldownHigh !== undefined ? g.qaTierCooldownHigh : 60);
+      sv('c-gfw', g.groupFuseWindowSeconds !== undefined ? g.groupFuseWindowSeconds : 60);
+      sv('c-gft', g.groupFuseThreshold !== undefined ? g.groupFuseThreshold : 45);
+      sv('c-gfc', g.groupFuseCooldownSeconds !== undefined ? g.groupFuseCooldownSeconds : 90);
+      sv('c-qhr', (g.qaHighRiskPatterns || []).join(','));
+      sv('c-qmr', (g.qaMediumRiskPatterns || []).join(','));
+      sv('c-rp', g.replyProbability !== undefined ? g.replyProbability : 100);
+      stg('c-rle', g.rateLimitEnqueue !== false);
+      sv('c-rtp', (g.replyTemplatePool || ['{msg}']).join('|'));
       sv('i-smin', g.signinMin || 10); sv('i-smax', g.signinMax || 50);
       sv('i-inv', g.invitePoints || 20);
       sv('i-msg', g.messageReward || 0);
@@ -987,7 +1075,7 @@
 
     function fillGlobal () {
       fillFields(C.global || {});
-      sv('c-wl', (C.whitelist || []).join(',')); // Global whitelist
+      sv('c-wl-list', (C.whitelist || []).join(',')); // Global whitelist
       sv('c-bl', (C.blacklist || []).join(',')); // Global blacklist (reuse input for global)
       sv('d-owner', C.ownerQQs || '');
       sv('d-key', C.licenseKey || '');
@@ -1006,7 +1094,7 @@
       const mixed = { ...g, ...gs }; 
       fillFields(mixed);
       sv('c-bl', (gs.groupBlacklist || []).join(',')); // Group blacklist
-      sv('c-wl', ''); // No group whitelist
+      sv('c-wl-list', ''); // No group whitelist
     }
 
     function collectFields () {
@@ -1020,14 +1108,30 @@
         filterPunishLevel: parseInt($('c-fp')?.value) || 1, filterBanMinutes: gn('c-fb', 10),
         leaveBlacklist: gtg('c-lb'),
         spamDetect: gtg('c-sd'), spamWindow: gn('c-sw', 10), spamThreshold: gn('c-st', 10), spamBanMinutes: gn('c-sb', 5),
-        msgFilter: { blockVideo: gtg('c-mf-v'), blockImage: gtg('c-mf-i'), blockRecord: gtg('c-mf-r'), blockForward: gtg('c-mf-f'), blockLightApp: gtg('c-mf-l'), blockContact: gtg('c-mf-c'), blockUrl: gtg('c-mf-u') },
+        msgFilter: { blockVideo: gtg('c-mf-v'), blockImage: gtg('c-mf-i'), blockRecord: gtg('c-mf-r'), blockForward: gtg('c-mf-f'), blockLightApp: gtg('c-mf-l'), blockContact: gtg('c-mf-c'), blockUrl: gtg('c-mf-u'), blockQr: gtg('c-mf-q') },
         qaList: collectQA(),
         // New fields
         adminCacheSeconds: gn('c-acs', 60), repeatThreshold: gn('c-rt', 0),
-        warningLimit: gn('c-wl', 3), warningAction: $('c-wa')?.value || 'ban',
+        warningLimit: gn('c-wl-limit', 3), warningAction: $('c-wa')?.value || 'ban',
         enableCurfew: gtg('c-ec'), curfewStart: $('c-cs')?.value || '00:00', curfewEnd: $('c-ce')?.value || '06:00',
         autoRecallSelf: gtg('c-ars'), autoRecallSelfDelay: gn('c-arsd', 60),
         randomSuffix: gtg('c-rs'), randomDelayMin: gn('c-rdn', 0), randomDelayMax: gn('c-rdx', 0),
+        queueMode: $('c-qm')?.value === 'global' ? 'global' : 'group',
+        queueConcurrency: gn('c-qc', 2),
+        globalMaxPerMinute: gn('c-gpm', 180),
+        qaCooldownSeconds: gn('c-qacd', 30),
+        qaUserCooldownSeconds: gn('c-qucd', 12),
+        qaTierCooldownLow: gn('c-qtl', 15),
+        qaTierCooldownMedium: gn('c-qtm', 30),
+        qaTierCooldownHigh: gn('c-qth', 60),
+        qaHighRiskPatterns: ($('c-qhr')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+        qaMediumRiskPatterns: ($('c-qmr')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+        groupFuseWindowSeconds: gn('c-gfw', 60),
+        groupFuseThreshold: gn('c-gft', 45),
+        groupFuseCooldownSeconds: gn('c-gfc', 90),
+        replyProbability: gn('c-rp', 100),
+        rateLimitEnqueue: gtg('c-rle'),
+        replyTemplatePool: ($('c-rtp')?.value || '{msg}').split('|').map(s => s.trim()).filter(Boolean),
         signinMin: gn('i-smin', 10), signinMax: gn('i-smax', 50),
         invitePoints: gn('i-inv', 20), messageReward: gn('i-msg', 0),
         lotteryCost: gn('i-lc', 50), lotteryReward: gn('i-lr', 200)
@@ -1037,7 +1141,7 @@
     function collectGlobal () {
       C.global = { ...collectFields(), useGlobal: false };
       C.blacklist = ($('c-bl')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-      C.whitelist = ($('c-wl')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+      C.whitelist = ($('c-wl-list')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
     }
 
     function collectGroup (gid) {

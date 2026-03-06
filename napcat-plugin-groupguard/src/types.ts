@@ -132,6 +132,42 @@ export interface GroupGuardSettings {
   /** 随机延迟发送（毫秒） */
   randomDelayMin?: number;
   randomDelayMax?: number;
+  /** 发送队列模式：global=全局队列, group=分群队列 */
+  queueMode?: 'global' | 'group';
+  /** 发送并发数（同一时间最多发送N条） */
+  queueConcurrency?: number;
+  /** 每分钟全局最大发送量（TokenBucket） */
+  globalMaxPerMinute?: number;
+  /** 超限后是否仅排队等待令牌（true=等待，false=直接丢弃） */
+  rateLimitEnqueue?: boolean;
+  /** 自动回复触发概率（0-100） */
+  replyProbability?: number;
+  /** 自动回复模板池，使用 {msg} 占位 */
+  replyTemplatePool?: string[];
+  /** 问答关键词冷却（秒） */
+  qaCooldownSeconds?: number;
+  /** 问答同用户冷却（秒） */
+  qaUserCooldownSeconds?: number;
+  /** 问答低风险关键词冷却（秒） */
+  qaTierCooldownLow?: number;
+  /** 问答中风险关键词冷却（秒） */
+  qaTierCooldownMedium?: number;
+  /** 问答高风险关键词冷却（秒） */
+  qaTierCooldownHigh?: number;
+  /** 高风险关键词模式（命中即按高风险冷却） */
+  qaHighRiskPatterns?: string[];
+  /** 中风险关键词模式（命中即按中风险冷却） */
+  qaMediumRiskPatterns?: string[];
+  /** 同群触发熔断窗口（秒） */
+  groupFuseWindowSeconds?: number;
+  /** 同群触发熔断阈值（窗口内发送条数） */
+  groupFuseThreshold?: number;
+  /** 熔断持续时长（秒） */
+  groupFuseCooldownSeconds?: number;
+  /** 全局发送队列上限 */
+  maxQueueSizeGlobal?: number;
+  /** 分群发送队列上限 */
+  maxQueueSizePerGroup?: number;
   // 新增开关
   /** 是否禁用问答 */
   disableQA?: boolean;

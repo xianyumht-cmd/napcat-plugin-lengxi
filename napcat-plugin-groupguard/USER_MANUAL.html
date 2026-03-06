@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GroupGuard 用户租户手册</title>
+  <title>GroupGuard 用户手册</title>
   <style>
     :root{
       --bg:#0b1220;--bg2:#0f172a;--card:#111c33;--line:#223252;
@@ -53,9 +53,8 @@
 <body>
   <aside class="side">
     <div class="brand">
-      <h1>GroupGuard 用户租户手册</h1>
-      <p style="margin-top:0.5rem">v1.0.23 | 企业级群管解决方案</p>
-      <p>面向群管理员与普通成员（不含授权/后台）</p>
+      <h1>GroupGuard 用户手册</h1>
+      <p style="margin-top:0.5rem">v1.1.0 | 企业级群管解决方案</p>
     </div>
     <div class="searchWrap">
       <input id="kw" class="search" placeholder="搜索功能/指令，例如：签到、宵禁、违禁词" />
@@ -79,7 +78,7 @@
   <main class="main" id="content">
     <section id="intro" class="sec" data-key="总览">
       <h2>总览</h2>
-      <p class="desc">本手册已覆盖全部管理员/成员可触发功能，以及所有自动执行功能（事件触发、默认策略触发、辅助模块触发）。</p>
+      <p class="desc">本手册已覆盖全部管理员/成员可触发功能，以及所有自动执行功能（事件触发、默认策略触发、辅助模块触发），如需售后请联系2320006072。</p>
       <div class="notice">
         <div>✅ 每条指令都提供“格式 + 作用 + 简述 + 复制按钮”。</div>
         <div>✅ 自动功能单独列出，避免遗漏。</div>
@@ -155,12 +154,12 @@
       <div class="grid">
         <article class="card" data-key="开启二维码撤回 关闭二维码撤回">
           <h3>二维码拦截快捷开关 <span class="tag">管理员</span></h3>
-          <div class="meta">格式：开启二维码撤回 / 关闭二维码撤回<br>作用：识别图片二维码并自动撤回。</div>
+          <div class="meta">格式：开启二维码撤回 / 关闭二维码撤回<br>作用：识别图片二维码并自动撤回（需要配合“屏蔽二维码”指令使用，否则无效）。</div>
           <div class="cmd"><code>开启二维码撤回</code><button class="copy" data-copy="开启二维码撤回">复制</button></div>
         </article>
         <article class="card" data-key="屏蔽 取消屏蔽 图片 视频 语音 链接 二维码 名片 小程序 转发">
           <h3>消息类型过滤 <span class="tag">管理员</span></h3>
-          <div class="meta">格式：屏蔽 类型 / 取消屏蔽 类型<br>类型：图片、视频、语音、链接、二维码、名片、小程序、转发。</div>
+          <div class="meta">格式：屏蔽 类型 / 取消屏蔽 类型<br>类型：图片、视频、语音、链接、二维码、名片、小程序、转发。作用：屏蔽后，识别到对应类型会自动撤回</div>
           <div class="cmd"><code>屏蔽 链接</code><button class="copy" data-copy="屏蔽 链接">复制</button></div>
         </article>
       </div>

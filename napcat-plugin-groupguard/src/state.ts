@@ -27,6 +27,15 @@ interface LogEntry {
   msg: string;
 }
 
+interface GroupSendTask {
+  groupId: string;
+  message: any[];
+  force: boolean;
+  applyTemplate: boolean;
+  resolve: () => void;
+  reject: (err?: any) => void;
+}
+
 class PluginState {
   /** 插件版本（运行时从 package.json 读取） */
   version: string = getPluginVersion();
@@ -54,6 +63,24 @@ class PluginState {
   startTime: number = Date.now();
   /** 处理消息数 */
   msgCount: number = 0;
+  /** 问答关键词冷却缓存 key: `${groupId}:${keyword}` */
+  qaCooldownMap: Map<string, number> = new Map();
+  /** 全局发送队列 */
+  private globalSendQueue: GroupSendTask[] = [];
+  /** 分群发送队列 */
+  private groupSendQueues: Map<string, GroupSendTask[]> = new Map();
+  /** 队列调度索引（分群轮询） */
+  private queueRoundRobinIndex = 0;
+  /** 当前发送中的 worker 数 */
+  private activeWorkers = 0;
+  /** TokenBucket 当前令牌 */
+  private tokenBucketTokens = 0;
+  /** TokenBucket 上次补充时间 */
+  private tokenBucketLastRefill = Date.now();
+  /** 分群发送记录（用于熔断） */
+  private groupSendHistory: Map<string, number[]> = new Map();
+  /** 分群熔断截止时间 */
+  private groupFuseUntil: Map<string, number> = new Map();
 
   // ===== 内存优化 =====
   /** 清理内存缓存 */
@@ -74,6 +101,18 @@ class PluginState {
     // 4. 限制日志缓冲区
     if (this.logBuffer.length > 200) {
       this.logBuffer = this.logBuffer.slice(-200);
+    }
+    // 5. 清理问答冷却缓存（最多保留 10 分钟）
+    for (const [key, ts] of this.qaCooldownMap.entries()) {
+      if (now - ts > 600000) this.qaCooldownMap.delete(key);
+    }
+    for (const [groupId, list] of this.groupSendHistory.entries()) {
+      const pruned = list.filter(t => now - t < 300000);
+      if (pruned.length) this.groupSendHistory.set(groupId, pruned);
+      else this.groupSendHistory.delete(groupId);
+    }
+    for (const [groupId, until] of this.groupFuseUntil.entries()) {
+      if (now >= until) this.groupFuseUntil.delete(groupId);
     }
   }
 
@@ -162,76 +201,243 @@ class PluginState {
     }
   }
 
-  /** 发送群消息 (Text) */
-  async sendGroupText (groupId: string, content: string): Promise<void> {
-    if (!this.actions || !this.networkConfig) return;
-    
-    // 应用随机延迟
-    await this.randomSleep(groupId);
-    
-    // 应用随机后缀
-    const suffix = this.getRandomSuffix(groupId);
-    const finalContent = content + suffix;
+  private getGlobalSettings() {
+    return this.config.global || ({} as GroupGuardSettings);
+  }
 
-    try {
-      const res = await this.actions.call('send_group_msg', {
-        group_id: groupId,
-        message: [{ type: 'text', data: { text: finalContent } }]
-      } as never, this.adapterName, this.networkConfig) as { message_id?: number | string };
+  private getQueueConcurrency(): number {
+    const n = Number(this.getGlobalSettings().queueConcurrency || 1);
+    return Math.max(1, Math.min(20, Number.isFinite(n) ? n : 1));
+  }
 
-      // 自动撤回自身消息逻辑
-      if (res && res.message_id) {
-        const settings = this.getGroupSettings(groupId);
-        if (settings.autoRecallSelf) {
-          const delay = (settings.autoRecallSelfDelay || 60) * 1000;
-          setTimeout(() => {
-            this.callApi('delete_msg', { message_id: res.message_id }).catch(() => {});
-          }, delay);
-        }
-      }
-    } catch (e) {
-      this.log('error', `发送群消息失败: ${e}`);
+  private getQueueMode(): 'global' | 'group' {
+    return this.getGlobalSettings().queueMode === 'global' ? 'global' : 'group';
+  }
+
+  private getMaxQueueSizeGlobal(): number {
+    const n = Number(this.getGlobalSettings().maxQueueSizeGlobal ?? 3000);
+    return Math.max(100, Number.isFinite(n) ? n : 3000);
+  }
+
+  private getMaxQueueSizePerGroup(): number {
+    const n = Number(this.getGlobalSettings().maxQueueSizePerGroup ?? 120);
+    return Math.max(20, Number.isFinite(n) ? n : 120);
+  }
+
+  private applyReplyTemplate(text: string): string {
+    const settings = this.getGlobalSettings();
+    const templates = Array.isArray(settings.replyTemplatePool)
+      ? settings.replyTemplatePool.filter(t => typeof t === 'string' && t.includes('{msg}'))
+      : [];
+    if (!templates.length) return text;
+    const tpl = templates[Math.floor(Math.random() * templates.length)] || '{msg}';
+    return tpl.replace(/\{msg\}/g, text);
+  }
+
+  private shouldSendByProbability(): boolean {
+    const settings = this.getGlobalSettings();
+    const p = Number(settings.replyProbability ?? 100);
+    const probability = Math.max(0, Math.min(100, Number.isFinite(p) ? p : 100));
+    return Math.random() * 100 < probability;
+  }
+
+  private refillTokens(): void {
+    const settings = this.getGlobalSettings();
+    const perMinuteRaw = Number(settings.globalMaxPerMinute ?? 180);
+    const perMinute = Math.max(1, Number.isFinite(perMinuteRaw) ? perMinuteRaw : 180);
+    const now = Date.now();
+    const elapsed = now - this.tokenBucketLastRefill;
+    if (elapsed <= 0) return;
+    const refill = elapsed * (perMinute / 60000);
+    this.tokenBucketTokens = Math.min(perMinute, this.tokenBucketTokens + refill);
+    this.tokenBucketLastRefill = now;
+  }
+
+  private async acquireToken(): Promise<boolean> {
+    const settings = this.getGlobalSettings();
+    const perMinuteRaw = Number(settings.globalMaxPerMinute ?? 180);
+    const perMinute = Math.max(1, Number.isFinite(perMinuteRaw) ? perMinuteRaw : 180);
+    const enqueueOnLimit = settings.rateLimitEnqueue !== false;
+    if (this.tokenBucketTokens <= 0) {
+      this.tokenBucketTokens = perMinute;
+      this.tokenBucketLastRefill = Date.now();
+    }
+    this.refillTokens();
+    if (this.tokenBucketTokens >= 1) {
+      this.tokenBucketTokens -= 1;
+      return true;
+    }
+    if (!enqueueOnLimit) return false;
+    const need = 1 - this.tokenBucketTokens;
+    const waitMs = Math.max(30, Math.ceil(need * (60000 / perMinute)));
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+    return this.acquireToken();
+  }
+
+  private cloneMessage(message: any[]): any[] {
+    return Array.isArray(message) ? message.map(seg => ({ ...seg, data: seg?.data ? { ...seg.data } : seg?.data })) : [];
+  }
+
+  private isGroupFused(groupId: string): boolean {
+    const until = this.groupFuseUntil.get(groupId) || 0;
+    if (!until) return false;
+    if (Date.now() >= until) {
+      this.groupFuseUntil.delete(groupId);
+      return false;
+    }
+    return true;
+  }
+
+  private markGroupSend(groupId: string): void {
+    const settings = this.getGlobalSettings();
+    const windowSec = Math.max(10, Number(settings.groupFuseWindowSeconds ?? 60));
+    const threshold = Math.max(10, Number(settings.groupFuseThreshold ?? 45));
+    const cooldownSec = Math.max(10, Number(settings.groupFuseCooldownSeconds ?? 90));
+    const now = Date.now();
+    const history = (this.groupSendHistory.get(groupId) || []).filter(t => now - t < windowSec * 1000);
+    history.push(now);
+    this.groupSendHistory.set(groupId, history);
+    if (history.length >= threshold) {
+      this.groupFuseUntil.set(groupId, now + cooldownSec * 1000);
+      this.log('warn', `群 ${groupId} 触发发送熔断，持续 ${cooldownSec}s`);
     }
   }
 
-  /** 发送群消息 (Array) */
-  async sendGroupMsg (groupId: string, message: any[]): Promise<void> {
+  private enqueueGroupTask(groupId: string, message: any[], options?: { force?: boolean; applyTemplate?: boolean; }): Promise<void> {
+    if (!this.actions || !this.networkConfig) return Promise.resolve();
+    return new Promise<void>((resolve, reject) => {
+      const task: GroupSendTask = { groupId, message, force: options?.force === true, applyTemplate: options?.applyTemplate !== false, resolve, reject };
+      if (this.getQueueMode() === 'global') {
+        if (this.globalSendQueue.length >= this.getMaxQueueSizeGlobal()) {
+          if (!task.force) {
+            resolve();
+            return;
+          }
+          this.globalSendQueue.shift();
+        }
+        this.globalSendQueue.push(task);
+      } else {
+        const q = this.groupSendQueues.get(groupId) || [];
+        if (q.length >= this.getMaxQueueSizePerGroup()) {
+          if (!task.force) {
+            resolve();
+            return;
+          }
+          q.shift();
+        }
+        q.push(task);
+        this.groupSendQueues.set(groupId, q);
+      }
+      this.kickQueueWorkers();
+    });
+  }
+
+  private pickNextTask(): GroupSendTask | null {
+    if (this.getQueueMode() === 'global') {
+      return this.globalSendQueue.shift() || null;
+    }
+    const keys = Array.from(this.groupSendQueues.keys());
+    if (!keys.length) return null;
+    for (let i = 0; i < keys.length; i++) {
+      const idx = (this.queueRoundRobinIndex + i) % keys.length;
+      const gid = keys[idx];
+      const q = this.groupSendQueues.get(gid);
+      if (q && q.length) {
+        const task = q.shift() || null;
+        if (!q.length) this.groupSendQueues.delete(gid);
+        this.queueRoundRobinIndex = idx + 1;
+        return task;
+      }
+    }
+    return null;
+  }
+
+  private kickQueueWorkers(): void {
+    const maxWorkers = this.getQueueConcurrency();
+    while (this.activeWorkers < maxWorkers) {
+      const task = this.pickNextTask();
+      if (!task) return;
+      this.activeWorkers += 1;
+      this.processTask(task)
+        .catch(err => this.log('error', `队列发送异常: ${err}`))
+        .finally(() => {
+          this.activeWorkers = Math.max(0, this.activeWorkers - 1);
+          this.kickQueueWorkers();
+        });
+    }
+  }
+
+  private async processTask(task: GroupSendTask): Promise<void> {
+    try {
+      if (!task.force && this.isGroupFused(task.groupId)) {
+        task.resolve();
+        return;
+      }
+      await this.randomSleep(task.groupId);
+      const canSend = await this.acquireToken();
+      if (!canSend) {
+        task.resolve();
+        return;
+      }
+      await this.sendGroupMessageRaw(task.groupId, task.message);
+      this.markGroupSend(task.groupId);
+      task.resolve();
+    } catch (e) {
+      this.log('error', `发送群消息失败: ${e}`);
+      task.reject(e);
+    }
+  }
+
+  private async sendGroupMessageRaw(groupId: string, message: any[]): Promise<void> {
     if (!this.actions || !this.networkConfig) return;
+    const res = await this.actions.call('send_group_msg', {
+      group_id: groupId,
+      message
+    } as never, this.adapterName, this.networkConfig) as { message_id?: number | string };
+    if (res && res.message_id) {
+      const settings = this.getGroupSettings(groupId);
+      if (settings.autoRecallSelf) {
+        const delay = (settings.autoRecallSelfDelay || 60) * 1000;
+        setTimeout(() => {
+          this.callApi('delete_msg', { message_id: res.message_id }).catch(() => {});
+        }, delay);
+      }
+    }
+  }
 
-    // 应用随机延迟
-    await this.randomSleep(groupId);
-
-    // 应用随机后缀
+  /** 发送群消息 (Text) */
+  async sendGroupText (groupId: string, content: string, options?: { force?: boolean; applyTemplate?: boolean; }): Promise<void> {
+    if (!this.actions || !this.networkConfig) return;
+    const force = options?.force !== false;
+    const applyTemplate = options?.applyTemplate !== false;
+    if (!force && !this.shouldSendByProbability()) return;
+    const templated = applyTemplate ? this.applyReplyTemplate(content) : content;
     const suffix = this.getRandomSuffix(groupId);
-    if (suffix && Array.isArray(message)) {
-      // 尝试追加到最后一个文本节点，或者新增一个文本节点
-      const lastNode = message[message.length - 1];
+    const finalContent = templated + suffix;
+    await this.enqueueGroupTask(groupId, [{ type: 'text', data: { text: finalContent } }], { force, applyTemplate });
+  }
+
+  /** 发送群消息 (Array) */
+  async sendGroupMsg (groupId: string, message: any[], options?: { force?: boolean; applyTemplate?: boolean; }): Promise<void> {
+    if (!this.actions || !this.networkConfig) return;
+    const force = options?.force !== false;
+    const applyTemplate = options?.applyTemplate !== false;
+    if (!force && !this.shouldSendByProbability()) return;
+    const cloned = this.cloneMessage(message);
+    const firstText = cloned.find(seg => seg && seg.type === 'text' && seg.data && typeof seg.data.text === 'string');
+    if (firstText && applyTemplate) {
+      firstText.data.text = this.applyReplyTemplate(firstText.data.text);
+    }
+    const suffix = this.getRandomSuffix(groupId);
+    if (suffix && Array.isArray(cloned)) {
+      const lastNode = cloned[cloned.length - 1];
       if (lastNode && lastNode.type === 'text' && lastNode.data) {
         lastNode.data.text += suffix;
       } else {
-        message.push({ type: 'text', data: { text: suffix } });
+        cloned.push({ type: 'text', data: { text: suffix } });
       }
     }
-
-    try {
-      const res = await this.actions.call('send_group_msg', {
-        group_id: groupId,
-        message
-      } as never, this.adapterName, this.networkConfig) as { message_id?: number | string };
-
-      // 自动撤回自身消息逻辑
-      if (res && res.message_id) {
-        const settings = this.getGroupSettings(groupId);
-        if (settings.autoRecallSelf) {
-          const delay = (settings.autoRecallSelfDelay || 60) * 1000;
-          setTimeout(() => {
-            this.callApi('delete_msg', { message_id: res.message_id }).catch(() => {});
-          }, delay);
-        }
-      }
-    } catch (e) {
-      this.log('error', `发送群消息失败: ${e}`);
-    }
+    await this.enqueueGroupTask(groupId, cloned, { force, applyTemplate });
   }
 
   /** 发送私聊消息 (Text) */
