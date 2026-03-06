@@ -671,30 +671,73 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
           await pluginState.sendGroupText(groupId, 'QQ号格式错误 (需5-13位数字)');
           return true;
       }
-
-      await pluginState.sendGroupText(groupId, `正在查询 QQ: ${targetQQ} 的封号状态...`);
       
       try {
-          // 使用用户提供的 API 和 Token
           const apiUrl = `https://yun.4png.com/api/query.html?token=c7739372694acf36&qq=${targetQQ}`;
           const response = await fetch(apiUrl);
           const data = await response.json();
+          const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+          const banTexts = [
+            '真是活该，直接进小黑屋了~',
+            '这波操作属实离谱，封得明明白白。',
+            '翻车现场，系统都看不下去了。',
+            '号子已经躺平，连申诉都得排队。',
+            '风控一锤定音，这把寄得很彻底。',
+            '这号现在主打一个“只能看不能玩”。'
+          ];
+          const safeTexts = [
+            '安全着呢，稳得一批~',
+            '状态健康，今天也没翻车。',
+            '干净得很，风控都点了个赞。',
+            '目前稳如老狗，继续保持。',
+            '状态在线，暂时没有危险信号。',
+            '看起来很平安，继续低调上分吧。'
+          ];
+          const unknownTexts = [
+            '接口今天有点小情绪，稍后再查一次。',
+            '这波网络不太给面子，过会儿再试试。',
+            '数据源在摸鱼，建议晚点重试。',
+            '查询通道有点拥挤，等等会更稳。'
+          ];
+          const sendResult = async (content: string) => {
+            await pluginState.sendGroupMsg(groupId, [
+              { type: 'at', data: { qq: userId } },
+              { type: 'text', data: { text: ` 查询的 QQ:${targetQQ}，${content}` } }
+            ]);
+          };
           
           if (data.code === 200) {
-             const banMsg = data.data?.banmsg || '无详细封禁信息';
-             await pluginState.sendGroupText(groupId, `✅ 查询成功：${data.msg || '未知状态'}\n📝 详细信息：${banMsg}`);
+             const statusText = `${data.msg || ''} ${data.data?.banmsg || ''}`;
+             const normalized = statusText.replace(/\s+/g, '');
+             const unbanned = /未封|正常|安全|无封|未被封|无处罚/.test(normalized);
+             const banned = /封|ban|冻结|停封|处罚|禁赛/.test(normalized) && !unbanned;
+             if (banned) {
+               await sendResult(`这号被封了，${pick(banTexts)}`);
+             } else {
+               await sendResult(`这号未封，${pick(safeTexts)}`);
+             }
           } else if (data.code === 404) {
-             await pluginState.sendGroupText(groupId, `❓ 未找到相关信息 [404]\n📢 QQ ${targetQQ} 可能未绑定《英雄联盟》账号，或当前无封禁记录`);
+             await sendResult(`这号未封，暂未查到封禁记录，${pick(safeTexts)}`);
           } else if (data.code === 403) {
-             await pluginState.sendGroupText(groupId, `🛑 请求被拒绝 [403]：可能因查询过于频繁或IP受限`);
+             await sendResult(`暂时无法确认是否封号（403），${pick(unknownTexts)}`);
           } else if (data.code === 429) {
-             await pluginState.sendGroupText(groupId, `📢 API免费额度使用完毕或账号会员已经过期`);
+             await sendResult(`暂时无法确认是否封号（429），${pick(unknownTexts)}`);
           } else {
-             await pluginState.sendGroupText(groupId, `❌ 查询失败 [${data.code}]: ${data.msg || '未知错误'}`);
+             await sendResult(`暂时无法确认是否封号（${data.code || '未知状态'}），${pick(unknownTexts)}`);
           }
       } catch (e: any) {
           pluginState.log('error', `查询封号失败: ${e}`);
-          await pluginState.sendGroupText(groupId, `查询出错: ${e.message || e}`);
+          const unknownTexts = [
+            '接口今天有点小情绪，稍后再查一次。',
+            '这波网络不太给面子，过会儿再试试。',
+            '数据源在摸鱼，建议晚点重试。',
+            '查询通道有点拥挤，等等会更稳。'
+          ];
+          const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+          await pluginState.sendGroupMsg(groupId, [
+            { type: 'at', data: { qq: userId } },
+            { type: 'text', data: { text: ` 查询的 QQ:${targetQQ}，暂时无法确认是否封号，${pick(unknownTexts)}` } }
+          ]);
       }
       return true;
   }

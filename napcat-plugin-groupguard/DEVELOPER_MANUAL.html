@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GroupGuard 开发者手册</title>
+    <style>
+        body { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; background: #1e1e1e; color: #d4d4d4; line-height: 1.6; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        h1, h2, h3 { color: #569cd6; border-bottom: 1px solid #333; padding-bottom: 10px; margin-top: 30px; }
+        h1 { font-size: 2em; border-bottom: none; }
+        a { color: #4ec9b0; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: #2d2d2d; padding: 2px 5px; border-radius: 4px; color: #ce9178; }
+        pre { background: #252526; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #3e3e42; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 5px; }
+        .tag.core { background: #c586c0; color: #fff; }
+        .tag.ui { background: #4ec9b0; color: #000; }
+        .tag.data { background: #dcdcaa; color: #000; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #333; }
+        th { color: #569cd6; }
+        .mermaid { background: #fff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+        .warning { background: rgba(244, 67, 54, 0.1); border-left: 4px solid #f44336; padding: 10px; margin: 10px 0; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+</head>
+<body>
+
+<h1>GroupGuard Developer Manual (v1.0.23)</h1>
+<p>Technical documentation for the NapCat GroupGuard plugin.</p>
+
+<h2>1. Architecture Overview</h2>
+<p>The plugin follows a monolithic architecture designed for the NapCat (OneBot 11) framework. It operates as a single Node.js module that hooks into the NapCat event lifecycle.</p>
+
+<div class="mermaid">
+graph TD
+    NC[NapCat Core] -->|Load| Index[src/index.ts]
+    Index -->|Dispatch| Cmd[src/commands.ts]
+    Index -->|Dispatch| Event[Event Handlers]
+    
+    subgraph Core Modules
+        Cmd --> Auth[src/auth.ts]
+        Cmd --> DB[src/db.ts]
+        Cmd --> State[src/state.ts]
+    end
+    
+    subgraph Features
+        Event --> Verifier[src/join_verifier.ts]
+        Event --> QR[src/qr.ts]
+        Cmd --> WebUI[webui/config.html]
+    end
+    
+    DB --> JSON[Data Files]
+    Auth --> JSON
+</div>
+
+<h2>2. Directory Structure</h2>
+<pre>
+napcat-plugin-groupguard/
+├── src/
+│   ├── index.ts        <span class="tag core">Entry</span> Plugin initialization, event routing
+│   ├── commands.ts     <span class="tag core">Logic</span> Command parsing & execution
+│   ├── auth.ts         <span class="tag core">Auth</span>  License management logic
+│   ├── db.ts           <span class="tag data">Data</span>  JSON database wrapper
+│   ├── state.ts        <span class="tag core">State</span> Global state (Singleton)
+│   ├── join_verifier.ts<span class="tag core">Logic</span> Join request handling
+│   ├── qr.ts           <span class="tag core">Util</span>  QR code detection (Jimp/jsQR)
+│   └── webui/          <span class="tag ui">UI</span>    Frontend assets
+├── data/               <span class="tag data">Store</span> Runtime data (generated)
+│   └── groups/         Per-group config & logs
+└── package.json
+</pre>
+
+<h2>3. Key Modules</h2>
+
+<h3>3.1 Entry Point (<code>src/index.ts</code>)</h3>
+<ul>
+    <li><strong><code>plugin_init</code></strong>: Initializes <code>PluginState</code>, loads config, connects DB, starts `AuthManager`, and registers Express routes for WebUI.</li>
+    <li><strong><code>plugin_onmessage</code></strong>: The main message loop.
+        <ol>
+            <li>Checks License (`authManager.getGroupLicense`).</li>
+            <li>Checks White/Blacklists.</li>
+            <li>Dispatches to <code>handleCommand</code>.</li>
+            <li>Runs passive checks (Anti-Recall, Filter, Spam, etc.).</li>
+        </ol>
+    </li>
+    <li><strong><code>plugin_onevent</code></strong>: Handles non-message events.
+        <ul>
+            <li><code>request.group.add</code> -> <code>GroupJoinVerifier</code></li>
+            <li><code>notice.group_increase</code> -> Welcome & Verify</li>
+            <li><code>notice.group_recall</code> -> Anti-Recall</li>
+        </ul>
+    </li>
+</ul>
+
+<h3>3.2 Command Handler (<code>src/commands.ts</code>)</h3>
+<p>Contains all business logic for commands. It parses <code>raw_message</code> and executes actions via `pluginState.callApi`.</p>
+<div class="warning">
+    <strong>Note:</strong> Most commands require Admin or Owner permissions. Permission checks are performed inside each command block using <code>isAdminOrOwner()</code>.
+</div>
+
+<h3>3.3 Authorization (<code>src/auth.ts</code>)</h3>
+<p>Manages the commercial licensing system.</p>
+<ul>
+    <li><strong>Model</strong>: <code>licenses: Map&lt;GroupId, { level: 'pro'|'enterprise', expireTime: number }&gt;</code></li>
+    <li><strong>Granting</strong>: Adds duration to current expiration (cumulative).</li>
+    <li><strong>Checking</strong>: <code>checkFeature(groupId, featureName)</code> validates if a group has access to specific Pro features.</li>
+</ul>
+
+<h3>3.4 Data Persistence (<code>src/db.ts</code>)</h3>
+<p>A lightweight JSON-based database with write-debouncing.</p>
+<ul>
+    <li><strong>Structure</strong>: <code>data/groups/{groupId}/{type}.json</code> (e.g., <code>activity.json</code>, <code>signin.json</code>).</li>
+    <li><strong>Caching</strong>: Data is cached in memory (`cache` object) and flushed to disk every 5 seconds or on critical updates.</li>
+</ul>
+
+<h2>4. Event Flow & Logic</h2>
+
+<h3>Join Verification Flow</h3>
+<div class="mermaid">
+sequenceDiagram
+    participant User
+    participant NC as NapCat
+    participant Verifier as JoinVerifier
+    participant Admin
+
+    User->>NC: Request Join (Group)
+    NC->>Verifier: handleJoinRequest()
+    
+    alt Blacklisted
+        Verifier->>NC: Reject (Reason: Blacklist)
+    else High Frequency
+        Verifier->>NC: Reject (Reason: Spam)
+    else Passphrase Match
+        Verifier->>NC: Approve
+    else Passphrase Fail
+        Verifier->>NC: Reject
+    else Fallback (Auto Approve)
+        Verifier->>NC: Approve
+    end
+</div>
+
+<h2>5. Known Issues & Limitations</h2>
+<ul>
+    <li><strong>Curfew Logic Missing</strong>: The <code>enableCurfew</code> config exists, but the enforcement logic (checking time on message) appears to be missing in <code>plugin_onmessage</code> in <code>src/index.ts</code>.</li>
+    <li><strong>Sync I/O</strong>: Config saving uses <code>fs.writeFileSync</code>. While safe for small scales, high-concurrency writes might cause slight event loop blocking.</li>
+    <li><strong>Memory</strong>: <code>msgCache</code> (Anti-Recall) cleans up every 5 minutes, but extremely active groups might spike memory usage temporarily.</li>
+</ul>
+
+<h2>6. Development Tips</h2>
+<ul>
+    <li><strong>Debug Mode</strong>: Send <code>开启调试</code> to the bot (Private Chat, Owner only) to enable verbose logging in <code>pluginState.logBuffer</code>.</li>
+    <li><strong>WebUI Dev</strong>: The WebUI is served statically. You can edit <code>webui/config.html</code> directly and refresh the browser (no rebuild needed for UI changes).</li>
+    <li><strong>Adding Commands</strong>: Add new logic in <code>src/commands.ts</code> inside <code>handleCommand</code>. Ensure you return <code>true</code> if the command is handled to stop further processing.</li>
+</ul>
+
+</body>
+</html>
