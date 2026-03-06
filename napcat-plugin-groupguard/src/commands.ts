@@ -705,6 +705,16 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
               { type: 'text', data: { text: ` 查询的 QQ:${targetQQ}，${content}` } }
             ]);
           };
+          const detailText = [
+            data.msg,
+            data.data?.banmsg,
+            data.data?.time,
+            data.data?.ban_time,
+            data.data?.unban_time,
+            data.data?.left_time
+          ]
+            .filter((v: any) => typeof v === 'string' && v.trim())
+            .join('；');
           
           if (data.code === 200) {
              const statusText = `${data.msg || ''} ${data.data?.banmsg || ''}`;
@@ -712,18 +722,18 @@ export async function handleCommand (event: OB11Message, ctx: NapCatPluginContex
              const unbanned = /未封|正常|安全|无封|未被封|无处罚/.test(normalized);
              const banned = /封|ban|冻结|停封|处罚|禁赛/.test(normalized) && !unbanned;
              if (banned) {
-               await sendResult(`这号被封了，${pick(banTexts)}`);
+               await sendResult(`这号被封了，详情：${detailText || '接口未返回更多时间信息'}，${pick(banTexts)}`);
              } else {
-               await sendResult(`这号未封，${pick(safeTexts)}`);
+               await sendResult(`这号未封，详情：${detailText || '接口未返回更多时间信息'}，${pick(safeTexts)}`);
              }
           } else if (data.code === 404) {
-             await sendResult(`这号未封，暂未查到封禁记录，${pick(safeTexts)}`);
+             await sendResult(`这号未封，详情：${detailText || '暂未查到封禁记录'}，${pick(safeTexts)}`);
           } else if (data.code === 403) {
-             await sendResult(`暂时无法确认是否封号（403），${pick(unknownTexts)}`);
+             await sendResult(`暂时无法确认是否封号（403），详情：${detailText || '请求被拒绝'}，${pick(unknownTexts)}`);
           } else if (data.code === 429) {
-             await sendResult(`暂时无法确认是否封号（429），${pick(unknownTexts)}`);
+             await sendResult(`暂时无法确认是否封号（429），详情：${detailText || '请求过于频繁或额度受限'}，${pick(unknownTexts)}`);
           } else {
-             await sendResult(`暂时无法确认是否封号（${data.code || '未知状态'}），${pick(unknownTexts)}`);
+             await sendResult(`暂时无法确认是否封号（${data.code || '未知状态'}），详情：${detailText || '接口返回异常'}，${pick(unknownTexts)}`);
           }
       } catch (e: any) {
           pluginState.log('error', `查询封号失败: ${e}`);
