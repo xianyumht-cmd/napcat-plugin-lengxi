@@ -7,15 +7,17 @@ import type { PluginConfig } from './types';
 import { DEFAULT_PLUGIN_CONFIG } from './config';
 import { pluginState } from './state';
 import { authManager } from './auth';
-import { initDB, dbQuery } from './db';
+import { initDB } from './db';
 import { storageAdapter } from './storage_adapter';
+import { groupguardRepository } from './repositories/groupguard_repository';
 import { createVerifySession, handleVerifyAnswer, clearAllSessions } from './verify';
+import { getReplyTemplateCatalog } from './reply_generator';
 import {
   handleCommand, handleAntiRecall, cacheMessage, handleEmojiReact,
   handleCardLockCheck, handleCardLockOnMessage, handleAutoRecall,
   handleBlacklist, handleFilterKeywords, handleSpamDetect,
   sendWelcomeMessage, saveConfig, handleMsgTypeFilter, handleQA,
-  recordActivity, getLegacyFallback, setLegacyFallback
+  recordActivity, initCommandValidation
 } from './commands';
 
 export let plugin_config_ui: PluginConfigSchema = [];
@@ -29,6 +31,7 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
     networkConfig: ctx.pluginManager.config,
   });
   pluginState.log('info', '群管插件正在初始化...');
+  initCommandValidation();
 
   plugin_config_ui = ctx.NapCatConfig.combine(
     ctx.NapCatConfig.html(`
@@ -188,7 +191,7 @@ function registerRoutes (ctx: NapCatPluginContext): void {
   router.getNoAuth('/activity', async (req: any, res: any) => {
     const groupId = req.query?.group_id || '';
     if (groupId) {
-      const stats = await dbQuery.getAllActivity(groupId);
+      const stats = await groupguardRepository.getAllActivity(groupId);
       res.json({ code: 0, data: stats || {} });
     } else {
       res.json({ code: 0, data: {} });
@@ -208,19 +211,25 @@ function registerRoutes (ctx: NapCatPluginContext): void {
     } catch (e) { res.status(500).json({ code: -1, message: String(e) }); }
   });
 
+  router.getNoAuth('/persona/templates', (_req: any, res: any) => {
+    const catalog = getReplyTemplateCatalog();
+    res.json({ code: 0, data: catalog });
+  });
+
   router.getNoAuth('/runtime', (_req: any, res: any) => {
     const g = pluginState.config.global || {};
     const storage = storageAdapter.getStorageStatus();
     res.json({
       code: 0,
       data: {
-        legacyFallback: getLegacyFallback(),
+        legacyFallback: false,
         storage,
         sendPolicy: {
           queueMode: g.queueMode || 'group',
           queueConcurrency: g.queueConcurrency || 2,
           globalMaxPerMinute: g.globalMaxPerMinute || 180,
           replyProbability: g.replyProbability ?? 100,
+          autoRandomPersona: !!g.autoRandomPersona,
           replyTemplatePoolSize: Array.isArray(g.replyTemplatePool) ? g.replyTemplatePool.length : 0
         },
         riskPolicy: {
@@ -244,12 +253,6 @@ function registerRoutes (ctx: NapCatPluginContext): void {
         }
       }
     });
-  });
-
-  router.postNoAuth('/runtime/fallback', (req: any, res: any) => {
-    const enabled = !!req?.body?.enabled;
-    setLegacyFallback(enabled);
-    res.json({ code: 0, data: { enabled } });
   });
 
   router.postNoAuth('/runtime/risk-toggle', (req: any, res: any) => {
@@ -379,8 +382,9 @@ const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx: NapCatPlu
     }
 
     // 10. 卡片消息锁 (仅处理 JSON/XML)
-    await handleCardLockCheck(groupId, userId, messageId, raw);
-    await handleCardLockOnMessage(groupId, userId, messageId, raw);
+    await handleCardLockCheck(groupId, userId);
+    const senderCard = String((event as any)?.sender?.card || '');
+    await handleCardLockOnMessage(groupId, userId, senderCard);
   }
 };
 

@@ -459,20 +459,24 @@ class PluginState {
   }
 
   /** 发送私聊消息 (Text) */
-  async sendPrivateMsg (userId: string, content: string): Promise<void> {
+  async sendPrivateMsg (userId: string, content: string, options?: { force?: boolean; applyTemplate?: boolean; scene?: string; vars?: Record<string, string | number | boolean>; persona?: ReplyPersona; }): Promise<void> {
     if (!this.actions || !this.networkConfig) return;
+    const force = options?.force !== false;
+    const applyTemplate = options?.applyTemplate !== false;
+    if (!force && !this.shouldSendByProbability()) return;
     const rendered = generateReply({
-      scene: 'raw_text',
+      scene: options?.scene || 'raw_text',
       raw: content,
+      vars: options?.vars,
+      persona: options?.persona,
       settings: this.config.global
     });
 
-    // 应用随机延迟
     await this.randomSleep();
 
-    // 应用随机后缀
     const suffix = this.getRandomSuffix();
-    const finalContent = rendered.text + suffix;
+    const templated = applyTemplate ? this.applyReplyTemplate(rendered.text) : rendered.text;
+    const finalContent = templated + suffix;
 
     try {
       await this.actions.call('send_private_msg', {

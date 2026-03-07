@@ -71,6 +71,12 @@
 2. 解压至 NapCat 的 `plugins` 目录。
 3. 重启 NapCat。
 
+## 🧭 路径说明
+
+- 被动链路入口文件为 `src/commands/passive.ts`。
+- 项目中不存在 `src/passive.ts`。
+- 巡检与文档引用请统一使用 `src/commands/passive.ts`。
+
 ## ⚠️ 注意事项
 - 部分管理功能（如踢人、禁言）需要机器人账号在群内拥有**管理员**或**群主**身份。
 - 建议定期备份 `data/` 目录下的配置文件。

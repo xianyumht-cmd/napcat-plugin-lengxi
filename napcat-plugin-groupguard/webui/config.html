@@ -669,8 +669,16 @@
                       <option value="friendly">friendly（友好）</option>
                       <option value="strict">strict（严格）</option>
                       <option value="humor">humor（幽默）</option>
+                      <option value="professional">professional（专业）</option>
+                      <option value="gentle">gentle（温和）</option>
                     </select>
                   </div>
+                  <div>
+                    <label class="text-xs text-slate-500">自动随机人格</label>
+                    <div class="tgl mt-1.5" id="c-arp" onclick="tg(this)"></div>
+                  </div>
+                </div>
+                <div class="mt-2 grid grid-cols-2 gap-3">
                   <div>
                     <label class="text-xs text-slate-500">场景人格覆盖（JSON）</label>
                     <input type="text" id="c-rpb" class="ipt" placeholder='{"permission_denied":"strict"}'>
@@ -855,6 +863,8 @@
                 <option value="friendly">friendly</option>
                 <option value="strict">strict</option>
                 <option value="humor">humor</option>
+                <option value="professional">professional</option>
+                <option value="gentle">gentle</option>
               </select>
               <input id="pv-scene" class="ipt" placeholder="按 scene 搜索" oninput="renderPersonaList()">
               <input id="pv-kw" class="ipt" placeholder="按模板关键字搜索" oninput="renderPersonaList()">
@@ -1030,7 +1040,7 @@
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
     const API = '/plugin/napcat-plugin-groupguard/api';
     const WEBROOT = '/plugin/napcat-plugin-groupguard/webui';
-    let C = {}, GL = [], logD = [], logFlt = 'all', logTmr = null, editMode = '', helpManual = [], runtimeState = null;
+    let C = {}, GL = [], logD = [], logFlt = 'all', logTmr = null, editMode = '', helpManual = [], runtimeState = null, personaCatalog = {}, builtinSceneTemplates = {};
     function $ (id) { return document.getElementById(id); }
     function toast (m, t = 'info') { const c = $('tc'), icons = { success: '<svg class="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', error: '<svg class="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>', info: '<svg class="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' }, d = document.createElement('div'); d.className = 'toast'; d.innerHTML = `<span>${icons[t] || ''}</span><span>${m}</span>`; c.appendChild(d); setTimeout(() => { d.style.opacity = '0'; setTimeout(() => d.remove(), 300); }, 3000); }
     function tg (el) { el.classList.toggle('on'); }
@@ -1131,6 +1141,31 @@
     function badge (id, on) { const e = $(id); if (!e) return; e.textContent = on ? '已开启' : '已关闭'; e.className = on ? 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'; }
     async function loadCfg () { try { const r = await af('/config'); if (r.code === 0) { C = r.data || {}; fillGlobal(); $('sDot').className = 'w-2 h-2 rounded-full bg-emerald-400'; $('sTxt').textContent = '已连接'; if (r.version) { const v = 'v' + r.version; $('sidebar-ver').textContent = 'GroupGuard ' + v; $('dash-ver').textContent = 'GroupGuard ' + v + ' · by 冷曦'; } return true; } } catch { } toast('加载配置失败', 'error'); return false; }
     async function loadGrps () { try { const r = await af('/groups'); if (r.code === 0) GL = r.data || []; } catch { } }
+    function renderPersonaSelects () {
+      const entries = Object.entries(personaCatalog || {});
+      if (!entries.length) return;
+      const currentDefault = $('c-rpd')?.value || (C.global || {}).replyPersonaDefault || 'formal';
+      $('c-rpd').innerHTML = entries.map(([k, v]) => `<option value="${esc(k)}">${esc(k)}（${esc(String(v))}）</option>`).join('');
+      $('c-rpd').value = currentDefault;
+      if (!$('c-rpd').value) $('c-rpd').value = entries[0][0];
+      const currentFilter = $('pv-persona')?.value || '';
+      $('pv-persona').innerHTML = '<option value="">全部人格</option>' + entries.map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
+      $('pv-persona').value = currentFilter;
+    }
+    async function loadPersonaSource () {
+      try {
+        const r = await af('/persona/templates');
+        if (r.code !== 0) throw new Error(r.message || 'error');
+        personaCatalog = r.data?.personas || {};
+        builtinSceneTemplates = r.data?.templates || {};
+        renderPersonaSelects();
+        return true;
+      } catch {
+        personaCatalog = {};
+        builtinSceneTemplates = {};
+        return false;
+      }
+    }
 
     function fillFields (g) {
       stg('c-aa', g.autoApprove); stg('c-ev', g.enableVerify);
@@ -1178,6 +1213,7 @@
       stg('c-rle', g.rateLimitEnqueue !== false);
       sv('c-rtp', (g.replyTemplatePool || ['{msg}']).join('|'));
       $('c-rpd').value = g.replyPersonaDefault || 'formal';
+      stg('c-arp', !!g.autoRandomPersona);
       sv('c-rpb', JSON.stringify(g.replyPersonaByScene || {}));
       sv('c-rst', JSON.stringify(g.replySceneTemplates || {}));
       sv('i-smin', g.signinMin || 10); sv('i-smax', g.signinMax || 50);
@@ -1246,6 +1282,7 @@
         rateLimitEnqueue: gtg('c-rle'),
         replyTemplatePool: ($('c-rtp')?.value || '{msg}').split('|').map(s => s.trim()).filter(Boolean),
         replyPersonaDefault: $('c-rpd')?.value || 'formal',
+        autoRandomPersona: gtg('c-arp'),
         replyPersonaByScene: (() => { try { return JSON.parse(($('c-rpb')?.value || '{}')); } catch { return {}; } })(),
         replySceneTemplates: (() => { try { return JSON.parse(($('c-rst')?.value || '{}')); } catch { return {}; } })(),
         signinMin: gn('i-smin', 10), signinMax: gn('i-smax', 50),
@@ -1329,12 +1366,12 @@
     function permBadge(p){ const c = p === 'owner' ? 'bg-rose-100 text-rose-600' : p === 'admin' ? 'bg-blue-100 text-blue-600' : p === 'owner/admin' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'; return `<span class="text-[10px] px-2 py-0.5 rounded-full ${c}">${esc(p)}</span>`; }
     async function loadHelpManual(){ try{ const r = await fetch(WEBROOT + '/assets/command_manual.json'); const j = await r.json(); helpManual = j.modules || []; const s = $('help-mod'); if (s) s.innerHTML = '<option value="">全部模块</option>' + helpManual.map(m => `<option value="${m.id}">${m.name}</option>`).join(''); renderHelpManual(); }catch(e){ $('helpList').innerHTML = '<p class="text-xs text-red-500">命令手册加载失败</p>'; } }
     function renderHelpManual(){ const kw = ($('help-kw')?.value || '').trim().toLowerCase(); const mod = $('help-mod')?.value || ''; const perm = $('help-perm')?.value || ''; const hot = !!$('help-hot')?.checked; const rows = []; for (const m of (helpManual || [])) { if (mod && m.id !== mod) continue; for (const it of (m.items || [])) { if (perm && it.permission !== perm) continue; if (hot && !it.hot) continue; const blob = `${it.trigger} ${it.desc} ${m.name}`.toLowerCase(); if (kw && !blob.includes(kw)) continue; rows.push({ ...it, moduleName: m.name }); } } if (!rows.length) { $('helpList').innerHTML = '<p class="text-xs text-slate-400">没有匹配结果</p>'; return; } $('helpList').innerHTML = rows.map(it => `<div class="border border-blue-100/40 dark:border-blue-900/20 rounded-xl p-3 mb-2 bg-white/40 dark:bg-slate-800/30"><div class="flex items-center justify-between gap-2"><div class="font-mono text-xs">${it.hot ? '⭐ ' : ''}${esc(it.trigger)}</div>${permBadge(it.permission)}</div><div class="text-[11px] text-slate-500 mt-1">${esc(it.moduleName)} · ${esc(it.scope)}</div><div class="text-xs mt-1">${esc(it.desc)}</div></div>`).join(''); }
-    function mergedSceneTemplates(){ const builtins = { permission_denied: { personaTemplates: { formal: ['需要管理员权限'], friendly: ['这个操作需要管理员权限哦～'], strict: ['拒绝执行：权限不足'], humor: ['权限不够，先升级再来'] } }, action_success: { personaTemplates: { formal: ['操作成功'], friendly: ['完成啦 ✅'], strict: ['执行完成'], humor: ['搞定，流程丝滑'] } }, raw_text: { personaTemplates: { formal: ['{raw}'], friendly: ['{raw}'], strict: ['{raw}'], humor: ['{raw}'] } } }; return { ...builtins, ...((C.global || {}).replySceneTemplates || {}) }; }
-    function loadPersonaView(){ renderPersonaList(); }
+    function mergedSceneTemplates(){ return { ...(builtinSceneTemplates || {}), ...((C.global || {}).replySceneTemplates || {}) }; }
+    async function loadPersonaView(){ if (!Object.keys(builtinSceneTemplates || {}).length) await loadPersonaSource(); renderPersonaList(); }
     function renderPersonaList(){ const p = $('pv-persona')?.value || ''; const sceneKw = ($('pv-scene')?.value || '').trim().toLowerCase(); const kw = ($('pv-kw')?.value || '').trim().toLowerCase(); const data = mergedSceneTemplates(); const lines = []; for (const [scene, entry] of Object.entries(data)) { if (sceneKw && !scene.toLowerCase().includes(sceneKw)) continue; const map = (entry && entry.personaTemplates) || {}; for (const [persona, arr] of Object.entries(map)) { if (p && persona !== p) continue; const list = Array.isArray(arr) ? arr : []; for (const tpl of list) { const text = String(tpl || ''); if (kw && !(`${scene} ${persona} ${text}`.toLowerCase().includes(kw))) continue; lines.push({ scene, persona, text }); } } } if (!lines.length) { $('personaList').innerHTML = '<p class="text-xs text-slate-400">没有匹配模板</p>'; return; } $('personaList').innerHTML = lines.map(x => `<div class="border border-blue-100/40 dark:border-blue-900/20 rounded-xl p-3 mb-2 bg-white/40 dark:bg-slate-800/30"><div class="flex items-center gap-2 text-[11px]"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-600">${esc(x.scene)}</span><span class="px-2 py-0.5 rounded bg-violet-100 text-violet-600">${esc(x.persona)}</span></div><div class="font-mono text-xs mt-2">${esc(x.text)}</div></div>`).join(''); }
     function exportSceneTemplates(){ const obj = ((C.global || {}).replySceneTemplates || {}); const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'replySceneTemplates.json'; a.click(); URL.revokeObjectURL(a.href); toast('模板已导出', 'success'); }
     async function importSceneTemplates(){ const f = $('pv-import')?.files?.[0]; if (!f) { toast('请选择 JSON 文件', 'error'); return; } try { const txt = await f.text(); const obj = JSON.parse(txt); C.global = C.global || {}; C.global.replySceneTemplates = obj || {}; sv('c-rst', JSON.stringify(C.global.replySceneTemplates, null, 2)); renderPersonaList(); toast('模板已导入，请保存配置', 'success'); } catch { toast('导入失败，JSON 格式无效', 'error'); } }
-    async function loadRuntime(){ try { const r = await af('/runtime'); if (r.code !== 0) throw new Error(r.message || 'error'); runtimeState = r.data || {}; $('rt-fb').textContent = runtimeState.legacyFallback ? '开启' : '关闭'; $('rt-qm').textContent = runtimeState.sendPolicy?.queueMode || '-'; $('rt-gpm').textContent = `${runtimeState.sendPolicy?.globalMaxPerMinute || '-'} /分`; $('rt-rp').textContent = `${runtimeState.sendPolicy?.replyProbability ?? '-'}%`; const txt = `Fallback: ${runtimeState.legacyFallback ? '开启' : '关闭'}\n发送并发: ${runtimeState.sendPolicy?.queueConcurrency || 1}\n模板池数量: ${runtimeState.sendPolicy?.replyTemplatePoolSize || 0}\n问答冷却: ${runtimeState.riskPolicy?.qaCooldownSeconds ?? 30}s\n同用户冷却: ${runtimeState.riskPolicy?.qaUserCooldownSeconds ?? 12}s\n群熔断: 窗口${runtimeState.riskPolicy?.groupFuseWindowSeconds ?? 60}s 阈值${runtimeState.riskPolicy?.groupFuseThreshold ?? 45} 冷却${runtimeState.riskPolicy?.groupFuseCooldownSeconds ?? 90}s\n功能开关: QA=${runtimeState.featureFlags?.disableQA ? '关' : '开'} 签到=${runtimeState.featureFlags?.disableSignin ? '关' : '开'} 抽奖=${runtimeState.featureFlags?.disableLottery ? '关' : '开'} 邀请=${runtimeState.featureFlags?.disableInvite ? '关' : '开'} 活跃=${runtimeState.featureFlags?.disableActivity ? '关' : '开'}`; $('runtimeText').textContent = txt; $('toolsOut').textContent = `数据库: ${(runtimeState.storage || {}).dbPath || '-'}\n迁移状态: ${(runtimeState.storage || {}).migrated ? '已完成' : '未完成'}\n表计数: ${JSON.stringify((runtimeState.storage || {}).tableCounts || {}, null, 2)}`; } catch { $('runtimeText').textContent = '运行态获取失败'; } }
+    async function loadRuntime(){ try { const r = await af('/runtime'); if (r.code !== 0) throw new Error(r.message || 'error'); runtimeState = r.data || {}; $('rt-fb').textContent = runtimeState.legacyFallback ? '开启' : '关闭'; $('rt-qm').textContent = runtimeState.sendPolicy?.queueMode || '-'; $('rt-gpm').textContent = `${runtimeState.sendPolicy?.globalMaxPerMinute || '-'} /分`; $('rt-rp').textContent = `${runtimeState.sendPolicy?.replyProbability ?? '-'}%`; const txt = `Fallback: ${runtimeState.legacyFallback ? '开启' : '关闭'}\n发送并发: ${runtimeState.sendPolicy?.queueConcurrency || 1}\n模板池数量: ${runtimeState.sendPolicy?.replyTemplatePoolSize || 0}\n随机人格: ${runtimeState.sendPolicy?.autoRandomPersona ? '开启' : '关闭'}\n问答冷却: ${runtimeState.riskPolicy?.qaCooldownSeconds ?? 30}s\n同用户冷却: ${runtimeState.riskPolicy?.qaUserCooldownSeconds ?? 12}s\n群熔断: 窗口${runtimeState.riskPolicy?.groupFuseWindowSeconds ?? 60}s 阈值${runtimeState.riskPolicy?.groupFuseThreshold ?? 45} 冷却${runtimeState.riskPolicy?.groupFuseCooldownSeconds ?? 90}s\n功能开关: QA=${runtimeState.featureFlags?.disableQA ? '关' : '开'} 签到=${runtimeState.featureFlags?.disableSignin ? '关' : '开'} 抽奖=${runtimeState.featureFlags?.disableLottery ? '关' : '开'} 邀请=${runtimeState.featureFlags?.disableInvite ? '关' : '开'} 活跃=${runtimeState.featureFlags?.disableActivity ? '关' : '开'}`; $('runtimeText').textContent = txt; $('toolsOut').textContent = `数据库: ${(runtimeState.storage || {}).dbPath || '-'}\n迁移状态: ${(runtimeState.storage || {}).migrated ? '已完成' : '未完成'}\n表计数: ${JSON.stringify((runtimeState.storage || {}).tableCounts || {}, null, 2)}`; } catch { $('runtimeText').textContent = '运行态获取失败'; } }
     async function toggleFallbackQuick(enabled){ try{ const r = await af('/runtime/fallback','POST',{ enabled }); if (r.code === 0) { toast(`Fallback已${enabled ? '开启' : '关闭'}`, 'success'); loadRuntime(); loadLogs(); } else toast('操作失败','error'); }catch{ toast('操作失败','error'); } }
     async function toggleRiskQuick(key, enabled){ try{ const r = await af('/runtime/risk-toggle','POST',{ key, enabled }); if (r.code === 0) { toast(`${key} 已${enabled ? '开启' : '关闭'}`,'success'); loadRuntime(); } else toast('操作失败','error'); }catch{ toast('操作失败','error'); } }
     async function loadStorageStatus(){ try { const r = await af('/runtime'); if (r.code !== 0) throw new Error('error'); const s = r.data?.storage || {}; $('toolsOut').textContent = `数据库: ${s.dbPath || '-'}\n迁移状态: ${s.migrated ? '已完成' : '未完成'}\n表计数:\n${Object.entries(s.tableCounts || {}).map(([k,v]) => `${k}: ${v}`).join('\n')}`; } catch { $('toolsOut').textContent = '数据库状态获取失败'; } }
@@ -1343,7 +1380,7 @@
     function collectQA () { return _qaData.slice(); }
     function addQA () { const kw = $('qa-kw')?.value?.trim(); const rp = $('qa-rp')?.value?.trim(); const mode = $('qa-mode')?.value || 'exact'; if (!kw || !rp) { toast('关键词和回复不能为空', 'error'); return; } _qaData.push({ keyword: kw, reply: rp, mode }); renderQA(_qaData); $('qa-kw').value = ''; $('qa-rp').value = ''; }
     function rmQA (i) { _qaData.splice(i, 1); renderQA(_qaData); }
-    async function init () { await Promise.all([loadCfg(), loadGrps(), loadHelpManual()]); popGrpSel(); updDash(); loadPersonaView(); loadRuntime(); $('d-owner')?.addEventListener('input', function () { C.ownerQQs = this.value; const ow = this.value.split(',').map(s => s.trim()).filter(Boolean); $('ownerPv').textContent = ow.length ? `当前主人：${ow.join('、')}（共${ow.length}人）` : '尚未设置主人'; }); }
+    async function init () { await Promise.all([loadCfg(), loadGrps(), loadHelpManual(), loadPersonaSource()]); popGrpSel(); updDash(); loadPersonaView(); loadRuntime(); $('d-owner')?.addEventListener('input', function () { C.ownerQQs = this.value; const ow = this.value.split(',').map(s => s.trim()).filter(Boolean); $('ownerPv').textContent = ow.length ? `当前主人：${ow.join('、')}（共${ow.length}人）` : '尚未设置主人'; }); }
     init();
   </script>
 </body>

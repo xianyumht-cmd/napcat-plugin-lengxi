@@ -1,4 +1,5 @@
 import type { GroupGuardSettings, ReplyPersona, ReplySceneTemplateMap } from './types';
+import { BUILTIN_REPLY_SCENE_TEMPLATES, PERSONA_LABELS, PERSONA_LIST } from './reply_templates';
 
 export interface ReplyGenerateInput {
   scene: string;
@@ -14,35 +15,11 @@ export interface ReplyGenerateOutput {
   persona: ReplyPersona;
 }
 
-const BUILTIN_SCENE_TEMPLATES: ReplySceneTemplateMap = {
-  permission_denied: {
-    personaTemplates: {
-      formal: ['需要管理员权限'],
-      friendly: ['这个操作需要管理员权限哦～'],
-      strict: ['拒绝执行：权限不足'],
-      humor: ['权限不够，先升级再来']
-    }
-  },
-  action_success: {
-    personaTemplates: {
-      formal: ['操作成功'],
-      friendly: ['完成啦 ✅'],
-      strict: ['执行完成'],
-      humor: ['搞定，流程丝滑']
-    }
-  },
-  raw_text: {
-    personaTemplates: {
-      formal: ['{raw}'],
-      friendly: ['{raw}'],
-      strict: ['{raw}'],
-      humor: ['{raw}']
-    }
-  }
-};
+const BUILTIN_SCENE_TEMPLATES = BUILTIN_REPLY_SCENE_TEMPLATES;
+const lastTemplateIndex = new Map<string, number>();
 
 function normalizePersona(value: string | undefined): ReplyPersona {
-  if (value === 'friendly' || value === 'strict' || value === 'humor') return value;
+  if (value === 'friendly' || value === 'strict' || value === 'humor' || value === 'professional' || value === 'gentle') return value;
   return 'formal';
 }
 
@@ -54,9 +31,18 @@ function renderVars(template: string, vars: Record<string, string | number | boo
   });
 }
 
-function pickRandom<T>(list: T[]): T | undefined {
+function pickRandom<T>(list: T[], dedupeKey?: string): T | undefined {
   if (!Array.isArray(list) || !list.length) return undefined;
-  return list[Math.floor(Math.random() * list.length)];
+  if (list.length === 1) return list[0];
+  let idx = Math.floor(Math.random() * list.length);
+  if (dedupeKey) {
+    const last = lastTemplateIndex.get(dedupeKey);
+    if (last !== undefined && idx === last) {
+      idx = (idx + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
+    }
+    lastTemplateIndex.set(dedupeKey, idx);
+  }
+  return list[idx];
 }
 
 function mergeTemplates(settings: GroupGuardSettings): ReplySceneTemplateMap {
@@ -64,21 +50,35 @@ function mergeTemplates(settings: GroupGuardSettings): ReplySceneTemplateMap {
   return { ...BUILTIN_SCENE_TEMPLATES, ...custom };
 }
 
+function pickPersona(input: ReplyGenerateInput): ReplyPersona {
+  if (input.persona) return normalizePersona(input.persona);
+  if (input.settings.autoRandomPersona) {
+    return PERSONA_LIST[Math.floor(Math.random() * PERSONA_LIST.length)] || 'formal';
+  }
+  return normalizePersona(
+    input.settings.replyPersonaByScene?.[input.scene]
+      || input.settings.replyPersonaDefault
+      || 'formal'
+  );
+}
+
 export function generateReply(input: ReplyGenerateInput): ReplyGenerateOutput {
   const { scene, raw = '', settings } = input;
   const merged = mergeTemplates(settings);
-  const persona = normalizePersona(
-    input.persona
-      || settings.replyPersonaByScene?.[scene]
-      || settings.replyPersonaDefault
-      || 'formal'
-  );
+  const persona = pickPersona(input);
   const vars = { raw, ...(input.vars || {}) };
   const sceneEntry = merged[scene] || merged.raw_text;
   const list = sceneEntry?.personaTemplates?.[persona]
     || sceneEntry?.personaTemplates?.formal
     || ['{raw}'];
-  const selected = pickRandom(list) || '{raw}';
+  const selected = pickRandom(list, `${scene}:${persona}`) || '{raw}';
   const text = renderVars(selected, vars);
   return { text, scene, persona };
+}
+
+export function getReplyTemplateCatalog(): { personas: Record<string, string>; templates: ReplySceneTemplateMap; } {
+  return {
+    personas: PERSONA_LABELS,
+    templates: BUILTIN_SCENE_TEMPLATES
+  };
 }

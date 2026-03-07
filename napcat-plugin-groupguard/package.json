@@ -24,6 +24,8 @@
     "vite": "^6.0.0"
   },
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "report:scene": "node scene_coverage_report.mjs",
+    "report:commands": "node scripts/command_coverage_report.mjs"
   }
 }

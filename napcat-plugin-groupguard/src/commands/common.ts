@@ -53,5 +53,5 @@ export async function sendGroupScene(groupId: string, scene: string, fallback: s
 }
 
 export async function sendPrivateScene(userId: string, scene: string, fallback: string, vars?: Record<string, string | number | boolean>): Promise<void> {
-  await pluginState.sendPrivateMsg(userId, fallback);
+  await pluginState.sendPrivateMsg(userId, fallback, { scene, vars, force: true, applyTemplate: true });
 }

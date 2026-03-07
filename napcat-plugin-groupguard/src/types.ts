@@ -187,13 +187,15 @@ export interface GroupGuardSettings {
   enableAutoApproveAfterPassphraseOff?: boolean;
   /** 默认回复人格 */
   replyPersonaDefault?: ReplyPersona;
+  /** 是否每次回复随机人格 */
+  autoRandomPersona?: boolean;
   /** 场景人格覆盖 */
   replyPersonaByScene?: Record<string, ReplyPersona>;
   /** 场景模板库 */
   replySceneTemplates?: ReplySceneTemplateMap;
 }
 
-export type ReplyPersona = 'formal' | 'friendly' | 'strict' | 'humor';
+export type ReplyPersona = 'formal' | 'friendly' | 'strict' | 'humor' | 'professional' | 'gentle';
 
 export interface ReplySceneTemplateEntry {
   personaTemplates?: Partial<Record<ReplyPersona, string[]>>;

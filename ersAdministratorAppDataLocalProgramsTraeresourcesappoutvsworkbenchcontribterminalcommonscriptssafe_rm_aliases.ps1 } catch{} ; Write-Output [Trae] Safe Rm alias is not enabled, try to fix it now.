@@ -1,0 +1,165 @@
+warning: in the working copy of 'napcat-plugin-groupguard/src/commands_legacy.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/napcat-plugin-groupguard/src/commands/common.ts b/napcat-plugin-groupguard/src/commands/common.ts[m
+[1mindex 1425b28..1bb9c44 100644[m
+[1m--- a/napcat-plugin-groupguard/src/commands/common.ts[m
+[1m+++ b/napcat-plugin-groupguard/src/commands/common.ts[m
+[36m@@ -53,5 +53,5 @@[m [mexport async function sendGroupScene(groupId: string, scene: string, fallback: s[m
+ }[m
+ [m
+ export async function sendPrivateScene(userId: string, scene: string, fallback: string, vars?: Record<string, string | number | boolean>): Promise<void> {[m
+[31m-  await pluginState.sendPrivateMsg(userId, fallback);[m
+[32m+[m[32m  await pluginState.sendPrivateMsg(userId, fallback, { scene, vars, force: true, applyTemplate: true });[m
+ }[m
+[1mdiff --git a/napcat-plugin-groupguard/src/commands_legacy.ts b/napcat-plugin-groupguard/src/commands_legacy.ts[m
+[1mindex 3099e31..bcdc557 100644[m
+[1m--- a/napcat-plugin-groupguard/src/commands_legacy.ts[m
+[1m+++ b/napcat-plugin-groupguard/src/commands_legacy.ts[m
+[36m@@ -71,7 +71,7 @@[m [masync function sendGroupScene(groupId: string, scene: string, fallback: string,[m
+ }[m
+ [m
+ async function sendPrivateScene(userId: string, scene: string, fallback: string, vars?: Record<string, string | number | boolean>): Promise<void> {[m
+[31m-  await pluginState.sendPrivateMsg(userId, fallback);[m
+[32m+[m[32m  await pluginState.sendPrivateMsg(userId, fallback, { scene, vars, force: true, applyTemplate: true });[m
+ }[m
+ [m
+ /** 处理群管指令，返回 true 表示已处理 */[m
+[1mdiff --git a/napcat-plugin-groupguard/src/config.ts b/napcat-plugin-groupguard/src/config.ts[m
+[1mindex c907425..3877ab1 100644[m
+[1m--- a/napcat-plugin-groupguard/src/config.ts[m
+[1m+++ b/napcat-plugin-groupguard/src/config.ts[m
+[36m@@ -63,41 +63,9 @@[m [mexport const DEFAULT_GROUP_SETTINGS: GroupGuardSettings = {[m
+   disableInvite: false,[m
+   disableActivity: false,[m
+   replyPersonaDefault: 'formal',[m
+[32m+[m[32m  autoRandomPersona: false,[m
+   replyPersonaByScene: {},[m
+[31m-  replySceneTemplates: {[m
+[31m-    permission_denied: {[m
+[31m-      personaTemplates: {[m
+[31m-        formal: ['需要管理员权限'],[m
+[31m-        friendly: ['这个操作需要管理员权限哦～'],[m
+[31m-        strict: ['拒绝执行：权限不足'],[m
+[31m-        humor: ['权限卡住了，先升个管理再来'][m
+[31m-      }[m
+[31m-    },[m
+[31m-    command_format_error: {[m
+[31m-      personaTemplates: {[m
+[31m-        formal: ['格式错误，示例：{example}'],[m
+[31m-        friendly: ['写法有点偏差，参考：{example}'],[m
+[31m-        strict: ['命令格式无效：{example}'],[m
+[31m-        humor: ['咒语写歪了，正确姿势：{example}'][m
+[31m-      }[m
+[31m-    },[m
+[31m-    action_success: {[m
+[31m-      personaTemplates: {[m
+[31m-        formal: ['操作成功'],[m
+[31m-        friendly: ['完成啦 ✅'],[m
+[31m-        strict: ['执行完成'],[m
+[31m-        humor: ['搞定，流程丝滑'][m
+[31m-      }[m
+[31m-    },[m
+[31m-    signin_success: {[m
+[31m-      personaTemplates: {[m
+[31m-        formal: ['签到成功，获得 {points} 积分'],[m
+[31m-        friendly: ['签到成功！到手 {points} 积分～'],[m
+[31m-        strict: ['签到完成，本次积分：{points}'],[m
+[31m-        humor: ['打卡成功，积分 +{points}'][m
+[31m-      }[m
+[31m-    }[m
+[31m-  },[m
+[32m+[m[32m  replySceneTemplates: {},[m
+ };[m
+ [m
+ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {[m
+[1mdiff --git a/napcat-plugin-groupguard/src/index.ts b/napcat-plugin-groupguard/src/index.ts[m
+[1mindex 9a9b5d6..fd1f82b 100644[m
+[1m--- a/napcat-plugin-groupguard/src/index.ts[m
+[1m+++ b/napcat-plugin-groupguard/src/index.ts[m
+[36m@@ -10,6 +10,7 @@[m [mimport { authManager } from './auth';[m
+ import { initDB, dbQuery } from './db';[m
+ import { storageAdapter } from './storage_adapter';[m
+ import { createVerifySession, handleVerifyAnswer, clearAllSessions } from './verify';[m
+[32m+[m[32mimport { getReplyTemplateCatalog } from './reply_generator';[m
+ import {[m
+   handleCommand, handleAntiRecall, cacheMessage, handleEmojiReact,[m
+   handleCardLockCheck, handleCardLockOnMessage, handleAutoRecall,[m
+[36m@@ -208,6 +209,11 @@[m [mfunction registerRoutes (ctx: NapCatPluginContext): void {[m
+     } catch (e) { res.status(500).json({ code: -1, message: String(e) }); }[m
+   });[m
+ [m
+[32m+[m[32m  router.getNoAuth('/persona/templates', (_req: any, res: any) => {[m
+[32m+[m[32m    const catalog = getReplyTemplateCatalog();[m
+[32m+[m[32m    res.json({ code: 0, data: catalog });[m
+[32m+[m[32m  });[m
+[32m+[m
+   router.getNoAuth('/runtime', (_req: any, res: any) => {[m
+     const g = pluginState.config.global || {};[m
+     const storage = storageAdapter.getStorageStatus();[m
+[36m@@ -221,6 +227,7 @@[m [mfunction registerRoutes (ctx: NapCatPluginContext): void {[m
+           queueConcurrency: g.queueConcurrency || 2,[m
+           globalMaxPerMinute: g.globalMaxPerMinute || 180,[m
+           replyProbability: g.replyProbability ?? 100,[m
+[32m+[m[32m          autoRandomPersona: !!g.autoRandomPersona,[m
+           replyTemplatePoolSize: Array.isArray(g.replyTemplatePool) ? g.replyTemplatePool.length : 0[m
+         },[m
+         riskPolicy: {[m
+[1mdiff --git a/napcat-plugin-groupguard/src/reply_generator.ts b/napcat-plugin-groupguard/src/reply_generator.ts[m
+[1mindex 4391163..5b0895a 100644[m
+[1m--- a/napcat-plugin-groupguard/src/reply_generator.ts[m
+[1m+++ b/napcat-plugin-groupguard/src/reply_generator.ts[m
+[36m@@ -1,4 +1,5 @@[m
+ import type { GroupGuardSettings, ReplyPersona, ReplySceneTemplateMap } from './types';[m
+[32m+[m[32mimport { BUILTIN_REPLY_SCENE_TEMPLATES, PERSONA_LABELS, PERSONA_LIST } from './reply_templates';[m
+ [m
+ export interface ReplyGenerateInput {[m
+   scene: string;[m
+[36m@@ -14,35 +15,11 @@[m [mexport interface ReplyGenerateOutput {[m
+   persona: ReplyPersona;[m
+ }[m
+ [m
+[31m-const BUILTIN_SCENE_TEMPLATES: ReplySceneTemplateMap = {[m
+[31m-  permission_denied: {[m
+[31m-    personaTemplates: {[m
+[31m-      formal: ['需要管理员权限'],[m
+[31m-      friendly: ['这个操作需要管理员权限哦～'],[m
+[31m-      strict: ['拒绝执行：权限不足'],[m
+[31m-      humor: ['权限不够，先升级再来'][m
+[31m-    }[m
+[31m-  },[m
+[31m-  action_success: {[m
+[31m-    personaTemplates: {[m
+[31m-      formal: ['操作成功'],[m
+[31m-      friendly: ['完成啦 ✅'],[m
+[31m-      strict: ['执行完成'],[m
+[31m-      humor: ['搞定，流程丝滑'][m
+[31m-    }[m
+[31m-  },[m
+[31m-  raw_text: {[m
+[31m-    personaTemplates: {[m
+[31m-      formal: ['{raw}'],[m
+[31m-      friendly: ['{raw}'],[m
+[31m-      strict: ['{raw}'],[m
+[31m-      humor: ['{raw}'][m
+[31m-    }[m
+[31m-  }[m
+[31m-};[m
+[32m+[m[32mconst BUILTIN_SCENE_TEMPLATES = BUILTIN_REPLY_SCENE_TEMPLATES;[m
+[32m+[m[32mconst lastTemplateIndex = new Map<string, number>();[m
+ [m
+ function normalizePersona(value: string | undefined): ReplyPersona {[m
+[31m-  if (value === 'friendly' || value === 'strict' || value === 'humor') return value;[m
+[32m+[m[32m  if (value === 'friendly' || value === 'strict' || value === 'humor' || value === 'professional' || value === 'gentle') return value;[m
+   return 'formal';[m
+ }[m
+ [m
+[36m@@ -54,9 +31,18 @@[m [mfunction renderVars(template: string, vars: Record<string, string | number | boo[m
+   });[m
+ }[m
+ [m
+[31m-function pickRandom<T>(list: T[]): T | undefined {[m
+[32m+[m[32mfunction pickRandom<T>(list: T[], dedupeKey?: string): T | undefined {[m
+   if (!Array.isArray(list) || !list.length) return undefined;[m
+[31m-  return list[Math.floor(Math.random() * list.length)];[m
+[32m+[m[32m  if (list.length === 1) return list[0];[m
+[32m+[m[32m  let idx = Math.floor(Math.random() * list.length);[m
+[32m+
