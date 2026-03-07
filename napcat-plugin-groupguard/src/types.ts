@@ -185,7 +185,21 @@ export interface GroupGuardSettings {
   entryPassphrase?: string;
   /** 暗号关闭后是否回落到自动同意（默认开启） */
   enableAutoApproveAfterPassphraseOff?: boolean;
+  /** 默认回复人格 */
+  replyPersonaDefault?: ReplyPersona;
+  /** 场景人格覆盖 */
+  replyPersonaByScene?: Record<string, ReplyPersona>;
+  /** 场景模板库 */
+  replySceneTemplates?: ReplySceneTemplateMap;
 }
+
+export type ReplyPersona = 'formal' | 'friendly' | 'strict' | 'humor';
+
+export interface ReplySceneTemplateEntry {
+  personaTemplates?: Partial<Record<ReplyPersona, string[]>>;
+}
+
+export type ReplySceneTemplateMap = Record<string, ReplySceneTemplateEntry>;
 
 /** 入群验证日志 */
 export interface JoinLogEntry {

@@ -62,6 +62,42 @@ export const DEFAULT_GROUP_SETTINGS: GroupGuardSettings = {
   disableLottery: false,
   disableInvite: false,
   disableActivity: false,
+  replyPersonaDefault: 'formal',
+  replyPersonaByScene: {},
+  replySceneTemplates: {
+    permission_denied: {
+      personaTemplates: {
+        formal: ['需要管理员权限'],
+        friendly: ['这个操作需要管理员权限哦～'],
+        strict: ['拒绝执行：权限不足'],
+        humor: ['权限卡住了，先升个管理再来']
+      }
+    },
+    command_format_error: {
+      personaTemplates: {
+        formal: ['格式错误，示例：{example}'],
+        friendly: ['写法有点偏差，参考：{example}'],
+        strict: ['命令格式无效：{example}'],
+        humor: ['咒语写歪了，正确姿势：{example}']
+      }
+    },
+    action_success: {
+      personaTemplates: {
+        formal: ['操作成功'],
+        friendly: ['完成啦 ✅'],
+        strict: ['执行完成'],
+        humor: ['搞定，流程丝滑']
+      }
+    },
+    signin_success: {
+      personaTemplates: {
+        formal: ['签到成功，获得 {points} 积分'],
+        friendly: ['签到成功！到手 {points} 积分～'],
+        strict: ['签到完成，本次积分：{points}'],
+        humor: ['打卡成功，积分 +{points}']
+      }
+    }
+  },
 };
 
 export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {

@@ -657,6 +657,26 @@
                   <label class="text-xs text-slate-500">回复模板池（用 | 分隔，必须包含 {msg}）</label>
                   <input type="text" id="c-rtp" class="ipt" placeholder="{msg}|{msg}~|[自动回复] {msg}">
                 </div>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-xs text-slate-500">默认回复人格</label>
+                    <select id="c-rpd" class="ipt">
+                      <option value="formal">formal（正式）</option>
+                      <option value="friendly">friendly（友好）</option>
+                      <option value="strict">strict（严格）</option>
+                      <option value="humor">humor（幽默）</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs text-slate-500">场景人格覆盖（JSON）</label>
+                    <input type="text" id="c-rpb" class="ipt" placeholder='{"permission_denied":"strict"}'>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <label class="text-xs text-slate-500">场景模板库（JSON，可选）</label>
+                  <textarea id="c-rst" class="ipt h-24 font-mono text-[11px]" placeholder='{"signin_success":{"personaTemplates":{"friendly":["签到成功！+{points}"]}}}'></textarea>
+                  <div class="text-[10px] text-slate-400 mt-1">支持 scene -> personaTemplates -> 文案数组</div>
+                </div>
               </div>
               <div class="cfg-sec">
                 <div class="sec-t">权限与安全</div>
@@ -1067,6 +1087,9 @@
       sv('c-rp', g.replyProbability !== undefined ? g.replyProbability : 100);
       stg('c-rle', g.rateLimitEnqueue !== false);
       sv('c-rtp', (g.replyTemplatePool || ['{msg}']).join('|'));
+      $('c-rpd').value = g.replyPersonaDefault || 'formal';
+      sv('c-rpb', JSON.stringify(g.replyPersonaByScene || {}));
+      sv('c-rst', JSON.stringify(g.replySceneTemplates || {}));
       sv('i-smin', g.signinMin || 10); sv('i-smax', g.signinMax || 50);
       sv('i-inv', g.invitePoints || 20);
       sv('i-msg', g.messageReward || 0);
@@ -1132,6 +1155,9 @@
         replyProbability: gn('c-rp', 100),
         rateLimitEnqueue: gtg('c-rle'),
         replyTemplatePool: ($('c-rtp')?.value || '{msg}').split('|').map(s => s.trim()).filter(Boolean),
+        replyPersonaDefault: $('c-rpd')?.value || 'formal',
+        replyPersonaByScene: (() => { try { return JSON.parse(($('c-rpb')?.value || '{}')); } catch { return {}; } })(),
+        replySceneTemplates: (() => { try { return JSON.parse(($('c-rst')?.value || '{}')); } catch { return {}; } })(),
         signinMin: gn('i-smin', 10), signinMax: gn('i-smax', 50),
         invitePoints: gn('i-inv', 20), messageReward: gn('i-msg', 0),
         lotteryCost: gn('i-lc', 50), lotteryReward: gn('i-lr', 200)

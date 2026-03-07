@@ -8,6 +8,7 @@ import { DEFAULT_PLUGIN_CONFIG } from './config';
 import { pluginState } from './state';
 import { authManager } from './auth';
 import { initDB, dbQuery } from './db';
+import { storageAdapter } from './storage_adapter';
 import { createVerifySession, handleVerifyAnswer, clearAllSessions } from './verify';
 import {
   handleCommand, handleAntiRecall, cacheMessage, handleEmojiReact,
@@ -91,47 +92,10 @@ const plugin_init: PluginModule['plugin_init'] = async (ctx: NapCatPluginContext
         try { fs.rmdirSync(oldGroupsDir); } catch {}
       }
 
-      // 从主配置迁移内嵌的 groups (针对首次从单文件迁移的情况)
-      if (pluginState.config.groups && Object.keys(pluginState.config.groups).length > 0) {
-        for (const [gid, cfg] of Object.entries(pluginState.config.groups)) {
-          const groupDir = path.join(groupsDataDir, gid);
-          if (!fs.existsSync(groupDir)) fs.mkdirSync(groupDir, { recursive: true });
-          fs.writeFileSync(path.join(groupDir, 'config.json'), JSON.stringify(cfg, null, 2), 'utf-8');
-        }
-        // 清空主配置文件中的 groups (保存时生效，内存中保留)
-        // 注意：这里不能清空 pluginState.config.groups，因为运行时需要用它！
-        // 我们只需确保 saveConfig 时不写入 groups 到主文件即可（saveConfig 已实现此逻辑）
-      }
+      storageAdapter.init(pluginState.configDir);
+      storageAdapter.migrateFromJson(pluginState.configDir, pluginState.config.groups || {});
+      pluginState.config.groups = storageAdapter.loadAllGroupConfigs();
 
-      // 加载所有分群配置到内存
-      if (fs.existsSync(groupsDataDir)) {
-          const groupDirs = fs.readdirSync(groupsDataDir);
-          for (const gid of groupDirs) {
-              const groupDirPath = path.join(groupsDataDir, gid);
-              const cfgPath = path.join(groupDirPath, 'config.json');
-              if (fs.existsSync(cfgPath)) {
-                  try {
-                      const groupCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-                      pluginState.config.groups[gid] = groupCfg;
-                      
-                      // 加载 QA 配置
-                      const qaPath = path.join(groupDirPath, 'qa.json');
-                      if (fs.existsSync(qaPath)) {
-                          try {
-                              const qaData = JSON.parse(fs.readFileSync(qaPath, 'utf-8'));
-                              pluginState.config.groups[gid].qaList = qaData;
-                          } catch (e) {
-                              pluginState.log('error', `加载群 ${gid} QA配置失败: ${e}`);
-                          }
-                      }
-                  } catch (e) {
-                      pluginState.log('error', `加载群 ${gid} 配置失败: ${e}`);
-                  }
-              }
-          }
-      }
-
-      // 立即保存一次主配置以移除内嵌的 groups (如果之前有)
       saveConfig(ctx);
 
     } catch (e) {
@@ -239,11 +203,7 @@ function registerRoutes (ctx: NapCatPluginContext): void {
   router.postNoAuth('/presets', (req: any, res: any) => {
     try {
       pluginState.config.presets = req.body?.presets || [];
-      if (ctx?.configPath) {
-        const dir = path.dirname(ctx.configPath);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(ctx.configPath, JSON.stringify(pluginState.config, null, 2), 'utf-8');
-      }
+      saveConfig(ctx);
       res.json({ code: 0, message: '预设已保存' });
     } catch (e) { res.status(500).json({ code: -1, message: String(e) }); }
   });
@@ -255,11 +215,7 @@ function registerRoutes (ctx: NapCatPluginContext): void {
 export const plugin_get_config = async (): Promise<PluginConfig> => pluginState.config;
 export const plugin_set_config = async (ctx: NapCatPluginContext, config: PluginConfig): Promise<void> => {
   pluginState.config = config;
-  if (ctx?.configPath) {
-    const dir = path.dirname(ctx.configPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(ctx.configPath, JSON.stringify(config, null, 2), 'utf-8');
-  }
+  saveConfig(ctx);
 };
 
 // ========== 插件清理 ==========
@@ -414,30 +370,26 @@ const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx: NapCatPluginC
 
     // 邀请统计
     if (operatorId && operatorId !== userId && operatorId !== pluginState.botId) {
-      // 检查被邀请人是否已有记录（防止重复刷分）
-      const inviteeRecord = await dbQuery.getInvite(groupId, userId);
-      // 如果没有inviter_id，说明是首次被邀请记录
-      if (!inviteeRecord || !inviteeRecord.inviterId) {
-          // 1. 更新被邀请人的记录，设置邀请人
-          const newInviteeRecord = inviteeRecord || { inviteCount: 0, joinTime: Date.now(), inviterId: '' };
-          newInviteeRecord.inviterId = operatorId;
-          await dbQuery.updateInvite(groupId, userId, newInviteeRecord);
-          
-          // 2. 更新邀请人的统计
-          let inviterRecord = await dbQuery.getInvite(groupId, operatorId);
-          if (!inviterRecord) inviterRecord = { inviteCount: 0, joinTime: 0, inviterId: '' };
-          inviterRecord.inviteCount++;
-          await dbQuery.updateInvite(groupId, operatorId, inviterRecord);
-          
-          // 3. 邀请奖励
-          const settings = pluginState.getGroupSettings(groupId);
+      const settings = pluginState.getGroupSettings(groupId);
+      let firstInvite = false;
+      storageAdapter.runInTransaction(() => {
+        const inviteeRecord = storageAdapter.getInvite(groupId, userId) || { inviteCount: 0, inviterId: '', invitedUsers: [] };
+        if (!inviteeRecord.inviterId) {
+          firstInvite = true;
+          inviteeRecord.inviterId = operatorId;
+          storageAdapter.setInvite(groupId, userId, inviteeRecord);
+          let inviterRecord = storageAdapter.getInvite(groupId, operatorId) || { inviteCount: 0, inviterId: '', invitedUsers: [] };
+          inviterRecord.inviteCount = Number(inviterRecord.inviteCount || 0) + 1;
+          storageAdapter.setInvite(groupId, operatorId, inviterRecord);
           if (settings.invitePoints && settings.invitePoints > 0) {
-              let inviterSignin = await dbQuery.getSignin(groupId, operatorId);
-              if (!inviterSignin) inviterSignin = { lastSignin: 0, days: 0, points: 0 };
-              inviterSignin.points += settings.invitePoints;
-              await dbQuery.updateSignin(groupId, operatorId, inviterSignin);
-              pluginState.log('info', `邀请奖励: 用户 ${operatorId} 邀请 ${userId} 进群，获得 ${settings.invitePoints} 积分`);
+            let inviterSignin = storageAdapter.getSignin(groupId, operatorId) || { lastSignin: 0, days: 0, points: 0 };
+            inviterSignin.points = Number(inviterSignin.points || 0) + settings.invitePoints;
+            storageAdapter.setSignin(groupId, operatorId, inviterSignin);
           }
+        }
+      });
+      if (firstInvite && settings.invitePoints && settings.invitePoints > 0) {
+        pluginState.log('info', `邀请奖励: 用户 ${operatorId} 邀请 ${userId} 进群，获得 ${settings.invitePoints} 积分`);
       }
     }
 

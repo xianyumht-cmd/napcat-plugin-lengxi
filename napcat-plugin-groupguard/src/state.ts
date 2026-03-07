@@ -7,6 +7,8 @@ import { DEFAULT_PLUGIN_CONFIG } from './config';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
+import type { ReplyPersona } from './types';
+import { generateReply } from './reply_generator';
 
 // 运行时从 package.json 读取版本号
 function getPluginVersion (): string {
@@ -406,27 +408,43 @@ class PluginState {
   }
 
   /** 发送群消息 (Text) */
-  async sendGroupText (groupId: string, content: string, options?: { force?: boolean; applyTemplate?: boolean; }): Promise<void> {
+  async sendGroupText (groupId: string, content: string, options?: { force?: boolean; applyTemplate?: boolean; scene?: string; vars?: Record<string, string | number | boolean>; persona?: ReplyPersona; }): Promise<void> {
     if (!this.actions || !this.networkConfig) return;
+    const settings = this.getGroupSettings(groupId);
+    const rendered = generateReply({
+      scene: options?.scene || 'raw_text',
+      raw: content,
+      vars: options?.vars,
+      persona: options?.persona,
+      settings
+    });
     const force = options?.force !== false;
     const applyTemplate = options?.applyTemplate !== false;
     if (!force && !this.shouldSendByProbability()) return;
-    const templated = applyTemplate ? this.applyReplyTemplate(content) : content;
+    const templated = applyTemplate ? this.applyReplyTemplate(rendered.text) : rendered.text;
     const suffix = this.getRandomSuffix(groupId);
     const finalContent = templated + suffix;
     await this.enqueueGroupTask(groupId, [{ type: 'text', data: { text: finalContent } }], { force, applyTemplate });
   }
 
   /** 发送群消息 (Array) */
-  async sendGroupMsg (groupId: string, message: any[], options?: { force?: boolean; applyTemplate?: boolean; }): Promise<void> {
+  async sendGroupMsg (groupId: string, message: any[], options?: { force?: boolean; applyTemplate?: boolean; scene?: string; vars?: Record<string, string | number | boolean>; persona?: ReplyPersona; }): Promise<void> {
     if (!this.actions || !this.networkConfig) return;
     const force = options?.force !== false;
     const applyTemplate = options?.applyTemplate !== false;
     if (!force && !this.shouldSendByProbability()) return;
     const cloned = this.cloneMessage(message);
     const firstText = cloned.find(seg => seg && seg.type === 'text' && seg.data && typeof seg.data.text === 'string');
-    if (firstText && applyTemplate) {
-      firstText.data.text = this.applyReplyTemplate(firstText.data.text);
+    if (firstText) {
+      const settings = this.getGroupSettings(groupId);
+      const rendered = generateReply({
+        scene: options?.scene || 'raw_text',
+        raw: String(firstText.data.text || ''),
+        vars: options?.vars,
+        persona: options?.persona,
+        settings
+      });
+      firstText.data.text = applyTemplate ? this.applyReplyTemplate(rendered.text) : rendered.text;
     }
     const suffix = this.getRandomSuffix(groupId);
     if (suffix && Array.isArray(cloned)) {
@@ -443,13 +461,18 @@ class PluginState {
   /** 发送私聊消息 (Text) */
   async sendPrivateMsg (userId: string, content: string): Promise<void> {
     if (!this.actions || !this.networkConfig) return;
+    const rendered = generateReply({
+      scene: 'raw_text',
+      raw: content,
+      settings: this.config.global
+    });
 
     // 应用随机延迟
     await this.randomSleep();
 
     // 应用随机后缀
     const suffix = this.getRandomSuffix();
-    const finalContent = content + suffix;
+    const finalContent = rendered.text + suffix;
 
     try {
       await this.actions.call('send_private_msg', {

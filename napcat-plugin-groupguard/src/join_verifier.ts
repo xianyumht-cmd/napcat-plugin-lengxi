@@ -1,10 +1,8 @@
 // 入群验证逻辑核心模块 (商用重构)
 import { pluginState } from './state';
-import { dbQuery } from './db';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin-manger';
 import type { JoinLogEntry } from './types';
-import fs from 'fs';
-import path from 'path';
+import { storageAdapter } from './storage_adapter';
 
 /** 入群申请缓存 (防刷) key: groupId:userId value: timestamp[] */
 const joinRequestCache = new Map<string, number[]>();
@@ -150,28 +148,9 @@ export class GroupJoinVerifier {
     const entry: JoinLogEntry = {
       groupId, userId, answer, passphraseMatched: matched, action, reason, timestamp: Date.now()
     };
-    
-    // 异步写入文件
     setImmediate(() => {
       try {
-        const logDir = path.join(pluginState.configDir, 'data', 'groups', groupId);
-        if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-        const logPath = path.join(logDir, 'join_logs.json');
-        
-        let logs: JoinLogEntry[] = [];
-        if (fs.existsSync(logPath)) {
-          try {
-            logs = JSON.parse(fs.readFileSync(logPath, 'utf-8'));
-          } catch { /* ignore corrupted */ }
-        }
-        
-        logs.push(entry);
-        
-        // 保留90天 (90 * 24 * 60 * 60 * 1000 = 7776000000)
-        const expire = Date.now() - 7776000000;
-        logs = logs.filter(l => l.timestamp > expire);
-        
-        fs.writeFileSync(logPath, JSON.stringify(logs, null, 2), 'utf-8');
+        storageAdapter.insertJoinLog(entry);
       } catch (e) {
         pluginState.log('error', `写入入群日志失败: ${e}`);
       }
