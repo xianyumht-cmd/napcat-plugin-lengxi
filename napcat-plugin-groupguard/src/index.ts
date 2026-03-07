@@ -15,7 +15,7 @@ import {
   handleCardLockCheck, handleCardLockOnMessage, handleAutoRecall,
   handleBlacklist, handleFilterKeywords, handleSpamDetect,
   sendWelcomeMessage, saveConfig, handleMsgTypeFilter, handleQA,
-  recordActivity
+  recordActivity, getLegacyFallback, setLegacyFallback
 } from './commands';
 
 export let plugin_config_ui: PluginConfigSchema = [];
@@ -206,6 +206,60 @@ function registerRoutes (ctx: NapCatPluginContext): void {
       saveConfig(ctx);
       res.json({ code: 0, message: '预设已保存' });
     } catch (e) { res.status(500).json({ code: -1, message: String(e) }); }
+  });
+
+  router.getNoAuth('/runtime', (_req: any, res: any) => {
+    const g = pluginState.config.global || {};
+    const storage = storageAdapter.getStorageStatus();
+    res.json({
+      code: 0,
+      data: {
+        legacyFallback: getLegacyFallback(),
+        storage,
+        sendPolicy: {
+          queueMode: g.queueMode || 'group',
+          queueConcurrency: g.queueConcurrency || 2,
+          globalMaxPerMinute: g.globalMaxPerMinute || 180,
+          replyProbability: g.replyProbability ?? 100,
+          replyTemplatePoolSize: Array.isArray(g.replyTemplatePool) ? g.replyTemplatePool.length : 0
+        },
+        riskPolicy: {
+          qaCooldownSeconds: g.qaCooldownSeconds ?? 30,
+          qaUserCooldownSeconds: g.qaUserCooldownSeconds ?? 12,
+          qaTierCooldownLow: g.qaTierCooldownLow ?? 15,
+          qaTierCooldownMedium: g.qaTierCooldownMedium ?? 30,
+          qaTierCooldownHigh: g.qaTierCooldownHigh ?? 60,
+          groupFuseWindowSeconds: g.groupFuseWindowSeconds ?? 60,
+          groupFuseThreshold: g.groupFuseThreshold ?? 45,
+          groupFuseCooldownSeconds: g.groupFuseCooldownSeconds ?? 90
+        },
+        featureFlags: {
+          disableQA: !!g.disableQA,
+          disableSignin: !!g.disableSignin,
+          disableLottery: !!g.disableLottery,
+          disableInvite: !!g.disableInvite,
+          disableActivity: !!g.disableActivity,
+          spamDetect: !!g.spamDetect,
+          enableVerify: !!g.enableVerify
+        }
+      }
+    });
+  });
+
+  router.postNoAuth('/runtime/fallback', (req: any, res: any) => {
+    const enabled = !!req?.body?.enabled;
+    setLegacyFallback(enabled);
+    res.json({ code: 0, data: { enabled } });
+  });
+
+  router.postNoAuth('/runtime/risk-toggle', (req: any, res: any) => {
+    const key = String(req?.body?.key || '');
+    const enabled = !!req?.body?.enabled;
+    if (!pluginState.config.global) pluginState.config.global = { ...DEFAULT_PLUGIN_CONFIG.global };
+    if (key === 'spamDetect') pluginState.config.global.spamDetect = enabled;
+    if (key === 'enableVerify') pluginState.config.global.enableVerify = enabled;
+    saveConfig(ctx);
+    res.json({ code: 0, data: { key, enabled } });
   });
 
   pluginState.log('info', 'WebUI 路由已注册');

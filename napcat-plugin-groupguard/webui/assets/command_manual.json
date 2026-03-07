@@ -1,0 +1,78 @@
+{
+  "modules": [
+    {
+      "id": "auth",
+      "name": "授权管理",
+      "items": [
+        { "trigger": "授权 <群号> <天数/永久>", "permission": "owner", "scope": "private", "hot": true, "desc": "给指定群开通授权" },
+        { "trigger": "回收授权 <群号>", "permission": "owner", "scope": "private", "hot": false, "desc": "回收指定群授权" },
+        { "trigger": "查询授权 <群号>", "permission": "owner", "scope": "private", "hot": true, "desc": "查看某个群的授权状态" },
+        { "trigger": "查询授权 / 授权状态", "permission": "all", "scope": "group", "hot": true, "desc": "群成员查看本群是否授权" },
+        { "trigger": "激活 <激活码>", "permission": "admin", "scope": "group", "hot": false, "desc": "在群里激活授权" }
+      ]
+    },
+    {
+      "id": "moderation",
+      "name": "群管理",
+      "items": [
+        { "trigger": "警告@某人 / 清除警告 / 查看警告", "permission": "admin", "scope": "group", "hot": true, "desc": "管理用户警告次数" },
+        { "trigger": "踢出@某人", "permission": "admin", "scope": "group", "hot": true, "desc": "踢出成员" },
+        { "trigger": "禁言@某人 分钟 / 解禁@某人", "permission": "admin", "scope": "group", "hot": true, "desc": "禁言或解除禁言" },
+        { "trigger": "全体禁言 / 全体解禁", "permission": "admin", "scope": "group", "hot": false, "desc": "开启或关闭全体禁言" },
+        { "trigger": "锁定名片 / 解锁名片 / 名片锁定列表", "permission": "admin", "scope": "group", "hot": false, "desc": "管理群名片锁定" },
+        { "trigger": "开启防撤回 / 关闭防撤回 / 防撤回列表", "permission": "admin", "scope": "group", "hot": false, "desc": "群内消息撤回追踪" },
+        { "trigger": "拉黑 / 白名单 / 群拉黑", "permission": "owner/admin", "scope": "group", "hot": true, "desc": "黑白名单与群黑名单" }
+      ]
+    },
+    {
+      "id": "interaction",
+      "name": "互动积分",
+      "items": [
+        { "trigger": "签到 / 签到榜 / 我的积分", "permission": "all", "scope": "group", "hot": true, "desc": "每日签到和积分查询" },
+        { "trigger": "抽奖", "permission": "all", "scope": "group", "hot": true, "desc": "消耗积分抽奖" },
+        { "trigger": "积分商城 / 兑换", "permission": "all", "scope": "group", "hot": true, "desc": "兑换免死金牌、头衔、解禁" },
+        { "trigger": "邀请查询 / 邀请榜", "permission": "all", "scope": "group", "hot": false, "desc": "查看邀请统计" },
+        { "trigger": "开启发言奖励 / 关闭发言奖励", "permission": "admin", "scope": "group", "hot": false, "desc": "设置发言奖励积分" },
+        { "trigger": "活跃统计", "permission": "all", "scope": "group", "hot": false, "desc": "查看群活跃排行" }
+      ]
+    },
+    {
+      "id": "risk",
+      "name": "风控安全",
+      "items": [
+        { "trigger": "风控设置 / 安全设置", "permission": "all", "scope": "group", "hot": true, "desc": "查看风控菜单" },
+        { "trigger": "开启刷屏检测 / 关闭刷屏检测", "permission": "admin", "scope": "group", "hot": true, "desc": "刷屏检测开关" },
+        { "trigger": "设置刷屏窗口 / 设置刷屏阈值 / 设置刷屏禁言", "permission": "admin", "scope": "group", "hot": true, "desc": "调整刷屏策略参数" },
+        { "trigger": "设置权限缓存", "permission": "admin", "scope": "group", "hot": false, "desc": "控制管理员权限缓存秒数" },
+        { "trigger": "开启宵禁", "permission": "admin", "scope": "group", "hot": false, "desc": "夜间自动全体禁言" },
+        { "trigger": "设置发送队列模式 / 并发 / 限流", "permission": "owner", "scope": "private", "hot": true, "desc": "主人级发送策略调优" },
+        { "trigger": "设置回复概率 / 设置回复模板", "permission": "owner", "scope": "private", "hot": true, "desc": "控制自动回复命中率和模板池" }
+      ]
+    },
+    {
+      "id": "qa",
+      "name": "问答词库",
+      "items": [
+        { "trigger": "问答列表", "permission": "all", "scope": "group", "hot": true, "desc": "查看问答配置" },
+        { "trigger": "精确问XX答YY / 模糊问XX答YY", "permission": "admin", "scope": "group", "hot": true, "desc": "新增问答" },
+        { "trigger": "添加正则问答 正则|回复", "permission": "admin", "scope": "group", "hot": false, "desc": "新增正则问答" },
+        { "trigger": "删除问答 / 删问", "permission": "admin", "scope": "group", "hot": true, "desc": "删除问答条目" },
+        { "trigger": "添加违禁词 / 删除违禁词", "permission": "admin", "scope": "group", "hot": true, "desc": "管理群内违禁词" },
+        { "trigger": "添加全局违禁词 / 删除全局违禁词", "permission": "owner", "scope": "group", "hot": false, "desc": "管理全局违禁词" },
+        { "trigger": "添加拒绝词 / 删除拒绝词", "permission": "admin", "scope": "group", "hot": false, "desc": "管理入群拒绝关键词" }
+      ]
+    },
+    {
+      "id": "system",
+      "name": "系统工具",
+      "items": [
+        { "trigger": "帮助 / 菜单", "permission": "all", "scope": "private", "hot": true, "desc": "查看私聊管理菜单" },
+        { "trigger": "查看SQLite状态 / 查看存储状态", "permission": "owner", "scope": "private", "hot": true, "desc": "查看数据库表计数和迁移状态" },
+        { "trigger": "多群广播 <内容>", "permission": "owner", "scope": "private", "hot": true, "desc": "向已授权群广播消息" },
+        { "trigger": "运行状态", "permission": "all", "scope": "group", "hot": true, "desc": "查看插件运行情况" },
+        { "trigger": "定时任务 / 删除定时任务 / 定时列表", "permission": "all", "scope": "group", "hot": false, "desc": "管理群定时任务" },
+        { "trigger": "清空群配置 / 确认清空群配置", "permission": "owner", "scope": "group", "hot": false, "desc": "危险操作，清空当前群配置数据" }
+      ]
+    }
+  ]
+}
